@@ -1,0 +1,214 @@
+# Lefthook configuration for BountyLane
+# Docs: https://github.com/evilmartians/lefthook
+
+# Skip hooks output metadata for cleaner logs
+skip_output:
+  - meta
+  - execution
+
+# CI detection - skip hooks if any of these env vars are set
+# Hooks should only run locally, not in CI/CD pipelines
+skip_ci:
+  - SKIP_GIT_HOOKS
+  - CI
+  - CONTINUOUS_INTEGRATION
+  - GITHUB_ACTIONS
+  - GITLAB_CI
+  - CIRCLECI
+
+# ============================================
+# PRE-COMMIT HOOK
+# Runs on `git commit`
+# Fast quality checks that should pass before committing
+# ============================================
+pre-commit:
+  parallel: true  # Run independent commands in parallel for speed
+
+  commands:
+    # 1. Biome linting - catches style violations and 'any' types
+    lint:
+      glob: "*.{ts,tsx,js,jsx}"
+      run: pnpm lint
+      stage_fixed: true  # Auto-stage fixed files
+      fail_text: |
+        ❌ Biome linting failed!
+
+        Fix errors or run: pnpm lint --write
+
+        Common issues:
+        - Using 'any' type (forbidden - use 'unknown' with type guards)
+        - Missing semicolons or formatting issues
+        - Unused variables or imports
+
+    # 2. Biome formatting - auto-fixes code style
+    format:
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: pnpm format
+      stage_fixed: true  # Auto-stage formatted files
+      fail_text: |
+        ❌ Biome formatting failed!
+
+        This usually indicates a syntax error that prevents formatting.
+        Check the error above and fix manually.
+
+    # 3. TypeScript type checking - full project check
+    # Using full typecheck (not just staged files) because:
+    # - Catches type errors in unchanged files that depend on your changes
+    # - Incremental mode makes this fast (<5s for typical changes)
+    # - Prevents "works on my machine" type errors
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: pnpm typecheck
+      fail_text: |
+        ❌ TypeScript type check failed!
+
+        Fix type errors before committing. Common fixes:
+        - Add missing type annotations
+        - Fix 'any' types (use 'unknown' with type guards instead)
+        - Check for import errors or missing dependencies
+        - Verify interface/type definitions match usage
+
+        Run: pnpm typecheck
+
+        To see detailed errors with file locations.
+
+    # 4. Check for uncommitted Drizzle migrations
+    # Only runs if db/schema/ files are modified
+    # Prevents forgetting to generate migrations after schema changes
+    migration-check:
+      glob: "db/schema/**/*.ts"
+      run: pnpm db:check-migrations
+      fail_text: |
+        ❌ You modified schema files but haven't generated migrations!
+
+        Schema changes MUST have corresponding migrations.
+
+        Fix by running these commands:
+        1. pnpm db:generate
+        2. Review the generated SQL in drizzle/
+        3. git add drizzle/
+        4. git commit --amend --no-edit (or make a new commit)
+
+        Why this matters:
+        - Missing migrations cause production deployment failures
+        - Database schema and code must stay in sync
+
+    # 5. Environment variable sync check
+    # Ensures .env.example documents all vars and code only uses documented vars
+    # This prevents:
+    # - New developers missing required env vars
+    # - Orphaned env var references in code
+    # - .env.example getting out of date
+    env-sync:
+      run: node scripts/check-env-sync.js
+      fail_text: |
+        ❌ Environment variable sync check failed!
+
+        This ensures:
+        1. .env.example documents all vars from .env
+        2. Code only uses env vars documented in .env.example
+
+        See output above for specific issues and how to fix them.
+
+# ============================================
+# COMMIT-MSG HOOK
+# Validates commit message format
+# Runs after you write the commit message
+# ============================================
+commit-msg:
+  commands:
+    # Enforce Conventional Commits format
+    # Format: <type>(<scope>): <subject>
+    # Examples: "feat(auth): add passkey login", "fix(db): correct migration"
+    conventional-commit:
+      run: node scripts/validate-commit-msg.js {1}
+      fail_text: |
+        ❌ Commit message doesn't follow Conventional Commits format!
+
+        Required format: <type>(<scope>): <subject>
+
+        Allowed types:
+        - feat: New feature
+        - fix: Bug fix
+        - docs: Documentation changes
+        - style: Code style (formatting, semicolons, etc.)
+        - refactor: Code restructuring (no functional changes)
+        - perf: Performance improvements
+        - test: Adding or updating tests
+        - chore: Build process, tooling, dependencies
+        - ci: CI/CD configuration changes
+        - build: Build system changes
+        - revert: Revert a previous commit
+
+        Examples:
+        ✅ feat(auth): add passkey registration flow
+        ✅ fix(bounties): correct payout calculation
+        ✅ docs: update API documentation
+        ✅ refactor(db): simplify query builder
+        ❌ added new feature
+        ❌ fix bug
+        ❌ WIP
+
+        Scope is optional: "docs: update README" is valid
+
+        Learn more: https://www.conventionalcommits.org
+
+# ============================================
+# PRE-PUSH HOOK
+# Runs on `git push`
+# More expensive checks that happen less frequently
+# These ensure code is production-ready before pushing
+# ============================================
+pre-push:
+  parallel: false  # Run sequentially (build is expensive, no point in parallel)
+
+  commands:
+    # 1. Full production build - ensures code compiles for production
+    # Why: Catches build errors before they hit CI/remote repo
+    # Trade-off: Adds 10-60s to push time, but catches critical errors
+    build:
+      run: pnpm build
+      fail_text: |
+        ❌ Production build failed!
+
+        Your code doesn't compile for production. This usually means:
+        - Type errors exist (check: pnpm typecheck)
+        - Import errors or circular dependencies
+        - Missing environment variables (check .env.example)
+        - Next.js compilation errors
+
+        Fix the build before pushing to prevent breaking the remote repository.
+
+        Debug steps:
+        1. Run: pnpm build
+        2. Check the error output carefully
+        3. Fix errors and try again
+        4. Verify with: pnpm typecheck
+
+    # 2. Verify no uncommitted migration files
+    # Final safety check to ensure migrations are committed
+    # Uses bash instead of Node.js for simplicity
+    final-migration-check:
+      run: |
+        if [ -n "$(git status --porcelain drizzle/)" ]; then
+          echo "❌ ERROR: You have uncommitted migration files in drizzle/"
+          echo ""
+          echo "These files MUST be committed before pushing:"
+          git status --short drizzle/
+          echo ""
+          echo "Fix by running:"
+          echo "  git add drizzle/"
+          echo "  git commit -m 'chore: add database migrations'"
+          exit 1
+        fi
+      fail_text: |
+        ❌ Uncommitted migration files detected!
+
+        Migration files in drizzle/ directory must be committed.
+
+        This is critical because:
+        - Other developers need these migrations to sync their databases
+        - Production deployments will fail without migrations
+        - Database schema and code must stay in sync
+
+        Commit the migration files before pushing.
