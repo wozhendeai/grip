@@ -1,9 +1,9 @@
 'use client';
 
+import { cn } from '@/lib/utils';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { Sun, Moon, Monitor } from 'lucide-react';
 
 /**
  * ThemeToggle - 3-button toggle for light/dark/system themes

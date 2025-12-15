@@ -1,23 +1,23 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth-server';
-import { getBountyWithRepoSettings } from '@/lib/db/queries/bounties';
-import {
-  getActiveSubmissionsForBounty,
-  getUserSubmissionForBounty,
-  getSubmissionById,
-  approveBountySubmissionAsFunder,
-  getSubmissionWithDetails,
-} from '@/lib/db/queries/submissions';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { createPayout, updatePayoutStatus } from '@/lib/db/queries/payouts';
-import { buildPayoutTransaction, encodeBountyMemo } from '@/lib/tempo';
-import { notifyPrApproved } from '@/lib/notifications';
 import { db } from '@/db';
 import { accessKeys, activityLog } from '@/db/schema/business';
-import { eq, and } from 'drizzle-orm';
+import { requireAuth } from '@/lib/auth-server';
 import { getNetworkForInsert } from '@/lib/db/network';
-import { signTransactionWithAccessKey, broadcastTransaction } from '@/lib/tempo/keychain-signing';
+import { getBountyWithRepoSettings } from '@/lib/db/queries/bounties';
+import { getUserWallet } from '@/lib/db/queries/passkeys';
+import { createPayout, updatePayoutStatus } from '@/lib/db/queries/payouts';
+import {
+  approveBountySubmissionAsFunder,
+  getActiveSubmissionsForBounty,
+  getSubmissionById,
+  getSubmissionWithDetails,
+  getUserSubmissionForBounty,
+} from '@/lib/db/queries/submissions';
+import { notifyPrApproved } from '@/lib/notifications';
+import { buildPayoutTransaction, encodeBountyMemo } from '@/lib/tempo';
+import { broadcastTransaction, signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
 import { getNonce } from '@/lib/tempo/signing';
+import { and, eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

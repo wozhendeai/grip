@@ -1,10 +1,10 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import {
   createRepoSettings,
-  getRepoSettingsByUser,
   getRepoSettingsByGithubRepoId,
+  getRepoSettingsByUser,
 } from '@/lib/db/queries/repo-settings';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
   try {

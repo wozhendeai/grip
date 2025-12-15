@@ -1,5 +1,5 @@
-import { createPublicClient, http, formatUnits } from 'viem';
-import { TEMPO_RPC_URL, TEMPO_CHAIN_ID, TIP20_ABI, TEMPO_TOKENS } from './constants';
+import { http, createPublicClient, formatUnits } from 'viem';
+import { TEMPO_CHAIN_ID, TEMPO_RPC_URL, TEMPO_TOKENS, TIP20_ABI } from './constants';
 
 /**
  * Tempo public client for read-only RPC calls

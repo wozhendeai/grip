@@ -1,6 +1,6 @@
 import { getAllBounties, getBountyStats } from '@/lib/db/queries/bounties';
-import { BountiesClient } from './_components/bounties-client';
 import type { Bounty } from '@/lib/types';
+import { BountiesClient } from './_components/bounties-client';
 
 /**
  * Bounties Page - Server component with SSR data

@@ -1,9 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { StatCard } from '@/components/ui/stat-card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import {
   Select,
   SelectContent,
@@ -11,10 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
-import { BountyListItem } from './bounty-list-item';
+import { StatCard } from '@/components/ui/stat-card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatTokenAmount } from '@/lib/tempo/format';
 import type { Bounty } from '@/lib/types';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { BountyListItem } from './bounty-list-item';
 
 /**
  * BountiesClient - Client component for interactive filtering/sorting

@@ -1,7 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
 import { getGitHubToken, listOpenIssues } from '@/lib/github/issues';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

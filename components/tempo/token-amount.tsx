@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
 import { formatTokenAmount } from '@/lib/tempo/format';
+import { cn } from '@/lib/utils';
 
 interface TokenAmountProps {
   /** Amount as BigInt string (e.g., "1000000" for 1.0 tokens with 6 decimals) */

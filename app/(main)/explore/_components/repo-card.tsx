@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { formatTokenAmount } from '@/lib/types';
+import Link from 'next/link';
 
 /**
  * RepoCard - Card component for displaying a repository with bounty stats

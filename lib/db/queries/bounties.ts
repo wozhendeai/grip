@@ -1,6 +1,6 @@
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { db, bounties, repoSettings, submissions, bountyFunders, user } from '@/db';
-import { networkFilter, getNetworkForInsert } from '@/lib/db/network';
+import { bounties, bountyFunders, db, repoSettings, submissions, user } from '@/db';
+import { getNetworkForInsert, networkFilter } from '@/lib/db/network';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 export type BountyStatus = 'open' | 'completed' | 'cancelled';
 

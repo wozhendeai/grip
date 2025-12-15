@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/tempo/address-display';
+import { Button } from '@/components/ui/button';
 import { passkey } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /**
  * PasskeyManager - Client component for passkey creation/deletion
@@ -113,15 +113,19 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
       </div>
 
       <div className="flex gap-2">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={`https://explore.tempo.xyz/address/${wallet.tempoAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View on Explorer
-          </a>
-        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          render={
+            <a
+              href={`https://explore.tempo.xyz/address/${wallet.tempoAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on Explorer
+            </a>
+          }
+        />
       </div>
 
       {/* Delete confirmation */}

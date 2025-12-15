@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/user/user-avatar';
-import { cn } from '@/lib/utils';
 import type { BountySubmission } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface ClaimSelectionModalProps {
   open: boolean;

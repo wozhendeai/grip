@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, varchar, bigint } from 'drizzle-orm/pg-core';
+import { bigint, boolean, integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 /**
  * better-auth schema with Tempo plugin extension

@@ -1,8 +1,8 @@
 import { db } from '@/db';
 import { custodialWallets } from '@/db/schema/business';
-import { eq, and } from 'drizzle-orm';
 import { getNetworkForInsert, networkFilter } from '@/lib/db/network';
 import { getTIP20Balance } from '@/lib/tempo/balance';
+import { and, eq } from 'drizzle-orm';
 
 /**
  * Custodial Wallet Database Queries

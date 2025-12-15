@@ -1,6 +1,6 @@
-import Link from 'next/link';
-import { ArrowLeftRight, ArrowLeft, Construction } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ArrowLeft, ArrowLeftRight, Construction } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * Wallet Swap Page (placeholder)
@@ -56,8 +56,8 @@ export default function WalletSwapPage() {
           </ul>
         </div>
 
-        <Button asChild className="mt-8">
-          <Link href="/wallet">Return to Wallet</Link>
+        <Button render={<Link href="/wallet" />} className="mt-8">
+          Return to Wallet
         </Button>
       </div>
     </div>

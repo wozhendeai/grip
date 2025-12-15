@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { getRepoSettingsByGithubRepoId } from '@/lib/db/queries/repo-settings';
 import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
+import { getRepoSettingsByGithubRepoId } from '@/lib/db/queries/repo-settings';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

@@ -1,4 +1,3 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
 import {
@@ -9,6 +8,7 @@ import {
   searchRepoIssues,
 } from '@/lib/github/issues';
 import { fetchGitHubRepo } from '@/lib/github/repo';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ owner: string; repo: string }>;

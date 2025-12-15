@@ -1,8 +1,8 @@
 import { getAllBounties } from '@/lib/db/queries/bounties';
 import { getTopReposByBountyValue } from '@/lib/db/queries/repo-settings';
-import { TopRepos } from './_components/top-repos';
 import { RecentActivity } from './_components/recent-activity';
 import type { TopRepo } from './_components/repo-card';
+import { TopRepos } from './_components/top-repos';
 
 /**
  * Explore Page - Browse bounties and discover projects

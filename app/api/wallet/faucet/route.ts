@@ -1,10 +1,10 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth-server';
 import { getPasskeysByUser } from '@/lib/db/queries/passkeys';
-import { createClient, http, publicActions } from 'viem';
+import { TEMPO_RPC_URL } from '@/lib/tempo/constants';
+import { type NextRequest, NextResponse } from 'next/server';
 import { tempo } from 'tempo.ts/chains';
 import { tempoActions } from 'tempo.ts/viem';
-import { TEMPO_RPC_URL } from '@/lib/tempo/constants';
+import { http, createClient, publicActions } from 'viem';
 
 /**
  * POST /api/wallet/faucet

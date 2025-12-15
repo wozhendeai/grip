@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { type TimePeriod, getUserEarningsOverTime } from '@/lib/db/queries/payouts';
 import { getUserByName } from '@/lib/db/queries/users';
-import { getUserEarningsOverTime, type TimePeriod } from '@/lib/db/queries/payouts';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,

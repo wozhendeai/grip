@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
 import type { BountyStatus as BountyStatusType } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface BountyStatusProps {
   status: BountyStatusType;

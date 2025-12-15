@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { signOut, useSession } from '@/lib/auth-client';
-import { Button } from '@/components/ui/button';
+import { CommandMenu } from '@/components/command-menu';
+import { NotificationDropdown } from '@/components/notifications/notification-dropdown';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ThemeToggle } from '@/components/theme/theme-toggle';
-import { CommandMenu } from '@/components/command-menu';
-import { NotificationDropdown } from '@/components/notifications/notification-dropdown';
+import { signOut, useSession } from '@/lib/auth-client';
+import { BookOpen, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { NavbarBalance } from './navbar-balance';
-import { MagnifyingGlassIcon } from '@radix-ui/react-icons';
-import { User, Wallet, Settings, BookOpen, LogOut } from 'lucide-react';
 
 /**
  * Navbar - Enhanced with theme toggle
@@ -111,7 +110,7 @@ export function Navbar() {
               className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground"
               onClick={() => setCommandMenuOpen(true)}
             >
-              <MagnifyingGlassIcon className="h-4 w-4" />
+              <Search className="h-4 w-4" />
               <kbd className="pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium hidden sm:flex">
                 <span className="text-xs">⌘</span>K
               </kbd>
@@ -136,22 +135,24 @@ export function Navbar() {
               </>
             ) : session?.user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-9 w-9 rounded-full ring-1 ring-border hover:ring-primary transition-all"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={session.user.image ?? undefined}
-                        alt={session.user.name ?? 'User'}
-                      />
-                      <AvatarFallback className="bg-secondary text-xs">
-                        {session.user.name?.charAt(0).toUpperCase() ?? 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="relative h-9 w-9 rounded-full ring-1 ring-border hover:ring-primary transition-all"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={session.user.image ?? undefined}
+                          alt={session.user.name ?? 'User'}
+                        />
+                        <AvatarFallback className="bg-secondary text-xs">
+                          {session.user.name?.charAt(0).toUpperCase() ?? 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  }
+                />
                 <DropdownMenuContent align="end" className="w-64">
                   {/* User Info Header */}
                   <div className="flex items-center gap-3 p-3 border-b border-border">
@@ -174,17 +175,15 @@ export function Navbar() {
 
                   {/* Navigation Links */}
                   <div className="p-1">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/u/${session.user.name}`} className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        Your Profile
-                      </Link>
+                    <DropdownMenuItem
+                      render={<Link href={`/u/${session.user.name}`} className="cursor-pointer" />}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Your Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/wallet" className="cursor-pointer">
-                        <Wallet className="mr-2 h-4 w-4" />
-                        Wallet
-                      </Link>
+                    <DropdownMenuItem render={<Link href="/wallet" className="cursor-pointer" />}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Wallet
                     </DropdownMenuItem>
                   </div>
 
@@ -202,22 +201,23 @@ export function Navbar() {
 
                   {/* Settings & Links */}
                   <div className="p-1">
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                      </Link>
+                    <DropdownMenuItem render={<Link href="/settings" className="cursor-pointer" />}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a
-                        href="https://github.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer"
-                      >
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        Documentation
-                      </a>
+                    <DropdownMenuItem
+                      render={(props) => (
+                        <a
+                          {...props}
+                          href="https://github.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer"
+                        />
+                      )}
+                    >
+                      <BookOpen className="mr-2 h-4 w-4" />
+                      Documentation
                     </DropdownMenuItem>
                   </div>
 
@@ -236,8 +236,8 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button asChild size="sm" className="font-medium">
-                <Link href="/login">Sign In</Link>
+              <Button render={<Link href="/login" />} size="sm" className="font-medium">
+                Sign In
               </Button>
             )}
           </div>

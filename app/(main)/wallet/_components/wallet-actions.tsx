@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Wallet as WalletIcon, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ArrowUpRight, Wallet as WalletIcon } from 'lucide-react';
+import { useState } from 'react';
 import { FundModal } from './fund-modal';
 import { WithdrawModal } from './withdraw-modal';
 

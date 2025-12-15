@@ -1,8 +1,8 @@
+import { db } from '@/db';
+import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { passkey } from '@better-auth/passkey';
 import { createAuthMiddleware } from 'better-auth/api';
-import { db } from '@/db';
 import { tempo } from './tempo-plugin';
 
 /**

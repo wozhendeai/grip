@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Field, FieldLabel, FieldDescription, FieldError, FieldGroup } from '@/components/ui/field';
+import { Check } from 'lucide-react';
+import { useState } from 'react';
 
 /**
  * WithdrawModal - Modal for withdrawing USDC from wallet

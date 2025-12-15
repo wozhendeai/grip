@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from '@/lib/auth-client';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSession } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface RequireAuthProps {
   children: React.ReactNode;

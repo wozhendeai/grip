@@ -1,8 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
-import { updatePayoutStatus, getPayoutWithDetails } from '@/lib/db/queries/payouts';
-import { waitForConfirmation } from '@/lib/tempo/signing';
+import { getPayoutWithDetails, updatePayoutStatus } from '@/lib/db/queries/payouts';
 import { notifyPaymentReceived } from '@/lib/notifications';
+import { waitForConfirmation } from '@/lib/tempo/signing';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {

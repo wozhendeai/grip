@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { getBountyWithAuthor, getBountyWithFunders } from '@/lib/db/queries/bounties';
 import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { NOTIFICATION_ICONS } from '@/lib/utils';
 import type { Notification } from '@/lib/types';
+import { NOTIFICATION_ICONS } from '@/lib/utils';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 
 /**
  * Format timestamp as relative time
@@ -127,9 +127,7 @@ export function NotificationsList({
             >
               <div className="flex items-start gap-4">
                 {/* Icon */}
-                <span className="text-3xl flex-shrink-0">
-                  {NOTIFICATION_ICONS[notification.type]}
-                </span>
+                <span className="text-3xl shrink-0">{NOTIFICATION_ICONS[notification.type]}</span>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -140,7 +138,7 @@ export function NotificationsList({
                     </div>
 
                     {/* Time + Unread badge */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatTimeAgo(notification.createdAt)}
                       </span>

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { TokenAmount } from '@/components/tempo/token-amount';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { TokenAmount } from '@/components/tempo/token-amount';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /**
  * Claim Payment Component

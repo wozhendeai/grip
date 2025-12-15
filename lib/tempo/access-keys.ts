@@ -1,5 +1,5 @@
-import { toRlp, keccak256, numberToHex, hexToBytes } from 'viem';
-import { signWithPasskey, encodeWebAuthnSignature } from './signing';
+import { hexToBytes, keccak256, numberToHex, toRlp } from 'viem';
+import { encodeWebAuthnSignature, signWithPasskey } from './signing';
 
 /**
  * Client-side Access Key authorization encoding and signing

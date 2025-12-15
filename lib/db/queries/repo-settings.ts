@@ -1,5 +1,5 @@
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { db, repoSettings, bounties } from '@/db';
+import { bounties, db, repoSettings } from '@/db';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 export type CreateRepoSettingsInput = {
   verifiedOwnerUserId: string;

@@ -1,14 +1,14 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getBountyWithOptionalRepoSettings, isUserPrimaryFunder } from '@/lib/db/queries/bounties';
 import { isUserRepoOwner } from '@/lib/db/queries/repo-settings';
 import {
-  getGitHubToken,
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
+  getGitHubToken,
 } from '@/lib/github/issues';
 import { notifyBountyCreatedOnRepo } from '@/lib/notifications';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

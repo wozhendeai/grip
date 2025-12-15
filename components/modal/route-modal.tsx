@@ -1,8 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useRouter } from 'next/navigation';
 
 interface RouteModalProps {
   children: React.ReactNode;
@@ -36,9 +35,7 @@ export function RouteModal({ children, title = 'Modal' }: RouteModalProps) {
   return (
     <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto p-0">
-        <VisuallyHidden.Root>
-          <DialogTitle>{title}</DialogTitle>
-        </VisuallyHidden.Root>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         {children}
       </DialogContent>
     </Dialog>

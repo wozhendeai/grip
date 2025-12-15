@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { passkey } from '@/lib/auth-client';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { passkey } from '@/lib/auth-client';
+import { useState } from 'react';
 
 interface CreateWalletModalProps {
   open: boolean;

@@ -1,9 +1,9 @@
-import { redirect, notFound } from 'next/navigation';
 import { RouteModal } from '@/components/modal/route-modal';
-import { CreateBountyForm } from '../../../../../[owner]/[repo]/bounties/new/_components/create-bounty-form';
+import { getSession } from '@/lib/auth-server';
 import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
 import { fetchGitHubRepo } from '@/lib/github/repo';
-import { getSession } from '@/lib/auth-server';
+import { notFound, redirect } from 'next/navigation';
+import { CreateBountyForm } from '../../../../../[owner]/[repo]/bounties/new/_components/create-bounty-form';
 
 interface NewBountyModalProps {
   params: Promise<{ owner: string; repo: string }>;

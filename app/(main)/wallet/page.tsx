@@ -1,13 +1,13 @@
-import { redirect } from 'next/navigation';
-import { KeyRound, Wallet as WalletIcon } from 'lucide-react';
+import { AddressDisplay } from '@/components/tempo/address-display';
 import { getSession } from '@/lib/auth-server';
 import { getPasskeysByUser } from '@/lib/db/queries/passkeys';
 import { getPayoutsByUser, getSentDirectPayments } from '@/lib/db/queries/payouts';
-import { AddressDisplay } from '@/components/tempo/address-display';
+import { KeyRound, Wallet as WalletIcon } from 'lucide-react';
+import { redirect } from 'next/navigation';
 import { ActivityFeed } from './_components/activity-feed';
 import { BalanceDisplay } from './_components/balance-display';
-import { WalletActions } from './_components/wallet-actions';
 import { CreateWalletButton } from './_components/create-wallet-button';
+import { WalletActions } from './_components/wallet-actions';
 
 /**
  * Wallet page (protected) - Server component with small client components

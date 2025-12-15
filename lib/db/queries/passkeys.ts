@@ -1,5 +1,5 @@
-import { eq, desc } from 'drizzle-orm';
 import { db, passkey } from '@/db';
+import { desc, eq } from 'drizzle-orm';
 
 /**
  * Get all passkeys for a user

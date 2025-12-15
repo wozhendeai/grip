@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { markAllAsRead } from '@/lib/db/queries/notifications';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * PUT /api/notifications/read-all

@@ -1,25 +1,25 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth-server';
 import {
-  getAllBounties,
   type BountyStatus,
   type SortOption,
   createBounty,
+  getAllBounties,
   updateBountyStatus,
 } from '@/lib/db/queries/bounties';
-import { requireAuth } from '@/lib/auth-server';
 import {
-  getRepoSettingsByName,
   doesRepoRequireOwnerApproval,
+  getRepoSettingsByName,
 } from '@/lib/db/queries/repo-settings';
-import { fetchGitHubRepo } from '@/lib/github/repo';
 import {
-  getGitHubToken,
-  getIssue,
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
+  getGitHubToken,
+  getIssue,
 } from '@/lib/github/issues';
+import { fetchGitHubRepo } from '@/lib/github/repo';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {

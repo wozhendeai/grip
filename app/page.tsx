@@ -1,9 +1,9 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { BountyCard } from '@/components/bounty/bounty-card';
+import { Button } from '@/components/ui/button';
 import { getOpenBounties } from '@/lib/db/queries/bounties';
 import { getRepoSettingsCount } from '@/lib/db/queries/repo-settings';
 import type { Bounty } from '@/lib/types';
+import Link from 'next/link';
 
 export default async function HomePage() {
   // Fetch stats from database
@@ -70,12 +70,12 @@ export default async function HomePage() {
             </p>
 
             <div className="flex flex-col gap-4 sm:flex-row">
-              <Button asChild size="lg">
-                <Link href="/login">Start Funding</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/explore">Explore Bounties</Link>
-              </Button>
+              <Button size="lg" render={<Link href="/login">Start Funding</Link>} />
+              <Button
+                variant="outline"
+                size="lg"
+                render={<Link href="/explore">Explore Bounties</Link>}
+              />
             </div>
           </div>
         </div>
@@ -103,12 +103,16 @@ export default async function HomePage() {
                 High-value opportunities waiting for contributors
               </p>
             </div>
-            <Button asChild variant="ghost" className="hidden sm:flex">
-              <Link href="/explore">
-                View all
-                <span className="ml-2">→</span>
-              </Link>
-            </Button>
+            <Button
+              variant="ghost"
+              className="hidden sm:flex"
+              render={
+                <Link href="/explore">
+                  View all
+                  <span className="ml-2">→</span>
+                </Link>
+              }
+            />
           </div>
 
           {featuredBounties.length > 0 ? (
@@ -120,16 +124,12 @@ export default async function HomePage() {
           ) : (
             <div className="rounded-lg border border-dashed border-border p-12 text-center">
               <p className="text-muted-foreground">No bounties yet. Be the first to create one!</p>
-              <Button asChild className="mt-4">
-                <Link href="/login">Create a Bounty</Link>
-              </Button>
+              <Button className="mt-4" render={<Link href="/login">Create a Bounty</Link>} />
             </div>
           )}
 
           <div className="mt-8 text-center sm:hidden">
-            <Button asChild variant="outline">
-              <Link href="/explore">View all bounties</Link>
-            </Button>
+            <Button variant="outline" render={<Link href="/explore">View all bounties</Link>} />
           </div>
         </div>
       </section>
@@ -172,14 +172,16 @@ export default async function HomePage() {
               source contributors.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Button asChild size="lg">
-                <Link href="/login">Get Started</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="https://github.com" target="_blank">
-                  View on GitHub
-                </Link>
-              </Button>
+              <Button size="lg" render={<Link href="/login">Get Started</Link>} />
+              <Button
+                variant="outline"
+                size="lg"
+                render={
+                  <Link href="https://github.com" target="_blank">
+                    View on GitHub
+                  </Link>
+                }
+              />
             </div>
           </div>
         </div>

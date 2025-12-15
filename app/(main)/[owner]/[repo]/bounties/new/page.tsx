@@ -1,9 +1,9 @@
-import Link from 'next/link';
-import { redirect, notFound } from 'next/navigation';
-import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
-import { getSession } from '@/lib/auth-server';
-import { fetchGitHubRepo } from '@/lib/github/repo';
 import { Button } from '@/components/ui/button';
+import { getSession } from '@/lib/auth-server';
+import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
+import { fetchGitHubRepo } from '@/lib/github/repo';
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
 import { CreateBountyForm } from './_components/create-bounty-form';
 
 interface NewBountyPageProps {
@@ -41,8 +41,8 @@ export default async function NewBountyPage({ params }: NewBountyPageProps) {
         <p className="mt-2 text-muted-foreground">
           Cannot create bounties on private repositories.
         </p>
-        <Button asChild className="mt-4">
-          <Link href="/explore">Browse Bounties</Link>
+        <Button render={<Link href="/explore" />} className="mt-4">
+          Browse Bounties
         </Button>
       </div>
     );

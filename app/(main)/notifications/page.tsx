@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
 import { requireAuth } from '@/lib/auth-server';
 import { getPaginatedNotifications } from '@/lib/db/queries/notifications';
+import { Suspense } from 'react';
 import { NotificationsList } from './_components/notifications-list';
 
 export const metadata = {

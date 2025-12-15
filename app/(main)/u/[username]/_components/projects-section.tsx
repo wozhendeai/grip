@@ -1,6 +1,6 @@
-import { FolderGit2 } from 'lucide-react';
-import { fetchGitHubUserRepositories } from '@/lib/github/repo';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { fetchGitHubUserRepositories } from '@/lib/github/repo';
+import { FolderGit2 } from 'lucide-react';
 import { RepoCard } from './repo-card';
 
 interface ProjectsSectionProps {

@@ -1,10 +1,10 @@
 import { getSession } from '@/lib/auth-server';
 import { getCustodialWalletByClaimToken } from '@/lib/db/queries/custodial-wallets';
 import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { ClaimLoginPrompt } from './_components/claim-login-prompt';
-import { CreateWalletForClaim } from './_components/create-wallet-for-claim';
-import { ClaimPayment } from './_components/claim-payment';
 import { ClaimError } from './_components/claim-error';
+import { ClaimLoginPrompt } from './_components/claim-login-prompt';
+import { ClaimPayment } from './_components/claim-payment';
+import { CreateWalletForClaim } from './_components/create-wallet-for-claim';
 
 /**
  * Claim Page

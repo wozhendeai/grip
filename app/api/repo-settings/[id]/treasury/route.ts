@@ -1,10 +1,10 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { db, passkey } from '@/db';
 import { requireAuth } from '@/lib/auth-server';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
 import { getTokenInfo } from '@/lib/tempo/balance';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
-import { db, passkey } from '@/db';
 import { eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

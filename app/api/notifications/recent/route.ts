@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getRecentNotifications, getUnreadCount } from '@/lib/db/queries/notifications';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/notifications/recent

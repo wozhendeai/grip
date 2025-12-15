@@ -1,8 +1,8 @@
 import { RouteModal } from '@/components/modal/route-modal';
-import { BountyDetail } from '../../../../../[owner]/[repo]/bounties/[id]/_components/bounty-detail';
 import { getBountyWithAuthor } from '@/lib/db/queries/bounties';
 import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
 import type { Bounty, SubmissionStatus } from '@/lib/types';
+import { BountyDetail } from '../../../../../[owner]/[repo]/bounties/[id]/_components/bounty-detail';
 
 interface BountyModalPageProps {
   params: Promise<{ owner: string; repo: string; id: string }>;

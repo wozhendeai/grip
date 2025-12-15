@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ExternalLink, GitPullRequest, Github, CheckCircle } from 'lucide-react';
+import { CreateWalletModal } from '@/components/auth/create-wallet-modal';
+import { BountyStatus } from '@/components/bounty/bounty-status';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
-import { BountyStatus } from '@/components/bounty/bounty-status';
 import { UserAvatar } from '@/components/user/user-avatar';
-import { CreateWalletModal } from '@/components/auth/create-wallet-modal';
-import { PaymentModal } from './payment-modal';
-import { ClaimSelectionModal } from './claim-selection-modal';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import type { Bounty } from '@/lib/types';
+import { CheckCircle, ExternalLink, GitPullRequest, Github } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { ClaimSelectionModal } from './claim-selection-modal';
+import { PaymentModal } from './payment-modal';
 
 interface TreasuryCredentials {
   credentialId: string;
@@ -551,11 +551,20 @@ export function BountyDetail({
               )}
 
               <div className="mt-4 pt-4 border-t border-border">
-                <Button variant="outline" className="w-full" asChild>
-                  <a href={bounty.githubIssueUrl} target="_blank" rel="noopener noreferrer">
-                    <Github className="mr-2 h-4 w-4" />
-                    View on GitHub
-                  </a>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  render={(props) => (
+                    <a
+                      {...props}
+                      href={bounty.githubIssueUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  )}
+                >
+                  <Github className="mr-2 h-4 w-4" />
+                  View on GitHub
                 </Button>
               </div>
             </div>

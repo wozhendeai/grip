@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Key, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, Key, Shield } from 'lucide-react';
+import { useState } from 'react';
 import { CreateAccessKeyModal } from './create-access-key-modal';
 
 type AccessKey = {

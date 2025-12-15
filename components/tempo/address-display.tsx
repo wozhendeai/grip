@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Check, Copy } from 'lucide-react';
+import { useState } from 'react';
 
 interface AddressDisplayProps {
   /** Full blockchain address */

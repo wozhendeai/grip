@@ -1,14 +1,14 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
-import { fetchGitHubRepo } from '@/lib/github/repo';
-import { getSession } from '@/lib/auth-server';
-import { ProjectHeader } from './_components/project-header';
 import { BountyCard } from '@/components/bounty/bounty-card';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { getSession } from '@/lib/auth-server';
+import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
+import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
+import { fetchGitHubRepo } from '@/lib/github/repo';
 import type { Bounty, BountyProject } from '@/lib/types';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { ProjectHeader } from './_components/project-header';
 
 interface ProjectPageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -120,9 +120,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent Bounties</h2>
           {bounties.length > 3 && (
-            <Button asChild variant="outline">
-              <Link href={`/${owner}/${repo}/bounties`}>View All</Link>
-            </Button>
+            <Button
+              render={<Link href={`/${owner}/${repo}/bounties`}>View All</Link>}
+              variant="outline"
+            />
           )}
         </div>
 

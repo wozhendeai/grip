@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { BountyStatus } from '@/components/bounty/bounty-status';
 import { formatTokenAmount } from '@/lib/tempo/format';
 import type { Bounty } from '@/lib/types';
+import Link from 'next/link';
 
 /**
  * BountyListItem - Row-based bounty display for the /bounties page

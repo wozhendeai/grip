@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
 
 /**
  * SignOutButton - Client component for sign out action

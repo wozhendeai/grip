@@ -1,6 +1,6 @@
-import { eq, and, desc, isNull, count, sql } from 'drizzle-orm';
 import { db, notifications } from '@/db';
 import type { Notification, NotificationMetadata } from '@/lib/types';
+import { and, count, desc, eq, isNull, sql } from 'drizzle-orm';
 
 /**
  * Notification Query Functions

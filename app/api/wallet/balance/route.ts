@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { getTokenInfo } from '@/lib/tempo/balance';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/wallet/balance

@@ -1,22 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { TokenAmount } from '@/components/tempo/token-amount';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { bounties, payouts, repoSettings } from '@/db';
 import {
-  LayoutGrid,
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
-  Upload,
   Download,
-  Filter,
   ExternalLink,
+  Filter,
+  LayoutGrid,
+  Upload,
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty';
-import { TokenAmount } from '@/components/tempo/token-amount';
-import type { payouts, bounties, repoSettings } from '@/db';
+import Link from 'next/link';
+import { useState } from 'react';
 
 /**
  * ActivityFeed - Simplified tabbed activity view for wallet page

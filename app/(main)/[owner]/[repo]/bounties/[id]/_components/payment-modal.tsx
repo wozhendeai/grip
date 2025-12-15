@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Loader2, Check, ExternalLink, KeyRound } from 'lucide-react';
+import { AddressDisplay } from '@/components/tempo/address-display';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
 import {
   Dialog,
   DialogContent,
@@ -10,10 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
-import { AddressDisplay } from '@/components/tempo/address-display';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
+import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 /**
  * Payment signing modal

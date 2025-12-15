@@ -1,21 +1,21 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { db, repoSettings, bounties } from '@/db';
-import { eq, and } from 'drizzle-orm';
+import { bounties, db, repoSettings } from '@/db';
+import { getBountyByGitHubIssueId, updateBountyStatus } from '@/lib/db/queries/bounties';
 import {
-  verifyWebhookSignature,
-  extractLinkedIssues,
-  type PullRequestEvent,
-  type IssueEvent,
-  type PingEvent,
-} from '@/lib/github/webhooks';
-import {
-  getActiveSubmissionsForBounty,
   findOrCreateSubmissionForGitHubUser,
+  getActiveSubmissionsForBounty,
   updateSubmissionStatus,
 } from '@/lib/db/queries/submissions';
-import { updateBountyStatus, getBountyByGitHubIssueId } from '@/lib/db/queries/bounties';
 import { findUserByGitHubUsername } from '@/lib/db/queries/users';
+import {
+  type IssueEvent,
+  type PingEvent,
+  type PullRequestEvent,
+  extractLinkedIssues,
+  verifyWebhookSignature,
+} from '@/lib/github/webhooks';
 import { notifyPrSubmitted } from '@/lib/notifications';
+import { and, eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * GitHub Webhook Handler

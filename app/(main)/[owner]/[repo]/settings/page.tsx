@@ -1,8 +1,8 @@
+import { Button } from '@/components/ui/button';
+import { getSession } from '@/lib/auth-server';
+import { getRepoSettingsByName, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getRepoSettingsByName, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
-import { getSession } from '@/lib/auth-server';
-import { Button } from '@/components/ui/button';
 import { SettingsLayout } from './_components/settings-layout';
 
 interface SettingsPageProps {
@@ -36,8 +36,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         <p className="mt-2 text-muted-foreground">
           No settings found for {owner}/{repo}
         </p>
-        <Button asChild className="mt-4">
-          <Link href="/explore">Browse Bounties</Link>
+        <Button render={<Link href="/explore" />} className="mt-4">
+          Browse Bounties
         </Button>
       </div>
     );
@@ -52,9 +52,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         <p className="mt-2 text-muted-foreground">
           You don&apos;t have permission to manage this repo.
         </p>
-        <Button asChild className="mt-4">
-          <Link href={`/${owner}/${repo}`}>Back to Repo</Link>
-        </Button>
+        <Button render={<Link href={`/${owner}/${repo}`}>Back to Repo</Link>} className="mt-4" />
       </div>
     );
   }

@@ -1,16 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import type { GitHubRepo } from '@/lib/github/repo';
-import { Search, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
   Command,
   CommandEmpty,
@@ -19,6 +11,8 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -26,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import type { GitHubRepo } from '@/lib/github/repo';
+import { cn } from '@/lib/utils';
+import { ExternalLink, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 interface GitHubIssue {
   id: number;
@@ -273,15 +273,19 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
         <p className="mt-2 text-sm text-muted-foreground">
           All open issues in this repository already have bounties, or there are no open issues.
         </p>
-        <Button asChild variant="outline" className="mt-4">
-          <a
-            href={`https://github.com/${owner}/${repo}/issues/new`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Create Issue on GitHub
-          </a>
-        </Button>
+        <Button
+          render={
+            <a
+              href={`https://github.com/${owner}/${repo}/issues/new`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Create Issue on GitHub
+            </a>
+          }
+          variant="outline"
+          className="mt-4"
+        />
       </div>
     );
   }
@@ -483,7 +487,10 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
           {/* Claim Deadline */}
           <Field>
             <FieldLabel htmlFor="deadline">Claim Deadline</FieldLabel>
-            <Select value={claimDeadlineDays} onValueChange={setClaimDeadlineDays}>
+            <Select
+              value={claimDeadlineDays}
+              onValueChange={(value) => setClaimDeadlineDays(value || '7')}
+            >
               <SelectTrigger id="deadline">
                 <SelectValue />
               </SelectTrigger>

@@ -1,6 +1,6 @@
+import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
 import { BountyStatus } from './bounty-status';
-import type { Bounty } from '@/lib/types';
 
 interface BountyCardProps {
   bounty: Bounty;

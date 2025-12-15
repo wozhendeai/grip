@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { SendPaymentModal } from './send-payment-modal';
 import { CreateWalletModal } from '@/components/auth/create-wallet-modal';
+import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
+import { SendPaymentModal } from './send-payment-modal';
 
 type SendPaymentActionProps = {
   recipientUsername: string;

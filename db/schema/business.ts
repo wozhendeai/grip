@@ -1,23 +1,23 @@
-import {
-  pgTable,
-  pgEnum,
-  uuid,
-  text,
-  bigint,
-  integer,
-  numeric,
-  timestamp,
-  boolean,
-  jsonb,
-  varchar,
-  primaryKey,
-  unique,
-  index,
-  foreignKey,
-} from 'drizzle-orm/pg-core';
 import { isNull, sql } from 'drizzle-orm';
-import { user, passkey } from './auth';
-import type { GithubLabel, AccessKeyLimits, ActivityMetadata, NotificationMetadata } from './types';
+import {
+  bigint,
+  boolean,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import { passkey, user } from './auth';
+import type { AccessKeyLimits, ActivityMetadata, GithubLabel, NotificationMetadata } from './types';
 
 /**
  * Business tables for TPay (Promise Layer)

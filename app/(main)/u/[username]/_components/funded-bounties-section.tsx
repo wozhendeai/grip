@@ -1,9 +1,9 @@
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { BountyStatus } from '@/components/bounty/bounty-status';
+import { formatTokenAmount } from '@/lib/tempo/format';
 import type { BountyStatus as BountyStatusType } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { formatTokenAmount } from '@/lib/tempo/format';
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 interface FundedBountiesSectionProps {
   bounties: Array<{

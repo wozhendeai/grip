@@ -8,7 +8,7 @@
  */
 
 import { db } from '@/db';
-import { user, account } from '@/db/schema/auth';
+import { account, user } from '@/db/schema/auth';
 import { eq } from 'drizzle-orm';
 
 async function fixGitHubUsernames() {

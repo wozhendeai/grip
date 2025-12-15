@@ -1,15 +1,15 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
-import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
 import { createBounty, getBountyByGitHubIssueId } from '@/lib/db/queries/bounties';
+import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
 import {
-  getGitHubToken,
-  getIssue,
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
+  getGitHubToken,
+  getIssue,
 } from '@/lib/github/issues';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

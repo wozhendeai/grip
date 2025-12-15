@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
 
 /**
@@ -26,14 +26,16 @@ export function StatCard({ label, value, info, valueClassName, className }: Stat
         {info && (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={`Info about ${label}`}
-                >
-                  <Info className="h-4 w-4" />
-                </button>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={`Info about ${label}`}
+                  />
+                }
+              >
+                <Info className="h-4 w-4" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{info}</p>

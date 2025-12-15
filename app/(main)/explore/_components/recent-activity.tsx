@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { formatTimeAgo, skeletonItems } from '@/lib/utils';
+import { Check, GitMerge, Plus, Users } from 'lucide-react';
 import Link from 'next/link';
-import { Plus, Users, Check, GitMerge } from 'lucide-react';
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
-import { skeletonItems, formatTimeAgo } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 /**
  * RecentActivity - Platform activity feed for explore page
@@ -57,7 +57,7 @@ export function RecentActivity() {
         <div className="rounded-lg border border-border bg-card">
           {isLoading ? (
             <div className="divide-y divide-border">
-              {skeletonItems(5).map(({ id }) => (
+              {skeletonItems(5).map((id) => (
                 <ActivityItemSkeleton key={id} />
               ))}
             </div>

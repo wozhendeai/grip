@@ -1,8 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getBountyById } from '@/lib/db/queries/bounties';
-import { createSubmission, getUserSubmissionForBounty } from '@/lib/db/queries/submissions';
 import { getUserWallet } from '@/lib/db/queries/passkeys';
+import { createSubmission, getUserSubmissionForBounty } from '@/lib/db/queries/submissions';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

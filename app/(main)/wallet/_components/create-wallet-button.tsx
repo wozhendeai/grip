@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { passkey } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /**
  * CreateWalletButton - Client component for wallet creation

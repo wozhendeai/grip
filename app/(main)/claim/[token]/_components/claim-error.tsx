@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
+import Link from 'next/link';
 
 /**
  * Claim Error Component
@@ -43,9 +43,7 @@ export function ClaimError({ title, message, txHash }: ClaimErrorProps) {
             </div>
           )}
 
-          <Button asChild>
-            <Link href="/explore">Explore Bounties</Link>
-          </Button>
+          <Button render={<Link href="/explore" />}>Explore Bounties</Button>
         </div>
       </Card>
     </div>

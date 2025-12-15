@@ -7,10 +7,10 @@
 */
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatTokenAmount } from '@/lib/types';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { formatTokenAmount } from '@/lib/types';
+import { useEffect, useMemo, useState } from 'react';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 /**
  * ContributionsChart - Area chart showing user earnings over time
@@ -152,7 +152,7 @@ export function ContributionsChart({
               onClick={() => setPeriod(p.value)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                 period === p.value
-                  ? 'bg-background text-foreground shadow'
+                  ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-server';
 import { getSubmissionsByUser } from '@/lib/db/queries/submissions';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {

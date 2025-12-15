@@ -1,6 +1,6 @@
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import Link from 'next/link';
 import { RepoCard, type TopRepo } from './repo-card';
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
 /**
  * TopRepos - Section showing repositories with highest total bounty values

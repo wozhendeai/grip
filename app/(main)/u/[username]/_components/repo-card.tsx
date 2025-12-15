@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import type { GitHubRepo } from '@/lib/github/repo';
+import Link from 'next/link';
 
 interface RepoCardProps {
   repo: GitHubRepo;

@@ -1,8 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth-server';
 import { db } from '@/db';
 import { accessKeys, activityLog } from '@/db/schema/business';
-import { eq, and } from 'drizzle-orm';
+import { requireAuth } from '@/lib/auth-server';
+import { and, eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
   params: Promise<{ id: string }>;

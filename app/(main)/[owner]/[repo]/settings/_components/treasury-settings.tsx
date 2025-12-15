@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Wallet, ExternalLink } from 'lucide-react';
+import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AddressDisplay } from '@/components/tempo/address-display';
+import { ExternalLink, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 
 interface TreasurySettingsProps {
   githubRepoId: number;
@@ -159,9 +159,7 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
           </ul>
         </div>
 
-        <Button asChild>
-          <Link href="/wallet">Create Passkey</Link>
-        </Button>
+        <Button render={<Link href="/wallet" />}>Create Passkey</Button>
       </CardContent>
     </Card>
   );

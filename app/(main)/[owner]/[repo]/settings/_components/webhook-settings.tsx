@@ -1,8 +1,8 @@
 'use client';
 
-import { Webhook, ExternalLink } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ExternalLink, Webhook } from 'lucide-react';
 
 interface WebhookSettingsProps {
   githubRepoId: number;

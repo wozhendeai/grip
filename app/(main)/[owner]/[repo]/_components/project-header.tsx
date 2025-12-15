@@ -1,11 +1,11 @@
-import Link from 'next/link';
-import { Github, Star, GitFork, Plus } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { TokenAmount } from '@/components/tempo/token-amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TokenAmount } from '@/components/tempo/token-amount';
-import type { BountyProject } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
 import type { GitHubRepo } from '@/lib/github/repo';
+import type { BountyProject } from '@/lib/types';
+import { GitFork, Github, Plus, Star } from 'lucide-react';
+import Link from 'next/link';
 
 interface ProjectHeaderProps {
   project: BountyProject;
@@ -73,12 +73,15 @@ export function ProjectHeader({
 
         {/* Actions */}
         {isLoggedIn && (
-          <Button asChild size="sm">
-            <Link href={`/${github.owner.login}/${github.name}/bounties/new`}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Bounty
-            </Link>
-          </Button>
+          <Button
+            render={
+              <Link href={`/${github.owner.login}/${github.name}/bounties/new`}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Bounty
+              </Link>
+            }
+            size="sm"
+          />
         )}
       </div>
 

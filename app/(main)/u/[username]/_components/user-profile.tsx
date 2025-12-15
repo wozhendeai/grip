@@ -1,19 +1,19 @@
-import Link from 'next/link';
-import { Github, ExternalLink } from 'lucide-react';
-import { UserAvatar } from '@/components/user/user-avatar';
-import { Empty, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
-import type { GitHubUser, GitHubActivity } from '@/lib/github/user';
-import type { getUserByName, getBountyDataByGitHubId } from '@/lib/db/queries/users';
-import { getSubmissionsByUser } from '@/lib/db/queries/submissions';
+import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty';
+import { UserAvatar } from '@/components/user/user-avatar';
 import { getUserEarningsOverTime } from '@/lib/db/queries/payouts';
-import { ContributionsChart } from './contributions-chart';
-import { ProjectsSection } from './projects-section';
-import { ActivityBadge } from './activity-badge';
-import { FundedBountiesSection } from './funded-bounties-section';
-import { SendPaymentAction } from './send-payment-action';
+import { getSubmissionsByUser } from '@/lib/db/queries/submissions';
+import type { getBountyDataByGitHubId, getUserByName } from '@/lib/db/queries/users';
+import type { GitHubActivity, GitHubUser } from '@/lib/github/user';
 import { formatTokenAmount } from '@/lib/tempo/format';
 import { formatTimeAgo } from '@/lib/utils';
+import { ExternalLink, Github } from 'lucide-react';
+import Link from 'next/link';
+import { ActivityBadge } from './activity-badge';
+import { ContributionsChart } from './contributions-chart';
+import { FundedBountiesSection } from './funded-bounties-section';
+import { ProjectsSection } from './projects-section';
+import { SendPaymentAction } from './send-payment-action';
 
 interface UserProfileProps {
   github: GitHubUser;

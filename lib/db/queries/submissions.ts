@@ -1,5 +1,5 @@
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { db, submissions, bounties, repoSettings, user } from '@/db';
+import { bounties, db, repoSettings, submissions, user } from '@/db';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 /**
  * Cleanup note (2025-12-14):

@@ -1,11 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth-server';
 import { db } from '@/db';
-import { accessKeys, activityLog, type AccessKeyStatus } from '@/db/schema/business';
-import { eq, and, isNull } from 'drizzle-orm';
-import { getNetworkForInsert, getCurrentNetwork } from '@/lib/db/network';
-import { getBackendWalletAddress } from '@/lib/turnkey/client';
+import { type AccessKeyStatus, accessKeys, activityLog } from '@/db/schema/business';
+import { requireAuth } from '@/lib/auth-server';
+import { getCurrentNetwork, getNetworkForInsert } from '@/lib/db/network';
 import { encodeKeyAuthorization } from '@/lib/tempo/access-keys';
+import { getBackendWalletAddress } from '@/lib/turnkey/client';
+import { and, eq, isNull } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 import { keccak256 } from 'viem';
 
 /**

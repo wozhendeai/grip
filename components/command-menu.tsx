@@ -1,7 +1,5 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   CommandDialog,
   CommandEmpty,
@@ -12,7 +10,9 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
-import { MagnifyingGlassIcon, RocketIcon, BackpackIcon } from '@radix-ui/react-icons';
+import { Backpack, Rocket, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 interface CommandMenuProps {
   /** Controlled open state (optional - uses internal state if not provided) */
@@ -67,12 +67,12 @@ export function CommandMenu({ open: controlledOpen, onOpenChange }: CommandMenuP
 
         <CommandGroup heading="Quick Actions">
           <CommandItem onSelect={() => runCommand(() => router.push('/bounties'))}>
-            <RocketIcon className="mr-2" />
+            <Rocket className="mr-2 h-4 w-4" />
             View All Bounties
             <CommandShortcut>B</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => router.push('/wallet'))}>
-            <BackpackIcon className="mr-2" />
+            <Backpack className="mr-2 h-4 w-4" />
             Open Wallet
             <CommandShortcut>W</CommandShortcut>
           </CommandItem>
@@ -82,7 +82,7 @@ export function CommandMenu({ open: controlledOpen, onOpenChange }: CommandMenuP
 
         <CommandGroup heading="Navigation">
           <CommandItem onSelect={() => runCommand(() => router.push('/explore'))}>
-            <MagnifyingGlassIcon className="mr-2" />
+            <Search className="mr-2 h-4 w-4" />
             Explore Projects
           </CommandItem>
         </CommandGroup>

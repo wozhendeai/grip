@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { TokenAmount } from '@/components/tempo/token-amount';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getPayoutByTxHash } from '@/lib/db/queries';
 
 interface TxDetailProps {

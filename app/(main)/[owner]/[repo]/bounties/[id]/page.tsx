@@ -1,11 +1,11 @@
+import { Button } from '@/components/ui/button';
+import { getSession } from '@/lib/auth-server';
+import { getBountyWithAuthor } from '@/lib/db/queries/bounties';
+import { getUserWallet } from '@/lib/db/queries/passkeys';
+import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
+import type { Bounty, SubmissionStatus } from '@/lib/types';
 import Link from 'next/link';
 import { BountyDetail } from './_components/bounty-detail';
-import { Button } from '@/components/ui/button';
-import { getBountyWithAuthor } from '@/lib/db/queries/bounties';
-import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { getSession } from '@/lib/auth-server';
-import type { Bounty, SubmissionStatus } from '@/lib/types';
 
 interface BountyPageProps {
   params: Promise<{ owner: string; repo: string; id: string }>;
@@ -30,9 +30,10 @@ export default async function BountyPage({ params }: BountyPageProps) {
         <p className="mt-2 text-muted-foreground">
           No bounty found with ID &quot;{id}&quot; in {owner}/{repo}
         </p>
-        <Button asChild className="mt-4">
-          <Link href={`/${owner}/${repo}/bounties`}>View Repo Bounties</Link>
-        </Button>
+        <Button
+          render={<Link href={`/${owner}/${repo}/bounties`}>View Repo Bounties</Link>}
+          className="mt-4"
+        />
       </div>
     );
   }

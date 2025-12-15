@@ -1,7 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { account, db, repoSettings } from '@/db';
 import { requireAuth } from '@/lib/auth-server';
-import { db, account, repoSettings } from '@/db';
-import { eq, and } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/github/repos

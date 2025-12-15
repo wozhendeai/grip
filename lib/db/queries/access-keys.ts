@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { accessKeys } from '@/db/schema/business';
-import { eq, and, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { networkFilter } from '../network';
 
 /**
