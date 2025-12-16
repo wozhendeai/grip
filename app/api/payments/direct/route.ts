@@ -1,18 +1,18 @@
 import { accessKeys, db, payouts } from '@/db';
-import { requireAuth } from '@/lib/auth-server';
-import { getNetworkForInsert } from '@/lib/db/network';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getNetworkForInsert } from '@/db/network';
 import {
   createCustodialWalletRecord,
   getCustodialWalletByGithubUserId,
-} from '@/lib/db/queries/custodial-wallets';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { createDirectPayment } from '@/lib/db/queries/payouts';
-import { getUserByName } from '@/lib/db/queries/users';
-import { fetchGitHubUser } from '@/lib/github/user';
+} from '@/db/queries/custodial-wallets';
+import { getUserWallet } from '@/db/queries/passkeys';
+import { createDirectPayment } from '@/db/queries/payouts';
+import { getUserByName } from '@/db/queries/users';
+import { fetchGitHubUser } from '@/lib/github';
 import { notifyDirectPaymentReceived, notifyDirectPaymentSent } from '@/lib/notifications';
 import { broadcastTransaction, signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
-import { buildDirectPaymentTransaction } from '@/lib/tempo/payments';
-import { getNonce } from '@/lib/tempo/signing';
+import { tempoClient } from '@/lib/tempo/client';
+import { buildDirectPaymentTransaction } from '@/lib/tempo';
 import { createCustodialWallet } from '@/lib/turnkey/custodial-wallets';
 import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -174,7 +174,12 @@ export async function POST(request: NextRequest) {
             throw new Error('Sender wallet not found');
           }
 
-          const nonce = await getNonce(senderWallet.tempoAddress as `0x${string}`);
+          const nonce = BigInt(
+            await tempoClient.getTransactionCount({
+              address: senderWallet.tempoAddress as `0x${string}`,
+              blockTag: 'pending',
+            })
+          );
 
           const { rawTransaction } = await signTransactionWithAccessKey({
             tx: {

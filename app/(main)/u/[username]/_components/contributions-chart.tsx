@@ -8,7 +8,6 @@
 'use client';
 
 import { Empty, EmptyDescription } from '@/components/ui/empty';
-import { formatTokenAmount } from '@/lib/types';
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
@@ -140,7 +139,11 @@ export function ContributionsChart({
       <div className="mb-6 flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground">Earnings</p>
-          <p className="text-3xl font-bold">{isLoading ? '-' : formatTokenAmount(totalEarnings)}</p>
+          <p className="text-3xl font-bold">
+            {isLoading
+              ? '-'
+              : `$${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </p>
         </div>
 
         {/* Period Selector */}
@@ -209,7 +212,11 @@ export function ContributionsChart({
                         })}
                       </p>
                       <p className="font-medium text-success">
-                        {formatTokenAmount(item.cumulative)}
+                        $
+                        {item.cumulative.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                     </div>
                   );

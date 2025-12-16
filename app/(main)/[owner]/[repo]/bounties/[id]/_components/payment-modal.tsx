@@ -13,39 +13,37 @@ import {
 } from '@/components/ui/dialog';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { Abis } from 'tempo.ts/viem';
 
 /**
- * Payment signing modal
+ * Payment signing modal - SDK Version
  *
- * Shows transaction details and handles the WebAuthn signing flow.
+ * Shows transaction details and handles the WebAuthn signing flow via Tempo SDK.
+ *
+ * Migration from custom signing to SDK:
+ * - BEFORE: Manual navigator.credentials.get(), RLP encoding, nonce management
+ * - AFTER: SDK handles everything via useWriteContract hook
  *
  * Flow:
- * 1. User clicks "Sign & Send" (or auto-signs if autoSign=true)
- * 2. Modal shows "Waiting for signature..."
- * 3. WebAuthn prompt appears
- * 4. User confirms with biometric/PIN
- * 5. Transaction is broadcast
- * 6. Modal shows success with tx hash
+ * 1. User clicks "Sign & Send"
+ * 2. SDK triggers WebAuthn prompt automatically
+ * 3. User confirms with biometric/PIN
+ * 4. SDK signs, broadcasts, and returns tx hash
+ * 5. We wait for confirmation via useWaitForTransactionReceipt
+ * 6. Modal shows success
  *
- * Design decision: Modal handles signing client-side because treasury passkey
- * private key never leaves the device - server only prepares transaction params.
+ * Key simplification: No manual transaction building, signing, or broadcasting.
+ * SDK abstracts all complexity via Wagmi hooks.
  */
-
-type PaymentStatus = 'ready' | 'signing' | 'broadcasting' | 'confirming' | 'success' | 'error';
 
 interface PayoutDetails {
   id: string;
-  amount: number;
+  amount: bigint; // Changed from number to bigint for precision
   tokenAddress: string;
   recipientAddress: string;
-  memo: string;
-}
-
-interface TxParams {
-  to: string;
-  data: string;
-  value: string;
+  memo: string; // Hex-encoded memo
 }
 
 interface ClaimantInfo {
@@ -58,10 +56,7 @@ interface PaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payout: PayoutDetails;
-  txParams: TxParams;
   claimant: ClaimantInfo;
-  treasuryCredentialId: string;
-  treasuryAddress: string;
   onSuccess?: (txHash: string) => void;
   autoSign?: boolean;
 }
@@ -70,121 +65,80 @@ export function PaymentModal({
   open,
   onOpenChange,
   payout,
-  txParams,
   claimant,
-  treasuryCredentialId,
-  treasuryAddress,
   onSuccess,
   autoSign = false,
 }: PaymentModalProps) {
-  const [status, setStatus] = useState<PaymentStatus>('ready');
-  const [error, setError] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
-  const handleSign = useCallback(async () => {
-    setStatus('signing');
-    setError(null);
+  // SDK hook for writing contract (signs + broadcasts automatically)
+  const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
 
-    try {
-      // Dynamic import to avoid SSR issues with WebAuthn
-      const { signTempoTransaction, broadcastTransaction, getNonce, getGasPrice } = await import(
-        '@/lib/tempo/signing'
-      );
+  // SDK hook for waiting for transaction confirmation
+  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
-      // Get nonce and gas price from RPC
-      const [nonce, gasPrice] = await Promise.all([
-        getNonce(treasuryAddress as `0x${string}`),
-        getGasPrice(),
-      ]);
-
-      // Prepare transaction parameters
-      const txToSign = {
-        to: txParams.to as `0x${string}`,
-        data: txParams.data as `0x${string}`,
-        value: BigInt(txParams.value),
-        nonce,
-        maxFeePerGas: gasPrice * BigInt(2), // 2x gas price buffer
-        gas: BigInt(100_000), // Default gas for TIP-20 transfer
-      };
-
-      // Sign with passkey
-      const signedTx = await signTempoTransaction({
-        tx: txToSign,
-        from: treasuryAddress as `0x${string}`,
-        credentialId: treasuryCredentialId,
-      });
-
-      setStatus('broadcasting');
-
-      // Broadcast to Tempo RPC
-      const { txHash: hash } = await broadcastTransaction(signedTx);
-      setTxHash(hash);
-
-      setStatus('confirming');
+  // Handle successful confirmation - update database
+  useEffect(() => {
+    if (isSuccess && txHash && !confirming) {
+      setConfirming(true);
 
       // Confirm payout in database
-      await fetch(`/api/payouts/${payout.id}/confirm`, {
+      fetch(`/api/payouts/${payout.id}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txHash: hash, waitForConfirmation: false }),
-      });
-
-      setStatus('success');
-      onSuccess?.(hash);
-    } catch (err) {
-      console.error('Payment error:', err);
-      setStatus('error');
-
-      // Provide user-friendly error messages
-      if (err instanceof Error) {
-        if (err.message.includes('credentials.get')) {
-          setError('Passkey signing was cancelled or timed out. Please try again.');
-        } else if (err.message.includes('Broadcast failed')) {
-          setError(`Transaction failed: ${err.message}`);
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('An unknown error occurred');
-      }
+        body: JSON.stringify({ txHash, waitForConfirmation: false }),
+      })
+        .then(() => {
+          onSuccess?.(txHash);
+        })
+        .catch((err) => {
+          console.error('Failed to confirm payout in database:', err);
+        })
+        .finally(() => {
+          setConfirming(false);
+        });
     }
-  }, [treasuryCredentialId, treasuryAddress, txParams, payout.id, onSuccess]);
+  }, [isSuccess, txHash, payout.id, onSuccess, confirming]);
 
-  // Auto-sign when modal opens (if enabled)
-  // Disabled by default - user should see the transaction details first
-  // useEffect(() => {
-  //   if (open && autoSign && status === 'ready') {
-  //     handleSign();
-  //   }
-  // }, [open, autoSign, status, handleSign]);
+  // Handle sign button click
+  const handleSign = () => {
+    writeContract({
+      address: payout.tokenAddress as `0x${string}`,
+      abi: Abis.tip20,
+      functionName: 'transferWithMemo',
+      args: [payout.recipientAddress as `0x${string}`, payout.amount, payout.memo as `0x${string}`],
+    });
+  };
 
   const handleClose = () => {
-    if (status === 'signing' || status === 'broadcasting') {
+    if (isPending || isConfirming || confirming) {
       // Don't allow closing during active transaction
       return;
     }
-    setStatus('ready');
-    setError(null);
-    setTxHash(null);
     onOpenChange(false);
   };
 
-  const isProcessing = status === 'signing' || status === 'broadcasting' || status === 'confirming';
+  const isProcessing = isPending || isConfirming || confirming;
+
+  // Format amount for display (assuming 6 decimals for USDC)
+  const formattedAmount = (Number(payout.amount) / 1_000_000).toFixed(2);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{status === 'success' ? 'Payment Sent' : 'Confirm Payment'}</DialogTitle>
+          <DialogTitle>{isSuccess ? 'Payment Sent' : 'Confirm Payment'}</DialogTitle>
           <DialogDescription>
-            {status === 'success'
+            {isSuccess
               ? 'The bounty payment has been processed.'
               : 'Review the payment details and sign with your treasury passkey.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {status === 'success' ? (
+          {isSuccess ? (
             // Success state
             <div className="text-center space-y-4">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
@@ -193,8 +147,7 @@ export function PaymentModal({
               <div>
                 <p className="font-medium">Payment Complete</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  ${(payout.amount / 1_000_000).toFixed(2)} USDC sent to{' '}
-                  {claimant.name ?? 'contributor'}
+                  ${formattedAmount} USDC sent to {claimant.name ?? 'contributor'}
                 </p>
               </div>
               {txHash && (
@@ -215,9 +168,7 @@ export function PaymentModal({
               <div className="rounded-lg border border-border bg-card p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Amount</span>
-                  <span className="font-medium text-lg">
-                    ${(payout.amount / 1_000_000).toFixed(2)} USDC
-                  </span>
+                  <span className="font-medium text-lg">${formattedAmount} USDC</span>
                 </div>
 
                 <div className="border-t border-border pt-3">
@@ -227,38 +178,37 @@ export function PaymentModal({
                   </div>
                   <AddressDisplay address={claimant.address} className="mt-1 text-xs" />
                 </div>
-
-                <div className="border-t border-border pt-3">
-                  <span className="text-sm text-muted-foreground">From Treasury</span>
-                  <AddressDisplay address={treasuryAddress} className="mt-1 text-xs" />
-                </div>
               </div>
 
-              {/* Status indicators */}
-              {status === 'signing' && (
+              {/* Status indicators - SDK hook states */}
+              {isPending && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Waiting for passkey signature...</span>
                 </div>
               )}
 
-              {status === 'broadcasting' && (
+              {isConfirming && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Broadcasting transaction...</span>
+                  <span>Confirming transaction on-chain...</span>
                 </div>
               )}
 
-              {status === 'confirming' && (
+              {confirming && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Confirming payment...</span>
+                  <span>Updating payout status...</span>
                 </div>
               )}
 
-              {error && (
+              {writeError && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-                  <p className="text-sm text-destructive">{error}</p>
+                  <p className="text-sm text-destructive">
+                    {writeError.message.includes('User rejected')
+                      ? 'Passkey signing was cancelled. Please try again.'
+                      : writeError.message}
+                  </p>
                 </div>
               )}
             </>
@@ -266,7 +216,7 @@ export function PaymentModal({
         </div>
 
         <DialogFooter>
-          {status === 'success' ? (
+          {isSuccess ? (
             <Button onClick={handleClose} className="w-full">
               Done
             </Button>

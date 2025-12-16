@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { passkey } from '@/lib/auth-client';
+import { passkey } from '@/lib/auth/auth-client';
 import { useState } from 'react';
 
 interface CreateWalletModalProps {
@@ -42,9 +42,9 @@ export function CreateWalletModal({
       await passkey.addPasskey({ name: 'BountyLane Wallet' });
 
       // Fetch created wallet (has tempoAddress field from tempo plugin)
-      const res = await fetch('/api/user/passkeys');
-      const data = await res.json();
-      const wallet = data.passkeys.find((p: { tempoAddress?: string }) => p.tempoAddress);
+      const res = await fetch('/api/auth/tempo/passkeys');
+      const { passkeys } = await res.json();
+      const wallet = passkeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
 
       if (!wallet) {
         throw new Error('Wallet not found after creation');

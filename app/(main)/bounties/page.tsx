@@ -1,4 +1,4 @@
-import { getAllBounties, getBountyStats } from '@/lib/db/queries/bounties';
+import { getAllBounties, getBountyStats } from '@/db/queries/bounties';
 import type { Bounty } from '@/lib/types';
 import { BountiesClient } from './_components/bounties-client';
 

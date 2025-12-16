@@ -1,4 +1,4 @@
-import { createNotification } from '@/lib/db/queries/notifications';
+import { createNotification } from '@/db/queries/notifications';
 import type { NotificationMetadata } from '@/lib/types';
 
 /**

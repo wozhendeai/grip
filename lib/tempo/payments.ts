@@ -1,5 +1,20 @@
-import { encodeFunctionData, parseUnits, toHex } from 'viem';
-import { TIP20_ABI } from './constants';
+import { encodeFunctionData, toHex } from 'viem';
+import { Abis } from 'tempo.ts/viem';
+
+/**
+ * TIP-20 Payment Utilities
+ *
+ * BountyLane-specific memo encoding and transaction building for Turnkey HSM signing.
+ *
+ * Why we need transaction builders:
+ * - Turnkey HSM requires pre-built `calls` array (can't use SDK's client.token.transfer())
+ * - We manually encode TIP-20 transferWithMemo using SDK's Abis
+ * - Client-side transactions should use SDK's token.transfer() instead
+ *
+ * Memo formats:
+ * - Bounty memos: Encode issue#/PR#/username for on-chain tracking
+ * - Direct payment memos: Simple user messages
+ */
 
 /**
  * Memo encoding for bounty payouts
@@ -113,10 +128,10 @@ export function decodeDirectPaymentMemo(memo: `0x${string}`): string {
 }
 
 /**
- * Build TIP-20 transferWithMemo call data
+ * Build TIP-20 transferWithMemo call data for Turnkey HSM transactions
  *
- * This builds the transaction data for a TIP-20 transfer with memo.
- * The transaction still needs to be signed by the treasury passkey.
+ * Used by keychain-signing.ts to construct the `calls` array for Turnkey.
+ * Client-side transactions should use SDK's token.transfer() instead.
  */
 export function buildTransferWithMemoData(params: {
   to: `0x${string}`;
@@ -124,17 +139,17 @@ export function buildTransferWithMemoData(params: {
   memo: `0x${string}`;
 }): `0x${string}` {
   return encodeFunctionData({
-    abi: TIP20_ABI,
+    abi: Abis.tip20,
     functionName: 'transferWithMemo',
     args: [params.to, params.amount, params.memo],
   });
 }
 
 /**
- * Build complete payout transaction parameters
+ * Build payout transaction for Turnkey HSM signing
  *
- * Returns the transaction parameters ready for signing.
- * The actual signing happens client-side with WebAuthn passkey.
+ * Combines bounty memo encoding with transaction data.
+ * Used by automated payout routes (keychain-signing.ts).
  */
 export function buildPayoutTransaction(params: {
   tokenAddress: `0x${string}`;
@@ -165,15 +180,14 @@ export function buildPayoutTransaction(params: {
     to: params.tokenAddress,
     data,
     memo,
-    value: BigInt(0), // TIP-20 transfers don't use native value
+    value: BigInt(0),
   };
 }
 
 /**
- * Build complete direct payment transaction parameters
+ * Build direct payment transaction for Turnkey HSM signing
  *
- * Returns the transaction parameters ready for signing.
- * Used for person-to-person payments (not tied to bounties).
+ * Combines message memo encoding with transaction data.
  */
 export function buildDirectPaymentTransaction(params: {
   tokenAddress: `0x${string}`;
@@ -198,33 +212,6 @@ export function buildDirectPaymentTransaction(params: {
     to: params.tokenAddress,
     data,
     memo,
-    value: BigInt(0), // TIP-20 transfers don't use native value
+    value: BigInt(0),
   };
 }
-
-/**
- * Parse amount string to wei-equivalent (6 decimals for USDC)
- */
-export function parseUSDC(amount: string): bigint {
-  return parseUnits(amount, 6);
-}
-
-/**
- * Format wei-equivalent to USDC string
- */
-export function formatUSDC(amount: bigint): string {
-  const divisor = BigInt(1_000_000);
-  const whole = amount / divisor;
-  const fraction = amount % divisor;
-  const fractionStr = fraction.toString().padStart(6, '0');
-  return `${whole}.${fractionStr}`;
-}
-
-export type PayoutParams = {
-  tokenAddress: `0x${string}`;
-  recipientAddress: `0x${string}`;
-  amount: bigint;
-  issueNumber: number;
-  prNumber: number;
-  username: string;
-};

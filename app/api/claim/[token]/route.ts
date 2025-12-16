@@ -1,16 +1,16 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getNetworkForInsert } from '@/lib/db/network';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getNetworkForInsert } from '@/db/network';
 import {
   getActiveCustodialWalletsForGithubUser,
   getCustodialWalletBalance,
   getCustodialWalletByClaimToken,
   markCustodialWalletClaimed,
-} from '@/lib/db/queries/custodial-wallets';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
+} from '@/db/queries/custodial-wallets';
+import { getUserWallet } from '@/db/queries/passkeys';
 import { buildPayoutTransaction } from '@/lib/tempo';
+import { tempoClient } from '@/lib/tempo/client';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { broadcastTransaction } from '@/lib/tempo/keychain-signing';
-import { getNonce } from '@/lib/tempo/signing';
 import { signWithCustodialWallet } from '@/lib/turnkey/custodial-wallets';
 import { type NextRequest, NextResponse } from 'next/server';
 
@@ -150,7 +150,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         // Get nonce for custodial wallet
-        const nonce = await getNonce(transfer.custodialAddress as `0x${string}`);
+        const nonce = BigInt(
+          await tempoClient.getTransactionCount({
+            address: transfer.custodialAddress as `0x${string}`,
+            blockTag: 'pending',
+          })
+        );
 
         console.log(`[claim] Signing transfer from ${transfer.custodialAddress}...`);
 

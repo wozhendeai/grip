@@ -21,16 +21,10 @@ interface TreasuryCredentials {
 
 interface PayoutData {
   id: string;
-  amount: number;
+  amount: bigint;
   tokenAddress: string;
   recipientAddress: string;
   memo: string;
-}
-
-interface TxParams {
-  to: string;
-  data: string;
-  value: string;
 }
 
 interface ClaimantInfo {
@@ -68,7 +62,6 @@ export function BountyDetail({
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payoutData, setPayoutData] = useState<PayoutData | null>(null);
-  const [txParams, setTxParams] = useState<TxParams | null>(null);
   const [claimantInfo, setClaimantInfo] = useState<ClaimantInfo | null>(null);
 
   // Auto-signing success state
@@ -140,10 +133,13 @@ export function BountyDetail({
         setTimeout(() => {
           router.refresh();
         }, 3000);
-      } else if (treasuryCredentials && data.payout && data.txParams && data.claimant) {
+      } else if (treasuryCredentials && data.payout && data.claimant) {
         // FALLBACK: Manual signing required (no Access Key or Access Key failed)
-        setPayoutData(data.payout);
-        setTxParams(data.txParams);
+        // Convert amount from number to bigint for SDK compatibility
+        setPayoutData({
+          ...data.payout,
+          amount: BigInt(data.payout.amount),
+        });
         setClaimantInfo(data.claimant);
         setShowPaymentModal(true);
       } else if (!treasuryCredentials) {
@@ -612,16 +608,13 @@ export function BountyDetail({
         onSelect={approveWithClaim}
       />
 
-      {/* Payment Modal */}
-      {treasuryCredentials && payoutData && txParams && claimantInfo && (
+      {/* Payment Modal - SDK Version */}
+      {payoutData && claimantInfo && (
         <PaymentModal
           open={showPaymentModal}
           onOpenChange={setShowPaymentModal}
           payout={payoutData}
-          txParams={txParams}
           claimant={claimantInfo}
-          treasuryCredentialId={treasuryCredentials.credentialId}
-          treasuryAddress={treasuryCredentials.address}
           onSuccess={handlePaymentSuccess}
         />
       )}

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import type { GitHubRepo } from '@/lib/github/repo';
+import type { GitHubRepo } from '@/lib/github';
 import { cn } from '@/lib/utils';
 import { ExternalLink, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';

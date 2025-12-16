@@ -2,7 +2,7 @@ import { TokenAmount } from '@/components/tempo/token-amount';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { GitHubRepo } from '@/lib/github/repo';
+import type { GitHubRepo } from '@/lib/github';
 import type { BountyProject } from '@/lib/types';
 import { GitFork, Github, Plus, Star } from 'lucide-react';
 import Link from 'next/link';

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatTokenAmount } from '@/lib/tempo/format';
+import { formatUnits } from 'viem';
 import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -98,13 +98,13 @@ export function BountiesClient({ initialBounties, stats }: BountiesClientProps) 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Amount Paid Out"
-              value={formatTokenAmount(stats.amountPaid)}
+              value={formatUnits(BigInt(stats.amountPaid), 6)}
               info="Total value of completed bounties"
               valueClassName="text-success"
             />
             <StatCard
               label="Amount Open"
-              value={formatTokenAmount(stats.amountOpen)}
+              value={formatUnits(BigInt(stats.amountOpen), 6)}
               info="Total value of open bounties available to claim"
             />
             <StatCard

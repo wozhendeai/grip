@@ -7,6 +7,9 @@
  * - Fees paid in USD stablecoins (any TIP-20 with currency="USD")
  * - Payment lane for guaranteed low-cost TIP-20 transfers
  * - Passkey (P256) authentication native support
+ *
+ * Note: We use the tempo.ts SDK for most operations, but these constants are
+ * still needed for manual operations and app-specific configuration.
  */
 
 export const TEMPO_CHAIN_ID = 42429;
@@ -16,15 +19,34 @@ export const TEMPO_RPC_URL = process.env.TEMPO_RPC_URL ?? 'https://rpc.testnet.t
 export const TEMPO_EXPLORER_URL = 'https://explore.tempo.xyz';
 
 /**
- * Well-known token addresses on Tempo Testnet
+ * Tempo System Contracts (Predeployed)
+ *
+ * Core protocol contracts that power Tempo's features.
+ * See: https://docs.tempo.xyz/protocol
+ */
+export const TEMPO_CONTRACTS = {
+  /** TIP-20 Factory - Create new TIP-20 tokens */
+  TIP20_FACTORY: '0x20fc000000000000000000000000000000000000' as const,
+  /** Fee Manager - Handle fee payments and conversions */
+  FEE_MANAGER: '0xfeec000000000000000000000000000000000000' as const,
+  /** Stablecoin DEX - Enshrined DEX for stablecoin swaps */
+  STABLECOIN_DEX: '0xdec0000000000000000000000000000000000000' as const,
+  /** TIP-403 Registry - Transfer policy registry */
+  TIP403_REGISTRY: '0x403c000000000000000000000000000000000000' as const,
+  /** PathUSD - First stablecoin deployed on Tempo */
+  PATH_USD: '0x20c0000000000000000000000000000000000000' as const,
+} as const;
+
+/**
+ * Well-known token addresses on Tempo
  *
  * PathUSD is the native fee token (always available for gas)
  * USDC is for bounty payments
  */
 export const TEMPO_TOKENS = {
-  // PathUSD - Native fee token, always available
-  PATH_USD: '0x0000000000000000000000000000000000000001' as const,
-  // USDC on Tempo Testnet - use this for bounty payments
+  /** PathUSD - Native fee token, always available for gas */
+  PATH_USD: TEMPO_CONTRACTS.PATH_USD,
+  /** USDC on Tempo - use this for bounty payments */
   USDC: (process.env.TEMPO_USDC_ADDRESS ??
     '0x0000000000000000000000000000000000000002') as `0x${string}`,
 } as const;
@@ -44,89 +66,8 @@ export const BACKEND_WALLET_ADDRESSES = {
 } as const;
 
 /**
- * TIP-20 ABI for balance queries and transfers with memo
- *
- * TIP-20 extends ERC-20 with:
- * - transferWithMemo(to, amount, bytes32 memo) for payment references
- * - transferWithCommitment(to, amount, hash, locator) for off-chain data
- * - currency() returns "USD", "EUR", etc.
- */
-export const TIP20_ABI = [
-  // Standard ERC-20
-  {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'transfer',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'decimals',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint8' }],
-  },
-  {
-    name: 'symbol',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'string' }],
-  },
-  // TIP-20 extensions
-  {
-    name: 'transferWithMemo',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'memo', type: 'bytes32' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'transferWithCommitment',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'commitmentHash', type: 'bytes32' },
-      { name: 'locator', type: 'bytes32' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'currency',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'string' }],
-  },
-] as const;
-
-/**
  * Generate explorer URL for a transaction
  */
 export function getExplorerTxUrl(txHash: string): string {
   return `${TEMPO_EXPLORER_URL}/tx/${txHash}`;
-}
-
-/**
- * Generate explorer URL for an address
- */
-export function getExplorerAddressUrl(address: string): string {
-  return `${TEMPO_EXPLORER_URL}/address/${address}`;
 }

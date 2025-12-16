@@ -12,11 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { signOut, useSession } from '@/lib/auth-client';
+import { signOut, useSession } from '@/lib/auth/auth-client';
 import { BookOpen, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+} from '@/components/ui/navigation-menu';
 import { NavbarBalance } from './navbar-balance';
 
 /**
@@ -35,6 +41,7 @@ import { NavbarBalance } from './navbar-balance';
 export function Navbar() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
@@ -43,7 +50,7 @@ export function Navbar() {
     async function fetchWallet() {
       if (session?.user?.id) {
         try {
-          const res = await fetch('/api/user/passkeys');
+          const res = await fetch('/api/auth/tempo/passkeys');
           if (res.ok) {
             const data = await res.json();
             const wallet = data.passkeys?.find((p: { tempoAddress: string }) => p.tempoAddress);
@@ -84,21 +91,29 @@ export function Navbar() {
               BountyLane
             </Link>
 
-            {/* Nav Links */}
-            <div className="hidden md:flex items-center gap-6">
-              <Link
-                href="/explore"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Explore
-              </Link>
-              <Link
-                href="/bounties"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Bounties
-              </Link>
-            </div>
+            {/* Nav Links - Using NavigationMenu for accessibility and keyboard navigation */}
+            <NavigationMenu className="hidden md:flex">
+              <NavigationMenuList className="gap-6">
+                <NavigationMenuItem>
+                  <NavigationMenuLink
+                    href="/explore"
+                    active={pathname === '/explore'}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors data-[active=true]:text-foreground data-[active=true]:font-semibold"
+                  >
+                    Explore
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+                <NavigationMenuItem>
+                  <NavigationMenuLink
+                    href="/bounties"
+                    active={pathname === '/bounties'}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors data-[active=true]:text-foreground data-[active=true]:font-semibold"
+                  >
+                    Bounties
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
 
           {/* Right: Command Menu + Balance + Auth */}
@@ -236,7 +251,12 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button render={<Link href="/login" />} size="sm" className="font-medium">
+              <Button
+                nativeButton={false}
+                render={<Link href="/login" />}
+                size="sm"
+                className="font-medium"
+              >
                 Sign In
               </Button>
             )}

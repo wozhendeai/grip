@@ -16,3 +16,9 @@ export const db = drizzle(client, { schema });
 // Re-export schemas for use in queries
 export * from './schema/auth';
 export * from './schema/business';
+
+// Re-export network utilities
+export * from './network';
+
+// Note: Query functions available at @/db/queries
+// Not re-exported here to avoid type conflicts with schema exports

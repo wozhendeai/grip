@@ -43,7 +43,9 @@ export function ClaimError({ title, message, txHash }: ClaimErrorProps) {
             </div>
           )}
 
-          <Button render={<Link href="/explore" />}>Explore Bounties</Button>
+          <Button nativeButton={false} render={<Link href="/explore" />}>
+            Explore Bounties
+          </Button>
         </div>
       </Card>
     </div>

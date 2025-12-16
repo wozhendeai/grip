@@ -1,10 +1,11 @@
 import { db, passkey } from '@/db';
-import { requireAuth } from '@/lib/auth-server';
-import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
-import { getTokenInfo } from '@/lib/tempo/balance';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { tempoClient } from '@/lib/tempo/client';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
+import { formatUnits } from 'viem';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -67,10 +68,29 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // Get token balance
     const tokenAddress = TEMPO_TOKENS.USDC;
-    let tokenInfo: Awaited<ReturnType<typeof getTokenInfo>> | undefined;
 
     try {
-      tokenInfo = await getTokenInfo(treasuryPasskey.tempoAddress as `0x${string}`, tokenAddress);
+      const [balance, metadata] = await Promise.all([
+        tempoClient.token.getBalance({
+          account: treasuryPasskey.tempoAddress as `0x${string}`,
+          token: tokenAddress,
+        }),
+        tempoClient.token.getMetadata({
+          token: tokenAddress,
+        }),
+      ]);
+
+      return NextResponse.json({
+        configured: true,
+        address: treasuryPasskey.tempoAddress,
+        balance: {
+          raw: balance.toString(),
+          formatted: formatUnits(balance, metadata.decimals),
+          decimals: metadata.decimals,
+          symbol: metadata.symbol,
+        },
+        tokenAddress,
+      });
     } catch (error) {
       console.error('Error fetching treasury balance:', error);
       // Return structure even if balance fetch fails
@@ -81,18 +101,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         error: 'Failed to fetch balance from Tempo RPC',
       });
     }
-
-    return NextResponse.json({
-      configured: true,
-      address: treasuryPasskey.tempoAddress,
-      balance: {
-        raw: tokenInfo.balance.toString(),
-        formatted: tokenInfo.formattedBalance,
-        decimals: tokenInfo.decimals,
-        symbol: tokenInfo.symbol,
-      },
-      tokenAddress,
-    });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

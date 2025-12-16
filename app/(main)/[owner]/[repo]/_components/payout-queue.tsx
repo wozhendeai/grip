@@ -9,20 +9,34 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-// import { Checkbox } from '@/components/ui/checkbox';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useWriteContract } from 'wagmi';
+import { Abis } from 'tempo.ts/viem';
+
+/**
+ * Payout Queue - SDK Version
+ *
+ * Migration from custom signing to SDK:
+ * - BEFORE: Manual loop with signTempoTransaction + broadcastTransaction
+ * - AFTER: Sequential writeContractAsync calls with SDK
+ *
+ * Note: Wagmi doesn't have built-in batch transaction support, so we sign
+ * transactions sequentially. Each transaction waits for the previous one to
+ * complete before starting. SDK handles nonce incrementing automatically.
+ */
 
 interface PayoutQueueProps {
   projectId: string;
-  treasuryAddress: string;
-  treasuryCredentialId: string;
 }
 
 interface PayoutItem {
   id: string;
   amount: number;
+  tokenAddress: string;
+  recipientAddress: string;
+  memo: string;
   recipient: {
     id: string;
     name: string | null;
@@ -35,25 +49,16 @@ interface PayoutItem {
   };
 }
 
-interface Operation {
-  payoutId: string;
-  to: string;
-  data: string;
-  value: string;
-}
-
-export function PayoutQueue({
-  projectId,
-  treasuryAddress,
-  treasuryCredentialId,
-}: PayoutQueueProps) {
+export function PayoutQueue({ projectId }: PayoutQueueProps) {
   const [loading, setLoading] = useState(false);
   const [signing, setSigning] = useState(false);
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
-  const [operations, setOperations] = useState<Operation[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // SDK hook for contract writes (signs + broadcasts automatically)
+  const { writeContractAsync } = useWriteContract();
 
   // Fetch approved payouts
   // Using useCallback because fetchPayouts is used in useEffect dependency array
@@ -64,7 +69,6 @@ export function PayoutQueue({
       const res = await fetch(`/api/projects/${projectId}/payouts/batch`);
       const data = await res.json();
       setPayouts(data.payouts || []);
-      setOperations(data.operations || []);
       setSelectedIds(new Set((data.payouts || []).map((p: PayoutItem) => p.id)));
     } catch (err) {
       console.error('Error fetching payouts:', err);
@@ -78,59 +82,44 @@ export function PayoutQueue({
     fetchPayouts();
   }, [fetchPayouts]);
 
-  // Sign and broadcast batch
+  // Sign and broadcast batch with SDK
+  // Sequential signing: SDK triggers WebAuthn for each transaction
+  // SDK handles nonce incrementing automatically
   const handleBatchSign = async () => {
     setSigning(true);
     setError(null);
 
     try {
-      // Filter operations for selected payouts
-      const selectedOps = operations.filter((op) => selectedIds.has(op.payoutId));
+      // Filter selected payouts
+      const selectedPayouts = payouts.filter((p) => selectedIds.has(p.id));
 
-      if (selectedOps.length === 0) {
+      if (selectedPayouts.length === 0) {
         throw new Error('No payouts selected');
       }
 
-      // Dynamic import signing functions
-      const { signTempoTransaction, broadcastTransaction, getNonce, getGasPrice } = await import(
-        '@/lib/tempo/signing'
-      );
-
-      // Get nonce and gas price
-      const [nonce, gasPrice] = await Promise.all([
-        getNonce(treasuryAddress as `0x${string}`),
-        getGasPrice(),
-      ]);
-
-      // Build and sign transactions
-      // NOTE: Currently sends individual transactions in sequence
-      // TODO: Use Tempo batch transaction contract when available
       const results = [];
-      for (const op of selectedOps) {
-        const tx = {
-          to: op.to as `0x${string}`,
-          data: op.data as `0x${string}`,
-          value: BigInt(op.value),
-          nonce: nonce + BigInt(results.length),
-          maxFeePerGas: gasPrice * BigInt(2),
-          gas: BigInt(100_000),
-        };
 
-        const signedTx = await signTempoTransaction({
-          tx,
-          from: treasuryAddress as `0x${string}`,
-          credentialId: treasuryCredentialId,
+      // Sign each transaction sequentially
+      // SDK handles: WebAuthn prompt, nonce management, gas estimation, broadcasting
+      for (const payout of selectedPayouts) {
+        const hash = await writeContractAsync({
+          address: payout.tokenAddress as `0x${string}`,
+          abi: Abis.tip20,
+          functionName: 'transferWithMemo',
+          args: [
+            payout.recipientAddress as `0x${string}`,
+            BigInt(payout.amount),
+            payout.memo as `0x${string}`,
+          ],
         });
-
-        const { txHash: hash } = await broadcastTransaction(signedTx);
-        results.push({ payoutId: op.payoutId, txHash: hash });
+        results.push({ payoutId: payout.id, txHash: hash });
       }
 
-      // For simplicity, use first tx hash as batch identifier
+      // Use first tx hash as batch identifier
       const batchTxHash = results[0].txHash;
       setTxHash(batchTxHash);
 
-      // Confirm all payouts
+      // Confirm all payouts in database
       await fetch('/api/payouts/batch/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

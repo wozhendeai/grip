@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { GitHubActivity } from '@/lib/github/user';
+import type { GitHubActivity } from '@/lib/github';
 
 interface ActivityBadgeProps {
   activity: GitHubActivity;

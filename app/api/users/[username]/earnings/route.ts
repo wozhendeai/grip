@@ -1,5 +1,5 @@
-import { type TimePeriod, getUserEarningsOverTime } from '@/lib/db/queries/payouts';
-import { getUserByName } from '@/lib/db/queries/users';
+import { type TimePeriod, getUserEarningsOverTime } from '@/db/queries/payouts';
+import { getUserByName } from '@/db/queries/users';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(

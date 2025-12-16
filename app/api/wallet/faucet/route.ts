@@ -1,5 +1,5 @@
-import { getSession } from '@/lib/auth-server';
-import { getPasskeysByUser } from '@/lib/db/queries/passkeys';
+import { getSession } from '@/lib/auth/auth-server';
+import { getPasskeysByUser } from '@/db/queries/passkeys';
 import { TEMPO_RPC_URL } from '@/lib/tempo/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { tempo } from 'tempo.ts/chains';

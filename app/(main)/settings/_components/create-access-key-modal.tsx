@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCurrentNetwork } from '@/lib/db/network';
+import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { KeyAuthorization } from 'tempo.ts/ox';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useSignMessage } from 'wagmi';
 
 type AccessKey = {
   id: string;
@@ -39,6 +41,9 @@ export function CreateAccessKeyModal({
   const [spendingLimit, setSpendingLimit] = useState('10000'); // Default $10k
   const [error, setError] = useState<string | null>(null);
 
+  // SDK hook for signing messages with WebAuthn
+  const { signMessageAsync } = useSignMessage();
+
   async function handleCreate() {
     try {
       setStatus('signing');
@@ -58,24 +63,30 @@ export function CreateAccessKeyModal({
         },
       };
 
-      // Dynamic import to avoid SSR issues
-      const { signKeyAuthorization } = await import('@/lib/tempo/access-keys');
+      // Create KeyAuthorization and compute sign payload using Tempo SDK
+      const authorization = KeyAuthorization.from({
+        chainId: BigInt(params.chainId),
+        type: 'secp256k1',
+        address: backendWalletAddress as `0x${string}`,
+        limits: [
+          {
+            token: TEMPO_TOKENS.USDC,
+            limit: BigInt(spendingLimit) * BigInt(1_000_000),
+          },
+        ],
+      });
 
-      // Sign with passkey
-      const { signature } = await signKeyAuthorization(
-        {
-          chainId: params.chainId,
-          keyType: params.keyType,
-          keyId: params.keyId as `0x${string}`,
-          limits: [[TEMPO_TOKENS.USDC, BigInt(spendingLimit) * BigInt(1_000_000)]],
-        },
-        credentialId
-      );
+      const hash = KeyAuthorization.getSignPayload(authorization);
+
+      // Sign with passkey via SDK (triggers WebAuthn prompt)
+      const signature = await signMessageAsync({
+        message: { raw: hash },
+      });
 
       setStatus('creating');
 
-      // Create Access Key via API
-      const createRes = await fetch('/api/access-keys', {
+      // Create Access Key via Better Auth plugin
+      const createRes = await fetch('/api/auth/tempo/access-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

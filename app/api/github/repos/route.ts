@@ -1,5 +1,5 @@
 import { account, db, repoSettings } from '@/db';
-import { requireAuth } from '@/lib/auth-server';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 

@@ -1,7 +1,7 @@
-import { getSession } from '@/lib/auth-server';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { getBountyDataByGitHubId, getUserByName } from '@/lib/db/queries/users';
-import { fetchGitHubUser, fetchGitHubUserActivity } from '@/lib/github/user';
+import { getSession } from '@/lib/auth/auth-server';
+import { getUserWallet } from '@/db/queries/passkeys';
+import { getBountyDataByGitHubId, getUserByName } from '@/db/queries/users';
+import { fetchGitHubUser, fetchGitHubUserActivity } from '@/lib/github';
 import { notFound } from 'next/navigation';
 import { UserProfile } from './_components/user-profile';
 

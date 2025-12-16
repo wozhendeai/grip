@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@/components/theme/theme-provider';
+import { Providers } from './providers';
 import type { Metadata } from 'next';
 import { Noto_Sans } from 'next/font/google';
 import './globals.css';
@@ -18,11 +19,17 @@ export const metadata: Metadata = {
  * Root Layout
  *
  * Design decisions:
+ * - Providers wraps everything for Wagmi + React Query (SDK requirement)
  * - ThemeProvider wraps entire app for theme switching
  * - suppressHydrationWarning on html required by next-themes
  * - Font: Noto Sans via next/font/google (Mira preset)
  * - Dark theme is default (defined in ThemeProvider)
  * - CommandMenu is rendered in Navbar (controlled state)
+ *
+ * Provider hierarchy:
+ * 1. Providers (Wagmi + React Query) - Enables SDK features
+ * 2. ThemeProvider - Theme switching
+ * 3. Children - App content
  */
 export default function RootLayout({
   children,
@@ -32,7 +39,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={notoSans.variable}>
       <body className="antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <Providers>
+          <ThemeProvider>{children}</ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

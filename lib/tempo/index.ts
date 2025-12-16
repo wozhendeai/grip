@@ -12,9 +12,15 @@
  * CRITICAL: Tempo has no native token!
  * - eth_getBalance returns a placeholder (NOT real balance)
  * - Always use getTIP20Balance() for balance checks
+ *
+ * NOTE: This barrel export prioritizes SDK-based utilities from client.ts.
+ * Client components using WebAuthn signing should import from './signing' directly.
  */
 
 export * from './constants';
-export * from './balance';
+export * from './client';
 export * from './payments';
-export * from './signing';
+
+// signing.ts not exported by default - it contains legacy implementations
+// that are being replaced by SDK. Client components can still import directly:
+// import { signTempoTransaction } from '@/lib/tempo/signing'

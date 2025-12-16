@@ -1,7 +1,7 @@
 import { BountyGrid } from '@/app/(main)/explore/_components/bounty-grid';
 import { Button } from '@/components/ui/button';
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
-import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
+import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
 
@@ -25,7 +25,7 @@ export default async function BountiesPage({ params }: BountiesPageProps) {
         <p className="mt-2 text-muted-foreground">
           No repo settings found for {owner}/{repo}
         </p>
-        <Button render={<Link href="/explore" />} className="mt-4">
+        <Button nativeButton={false} render={<Link href="/explore" />} className="mt-4">
           Browse Bounties
         </Button>
       </div>

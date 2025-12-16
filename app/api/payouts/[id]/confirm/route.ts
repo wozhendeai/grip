@@ -1,13 +1,13 @@
-import { requireAuth } from '@/lib/auth-server';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   getPayoutById,
   getPayoutWithDetails,
   markPayoutConfirmed,
   markPayoutFailed,
   updatePayoutStatus,
-} from '@/lib/db/queries/payouts';
+} from '@/db/queries/payouts';
 import { notifyPaymentReceived } from '@/lib/notifications';
-import { waitForConfirmation } from '@/lib/tempo/signing';
+import { tempoClient } from '@/lib/tempo/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
@@ -78,7 +78,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Wait for confirmation if requested
     if (shouldWait) {
       try {
-        const confirmation = await waitForConfirmation(txHash, 60000, 2000);
+        const confirmation = await tempoClient.waitForTransactionReceipt({
+          hash: txHash as `0x${string}`,
+          timeout: 60000,
+        });
 
         if (confirmation.status === 'success') {
           updatedPayout = await markPayoutConfirmed(
@@ -197,7 +200,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     // If pending with txHash but not confirmed, try to get confirmation
     if (payout.status === 'pending' && payout.txHash) {
       try {
-        const confirmation = await waitForConfirmation(payout.txHash, 5000, 1000);
+        const confirmation = await tempoClient.waitForTransactionReceipt({
+          hash: payout.txHash as `0x${string}`,
+          timeout: 5000,
+        });
 
         if (confirmation.status === 'success') {
           const updatedPayout = await markPayoutConfirmed(

@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/user/user-avatar';
-import { getSession } from '@/lib/auth-server';
-import { getAccessKeysByUser } from '@/lib/db/queries/access-keys';
-import { getPasskeysByUser } from '@/lib/db/queries/passkeys';
+import { getSession } from '@/lib/auth/auth-server';
+import { getAccessKeysByUser } from '@/db/queries/access-keys';
+import { getPasskeysByUser } from '@/db/queries/passkeys';
 import { redirect } from 'next/navigation';
 import { AccessKeyManager } from './_components/access-key-manager';
 import { PasskeyManager } from './_components/passkey-manager';

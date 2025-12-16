@@ -2,7 +2,7 @@
 
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
-import { passkey } from '@/lib/auth-client';
+import { passkey } from '@/lib/auth/auth-client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 

@@ -1,7 +1,7 @@
 import { RouteModal } from '@/components/modal/route-modal';
-import { getSession } from '@/lib/auth-server';
-import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
-import { fetchGitHubRepo } from '@/lib/github/repo';
+import { getSession } from '@/lib/auth/auth-server';
+import { getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { fetchGitHubRepo } from '@/lib/github';
 import { notFound, redirect } from 'next/navigation';
 import { CreateBountyForm } from '../../../../../[owner]/[repo]/bounties/new/_components/create-bounty-form';
 

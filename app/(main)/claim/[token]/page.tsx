@@ -1,6 +1,6 @@
-import { getSession } from '@/lib/auth-server';
-import { getCustodialWalletByClaimToken } from '@/lib/db/queries/custodial-wallets';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
+import { getSession } from '@/lib/auth/auth-server';
+import { getCustodialWalletByClaimToken } from '@/db/queries/custodial-wallets';
+import { getUserWallet } from '@/db/queries/passkeys';
 import { ClaimError } from './_components/claim-error';
 import { ClaimLoginPrompt } from './_components/claim-login-prompt';
 import { ClaimPayment } from './_components/claim-payment';

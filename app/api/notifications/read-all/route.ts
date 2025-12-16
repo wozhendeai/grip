@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth-server';
-import { markAllAsRead } from '@/lib/db/queries/notifications';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { markAllAsRead } from '@/db/queries/notifications';
 import { type NextRequest, NextResponse } from 'next/server';
 
 /**

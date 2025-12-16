@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { signIn, useSession } from '@/lib/auth-client';
+import { signIn, useSession } from '@/lib/auth/auth-client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 

@@ -1,13 +1,13 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
 import {
   type GitHubIssue,
   type IssuesResult,
   getGitHubToken,
   listOpenIssues,
   searchRepoIssues,
-} from '@/lib/github/issues';
-import { fetchGitHubRepo } from '@/lib/github/repo';
+} from '@/lib/github';
+import { fetchGitHubRepo } from '@/lib/github';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {

@@ -9,9 +9,9 @@ import { bigint, boolean, integer, pgTable, text, timestamp, varchar } from 'dri
  * - account: OAuth provider accounts
  * - passkey: WebAuthn credentials + tempoAddress (Tempo plugin extension)
  *
- * IMPORTANT: All timestamp columns use mode: 'string' to return ISO 8601 strings
- * instead of Date objects. This ensures JSON serialization works correctly for
- * React Server Components without manual conversion in every query.
+ * IMPORTANT: Auth tables use mode: 'date' for timestamp columns to match
+ * Better Auth's internal expectations. Better Auth handles its own JSON
+ * serialization for these tables.
  */
 
 export const user = pgTable('user', {
@@ -24,13 +24,11 @@ export const user = pgTable('user', {
   // Used for GitHub-related operations and canonical references
   // BigInt mode to handle GitHub IDs that may exceed 2^53
   githubUserId: bigint('github_user_id', { mode: 'bigint' }).unique(),
-  // mode: 'string' returns ISO 8601 strings instead of Date objects
-  // This ensures JSON serialization works for React Server Components
-  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { mode: 'string' })
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
     .defaultNow()
     .notNull()
-    .$onUpdate(() => new Date().toISOString()),
+    .$onUpdate(() => new Date()),
 });
 
 export const session = pgTable('session', {
@@ -39,14 +37,14 @@ export const session = pgTable('session', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
+  expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { mode: 'string' })
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
     .defaultNow()
     .notNull()
-    .$onUpdate(() => new Date().toISOString()),
+    .$onUpdate(() => new Date()),
 });
 
 export const account = pgTable('account', {
@@ -58,27 +56,27 @@ export const account = pgTable('account', {
   providerId: text('provider_id').notNull(),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at', { mode: 'string' }),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { mode: 'string' }),
+  accessTokenExpiresAt: timestamp('access_token_expires_at', { mode: 'date' }),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { mode: 'date' }),
   scope: text('scope'),
   idToken: text('id_token'),
   password: text('password'),
-  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { mode: 'string' })
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
     .defaultNow()
     .notNull()
-    .$onUpdate(() => new Date().toISOString()),
+    .$onUpdate(() => new Date()),
 });
 
 export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
-  expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
-  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
-  updatedAt: timestamp('updated_at', { mode: 'string' })
+  expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
     .defaultNow()
-    .$onUpdate(() => new Date().toISOString()),
+    .$onUpdate(() => new Date()),
 });
 
 /**

@@ -1,23 +1,20 @@
-import { requireAuth } from '@/lib/auth-server';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   type BountyStatus,
   type SortOption,
   createBounty,
   getAllBounties,
   updateBountyStatus,
-} from '@/lib/db/queries/bounties';
-import {
-  doesRepoRequireOwnerApproval,
-  getRepoSettingsByName,
-} from '@/lib/db/queries/repo-settings';
+} from '@/db/queries/bounties';
+import { doesRepoRequireOwnerApproval, getRepoSettingsByName } from '@/db/queries/repo-settings';
 import {
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
   getGitHubToken,
   getIssue,
-} from '@/lib/github/issues';
-import { fetchGitHubRepo } from '@/lib/github/repo';
+} from '@/lib/github';
+import { fetchGitHubRepo } from '@/lib/github';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 

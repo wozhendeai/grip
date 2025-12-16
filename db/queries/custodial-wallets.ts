@@ -1,7 +1,7 @@
 import { db } from '@/db';
 import { custodialWallets } from '@/db/schema/business';
-import { getNetworkForInsert, networkFilter } from '@/lib/db/network';
-import { getTIP20Balance } from '@/lib/tempo/balance';
+import { getNetworkForInsert, networkFilter } from '../network';
+import { tempoClient } from '@/lib/tempo/client';
 import { and, eq } from 'drizzle-orm';
 
 /**
@@ -187,11 +187,10 @@ export async function getCustodialWalletBalance(params: {
   address: string;
   tokenAddress: string;
 }): Promise<bigint> {
-  const balance = await getTIP20Balance(
-    params.address as `0x${string}`,
-    params.tokenAddress as `0x${string}`
-  );
-  return balance;
+  return tempoClient.token.getBalance({
+    account: params.address as `0x${string}`,
+    token: params.tokenAddress as `0x${string}`,
+  });
 }
 
 /**

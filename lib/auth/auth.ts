@@ -3,7 +3,11 @@ import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { createAuthMiddleware } from 'better-auth/api';
-import { tempo } from './tempo-plugin';
+import { tempo } from './tempo-plugin/tempo-plugin';
+import { getBackendWalletAddress } from '@/lib/turnkey/client';
+import { signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
+import type { TempoTransactionParams } from './tempo-plugin/types';
+import * as schema from '@/db/schema/auth';
 
 /**
  * better-auth server configuration
@@ -18,6 +22,7 @@ import { tempo } from './tempo-plugin';
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
+    schema,
   }),
 
   // GitHub OAuth for identity
@@ -38,7 +43,35 @@ export const auth = betterAuth({
     }),
 
     // Tempo plugin - derives blockchain address from passkey public key
-    tempo(),
+    // Provides Access Key endpoints for backend signing authorization
+    tempo({
+      // Turnkey HSM backend wallet for Access Key signing
+      backendWallet: {
+        provider: 'turnkey',
+        getAddress: async (network) => {
+          return getBackendWalletAddress(network as 'testnet' | 'mainnet');
+        },
+        signTransaction: async ({ tx, funderAddress, network }) => {
+          // Sign with Turnkey using Access Key authorization
+          return signTransactionWithAccessKey({
+            tx: tx as TempoTransactionParams,
+            funderAddress,
+            network: network as 'testnet' | 'mainnet',
+          });
+        },
+      },
+
+      // Enable multi-network support (testnet/mainnet)
+      enableNetworkField: true,
+
+      // Allow Tempo testnet only for now
+      allowedChainIds: [42429],
+
+      // Default Access Key settings
+      accessKeyDefaults: {
+        label: 'BountyLane Auto-pay',
+      },
+    }),
   ],
 
   hooks: {

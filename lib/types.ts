@@ -346,17 +346,6 @@ export interface Notification {
 }
 
 /**
- * Format a token amount for display
- * Assumes USD-denominated tokens (USDC, etc.)
- */
-export function formatTokenAmount(amount: number): string {
-  return `$${amount.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-/**
  * Truncate an address for display: 0x1234...5678
  */
 export function truncateAddress(address: string): string {

@@ -1,6 +1,6 @@
 import { passkeyClient } from '@better-auth/passkey/client';
 import { createAuthClient } from 'better-auth/react';
-import { tempoClient } from './tempo-client';
+import { tempoClient } from './tempo-plugin/tempo-client';
 
 /**
  * better-auth client configuration

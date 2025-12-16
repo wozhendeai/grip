@@ -1,12 +1,12 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getBountyWithOptionalRepoSettings, isUserPrimaryFunder } from '@/lib/db/queries/bounties';
-import { isUserRepoOwner } from '@/lib/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getBountyWithOptionalRepoSettings, isUserPrimaryFunder } from '@/db/queries/bounties';
+import { isUserRepoOwner } from '@/db/queries/repo-settings';
 import {
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
   getGitHubToken,
-} from '@/lib/github/issues';
+} from '@/lib/github';
 import { notifyBountyCreatedOnRepo } from '@/lib/notifications';
 import { type NextRequest, NextResponse } from 'next/server';
 

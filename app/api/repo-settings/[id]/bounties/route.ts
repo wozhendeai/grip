@@ -1,13 +1,13 @@
-import { requireAuth } from '@/lib/auth-server';
-import { createBounty, getBountyByGitHubIssueId } from '@/lib/db/queries/bounties';
-import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/lib/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { createBounty, getBountyByGitHubIssueId } from '@/db/queries/bounties';
+import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
 import {
   addLabelToIssue,
   commentOnIssue,
   generateBountyComment,
   getGitHubToken,
   getIssue,
-} from '@/lib/github/issues';
+} from '@/lib/github';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 

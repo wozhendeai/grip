@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getSubmissionsByUser } from '@/lib/db/queries/submissions';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getSubmissionsByUser } from '@/db/queries/submissions';
 import { NextResponse } from 'next/server';
 
 export async function GET() {

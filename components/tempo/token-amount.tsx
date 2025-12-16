@@ -1,4 +1,4 @@
-import { formatTokenAmount } from '@/lib/tempo/format';
+import { formatUnits } from 'viem';
 import { cn } from '@/lib/utils';
 
 interface TokenAmountProps {
@@ -20,7 +20,7 @@ interface TokenAmountProps {
  * Converts from smallest units (6 decimals) to display units.
  */
 export function TokenAmount({ amount, symbol, showSymbol = true, className }: TokenAmountProps) {
-  const formatted = formatTokenAmount(amount, { trim: true });
+  const formatted = formatUnits(BigInt(amount), 6);
 
   return (
     <span className={cn('font-medium tabular-nums', className)}>

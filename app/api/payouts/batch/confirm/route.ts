@@ -1,7 +1,7 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getPayoutWithDetails, updatePayoutStatus } from '@/lib/db/queries/payouts';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getPayoutWithDetails, updatePayoutStatus } from '@/db/queries/payouts';
 import { notifyPaymentReceived } from '@/lib/notifications';
-import { waitForConfirmation } from '@/lib/tempo/signing';
+import { tempoClient } from '@/lib/tempo/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // Optionally wait for confirmation
     try {
-      const receipt = await waitForConfirmation(txHash, 30000);
+      const receipt = await tempoClient.waitForTransactionReceipt({ hash: txHash, timeout: 30000 });
       if (receipt) {
         // Update to confirmed
         await Promise.all(

@@ -1,5 +1,5 @@
-import { getBountyWithAuthor, getBountyWithFunders } from '@/lib/db/queries/bounties';
-import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
+import { getBountyWithAuthor, getBountyWithFunders } from '@/db/queries/bounties';
+import { getSubmissionsByBounty } from '@/db/queries/submissions';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {

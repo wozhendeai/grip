@@ -1,5 +1,5 @@
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
-import { getRepoSettingsByGithubRepoId } from '@/lib/db/queries/repo-settings';
+import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { getRepoSettingsByGithubRepoId } from '@/db/queries/repo-settings';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {

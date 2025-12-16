@@ -1,21 +1,21 @@
 import { db } from '@/db';
 import { accessKeys, activityLog } from '@/db/schema/business';
-import { requireAuth } from '@/lib/auth-server';
-import { getNetworkForInsert } from '@/lib/db/network';
-import { getBountyWithRepoSettings } from '@/lib/db/queries/bounties';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { createPayout, updatePayoutStatus } from '@/lib/db/queries/payouts';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getNetworkForInsert } from '@/db/network';
+import { getBountyWithRepoSettings } from '@/db/queries/bounties';
+import { getUserWallet } from '@/db/queries/passkeys';
+import { createPayout, updatePayoutStatus } from '@/db/queries/payouts';
 import {
   approveBountySubmissionAsFunder,
   getActiveSubmissionsForBounty,
   getSubmissionById,
   getSubmissionWithDetails,
   getUserSubmissionForBounty,
-} from '@/lib/db/queries/submissions';
+} from '@/db/queries/submissions';
 import { notifyPrApproved } from '@/lib/notifications';
 import { buildPayoutTransaction, encodeBountyMemo } from '@/lib/tempo';
+import { tempoClient } from '@/lib/tempo/client';
 import { broadcastTransaction, signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
-import { getNonce } from '@/lib/tempo/signing';
 import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 
@@ -199,7 +199,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
             }
 
             // Get nonce for funder's account
-            const nonce = await getNonce(funderWallet.tempoAddress as `0x${string}`);
+            const nonce = BigInt(
+              await tempoClient.getTransactionCount({
+                address: funderWallet.tempoAddress as `0x${string}`,
+                blockTag: 'pending',
+              })
+            );
 
             // Sign transaction with Access Key (Keychain signature via Turnkey)
             const { rawTransaction, hash } = await signTransactionWithAccessKey({
@@ -303,7 +308,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Import custodial wallet functions
     const { getCustodialWalletByGithubUserId, createCustodialWalletRecord } = await import(
-      '@/lib/db/queries/custodial-wallets'
+      '@/db/queries/custodial-wallets'
     );
     const { createCustodialWallet } = await import('@/lib/turnkey/custodial-wallets');
 
@@ -437,7 +442,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
             throw new Error('Funder wallet not found');
           }
 
-          const nonce = await getNonce(funderWallet.tempoAddress as `0x${string}`);
+          const nonce = BigInt(
+            await tempoClient.getTransactionCount({
+              address: funderWallet.tempoAddress as `0x${string}`,
+              blockTag: 'pending',
+            })
+          );
 
           const { rawTransaction } = await signTransactionWithAccessKey({
             tx: {

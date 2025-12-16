@@ -1,10 +1,10 @@
 import { BountyCard } from '@/components/bounty/bounty-card';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
-import { getSession } from '@/lib/auth-server';
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
-import { getRepoSettingsByName } from '@/lib/db/queries/repo-settings';
-import { fetchGitHubRepo } from '@/lib/github/repo';
+import { getSession } from '@/lib/auth/auth-server';
+import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { fetchGitHubRepo } from '@/lib/github';
 import type { Bounty, BountyProject } from '@/lib/types';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';

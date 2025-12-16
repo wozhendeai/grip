@@ -1,6 +1,6 @@
-import { requireAuth } from '@/lib/auth-server';
-import { getBountiesByGithubRepoId } from '@/lib/db/queries/bounties';
-import { getGitHubToken, listOpenIssues } from '@/lib/github/issues';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { getGitHubToken, listOpenIssues } from '@/lib/github';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {

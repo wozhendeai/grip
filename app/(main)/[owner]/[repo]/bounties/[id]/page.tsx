@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { getSession } from '@/lib/auth-server';
-import { getBountyWithAuthor } from '@/lib/db/queries/bounties';
-import { getUserWallet } from '@/lib/db/queries/passkeys';
-import { getSubmissionsByBounty } from '@/lib/db/queries/submissions';
+import { getSession } from '@/lib/auth/auth-server';
+import { getBountyWithAuthor } from '@/db/queries/bounties';
+import { getUserWallet } from '@/db/queries/passkeys';
+import { getSubmissionsByBounty } from '@/db/queries/submissions';
 import type { Bounty, SubmissionStatus } from '@/lib/types';
 import Link from 'next/link';
 import { BountyDetail } from './_components/bounty-detail';

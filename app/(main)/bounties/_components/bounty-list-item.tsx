@@ -1,7 +1,7 @@
 import { BountyStatus } from '@/components/bounty/bounty-status';
-import { formatTokenAmount } from '@/lib/tempo/format';
 import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
+import { formatUnits } from 'viem';
 
 /**
  * BountyListItem - Row-based bounty display for the /bounties page
@@ -53,7 +53,7 @@ export function BountyListItem({ bounty, index = 0 }: BountyListItemProps) {
       {/* Right Side: Amount + Status */}
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-xl font-bold text-success">
-          ${formatTokenAmount(bounty.totalFunded, { trim: true })}
+          ${formatUnits(BigInt(bounty.totalFunded), 6)}
         </span>
         <BountyStatus status={bounty.status} />
       </div>

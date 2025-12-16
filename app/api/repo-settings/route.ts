@@ -1,9 +1,9 @@
-import { requireAuth } from '@/lib/auth-server';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   createRepoSettings,
   getRepoSettingsByGithubRepoId,
   getRepoSettingsByUser,
-} from '@/lib/db/queries/repo-settings';
+} from '@/db/queries/repo-settings';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {

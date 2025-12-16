@@ -40,7 +40,8 @@ export function AccessKeyManager({ initialKeys, credentialId }: AccessKeyManager
     try {
       setRevoking(keyId);
 
-      const res = await fetch(`/api/access-keys/${keyId}`, {
+      // Revoke Access Key via Better Auth plugin
+      const res = await fetch(`/api/auth/tempo/access-keys/${keyId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

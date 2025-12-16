@@ -159,7 +159,9 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
           </ul>
         </div>
 
-        <Button render={<Link href="/wallet" />}>Create Passkey</Button>
+        <Button nativeButton={false} render={<Link href="/wallet" />}>
+          Create Passkey
+        </Button>
       </CardContent>
     </Card>
   );

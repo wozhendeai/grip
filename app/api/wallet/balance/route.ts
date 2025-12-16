@@ -1,6 +1,7 @@
-import { getTokenInfo } from '@/lib/tempo/balance';
+import { tempoClient } from '@/lib/tempo/client';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { type NextRequest, NextResponse } from 'next/server';
+import { formatUnits } from 'viem';
 
 /**
  * GET /api/wallet/balance
@@ -27,15 +28,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokenInfo = await getTokenInfo(address as `0x${string}`, tokenAddress);
+    const [balance, metadata] = await Promise.all([
+      tempoClient.token.getBalance({
+        account: address as `0x${string}`,
+        token: tokenAddress,
+      }),
+      tempoClient.token.getMetadata({
+        token: tokenAddress,
+      }),
+    ]);
 
     return NextResponse.json({
       address,
       tokenAddress,
-      balance: tokenInfo.balance.toString(),
-      formattedBalance: tokenInfo.formattedBalance,
-      decimals: tokenInfo.decimals,
-      symbol: tokenInfo.symbol,
+      balance: balance.toString(),
+      formattedBalance: formatUnits(balance, metadata.decimals),
+      decimals: metadata.decimals,
+      symbol: metadata.symbol,
     });
   } catch (error) {
     console.error('Error fetching balance:', error);

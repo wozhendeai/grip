@@ -1,5 +1,5 @@
 import { account, bounties, db, passkey, payouts, user } from '@/db';
-import { networkFilter } from '@/lib/db/network';
+import { networkFilter } from '../network';
 import { and, eq, sql } from 'drizzle-orm';
 
 /**

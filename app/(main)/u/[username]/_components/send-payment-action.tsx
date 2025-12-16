@@ -30,7 +30,7 @@ export function SendPaymentAction({ recipientUsername, recipientName }: SendPaym
   // Check if user has a wallet on mount
   useEffect(() => {
     async function checkWallet() {
-      const res = await fetch('/api/user/passkeys');
+      const res = await fetch('/api/auth/tempo/passkeys');
       const data = await res.json();
       const wallet = data.passkeys?.find((p: { tempoAddress?: string }) => p.tempoAddress);
       setHasWallet(!!wallet);

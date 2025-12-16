@@ -56,7 +56,7 @@ export default function WalletSwapPage() {
           </ul>
         </div>
 
-        <Button render={<Link href="/wallet" />} className="mt-8">
+        <Button nativeButton={false} render={<Link href="/wallet" />} className="mt-8">
           Return to Wallet
         </Button>
       </div>

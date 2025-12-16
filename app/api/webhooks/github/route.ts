@@ -1,11 +1,11 @@
 import { bounties, db, repoSettings } from '@/db';
-import { getBountyByGitHubIssueId, updateBountyStatus } from '@/lib/db/queries/bounties';
+import { getBountyByGitHubIssueId, updateBountyStatus } from '@/db/queries/bounties';
 import {
   findOrCreateSubmissionForGitHubUser,
   getActiveSubmissionsForBounty,
   updateSubmissionStatus,
-} from '@/lib/db/queries/submissions';
-import { findUserByGitHubUsername } from '@/lib/db/queries/users';
+} from '@/db/queries/submissions';
+import { findUserByGitHubUsername } from '@/db/queries/users';
 import {
   type IssueEvent,
   type PingEvent,
