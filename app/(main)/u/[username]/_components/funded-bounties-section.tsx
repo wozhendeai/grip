@@ -1,7 +1,7 @@
 import { BountyStatus } from '@/components/bounty/bounty-status';
-import { formatTokenAmount } from '@/lib/tempo/format';
 import type { BountyStatus as BountyStatusType } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { formatUnits } from 'viem';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -81,12 +81,9 @@ export function FundedBountiesSection({ bounties }: FundedBountiesSectionProps) 
                     key={bounty.id}
                     href={`/${bounty.repoOwner}/${bounty.repoName}/bounties/${bounty.id}`}
                     className={cn(
-                      'group relative block rounded-lg border bg-card p-4 opacity-0 transition-all duration-200 hover:scale-[1.02] animate-fade-up',
+                      'group relative block rounded-lg border bg-card p-4 transition-all duration-200 hover:scale-[1.02]',
                       statusStyles[bounty.status as BountyStatusType]
                     )}
-                    style={{
-                      animationDelay: `${groupIndex * 100 + cardIndex * 50}ms`,
-                    }}
                   >
                     {/* Pulse indicator for active bounties (open/claimed) */}
                     {(bounty.status === 'open' || bounty.status === 'claimed') && (
@@ -114,7 +111,7 @@ export function FundedBountiesSection({ bounties }: FundedBountiesSectionProps) 
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-mono text-lg font-bold text-foreground">
-                          ${formatTokenAmount(bounty.amount, { trim: true })}
+                          ${formatUnits(BigInt(bounty.amount), 6)}
                         </span>
                         <span className="ml-1 font-mono text-xs text-muted-foreground">USDC</span>
                       </div>

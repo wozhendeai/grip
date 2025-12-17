@@ -1,7 +1,7 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
-import { fetchGitHubUserRepositories } from '@/lib/github/repo';
+import { fetchGitHubUserRepositories } from '@/lib/github';
 import { FolderGit2 } from 'lucide-react';
-import { RepoCard } from './repo-card';
+import { GitHubRepoCard } from '@/components/github/repo-card';
 
 interface ProjectsSectionProps {
   username: string; // GitHub username (for API)
@@ -59,15 +59,17 @@ export async function ProjectsSection({
           </Empty>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {repos.map(({ githubRepo, imported, openBountyCount, totalBountyValue, projectId }) => (
-              <RepoCard
+            {repos.map(({ githubRepo, imported, openBountyCount, totalBountyValue }) => (
+              <GitHubRepoCard
                 key={githubRepo.id}
                 repo={githubRepo}
-                imported={imported}
-                openBountyCount={openBountyCount}
-                totalBountyValue={totalBountyValue}
-                projectId={projectId}
-                isOwnProfile={isOwnProfile}
+                href={`/${githubRepo.owner.login}/${githubRepo.name}`}
+                bounty={
+                  openBountyCount > 0
+                    ? { openCount: openBountyCount, totalValue: totalBountyValue }
+                    : undefined
+                }
+                showCreateBountyCta={isOwnProfile && !imported}
               />
             ))}
           </div>

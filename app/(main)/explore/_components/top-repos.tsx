@@ -1,6 +1,16 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import Link from 'next/link';
-import { RepoCard, type TopRepo } from './repo-card';
+import { GitHubRepoCard } from '@/components/github/repo-card';
+import type { GitHubRepo } from '@/lib/github/api';
+
+export interface TopRepo {
+  id: string;
+  githubOwner: string;
+  githubRepo: string;
+  githubFullName: string;
+  totalBountyValue: number;
+  openBountyCount: number;
+}
 
 /**
  * TopRepos - Section showing repositories with highest total bounty values
@@ -42,9 +52,42 @@ export function TopRepos({ repos }: TopReposProps) {
           </Empty>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {repos.map((repo) => (
-              <RepoCard key={repo.id} repo={repo} />
-            ))}
+            {repos.map((repo) => {
+              // Transform TopRepo to GitHubRepo format
+              const githubRepo: GitHubRepo = {
+                id: Number.parseInt(repo.id),
+                name: repo.githubRepo,
+                full_name: repo.githubFullName,
+                owner: {
+                  login: repo.githubOwner,
+                  avatar_url: `https://github.com/${repo.githubOwner}.png`,
+                  id: 0,
+                },
+                description: null,
+                private: false,
+                html_url: `https://github.com/${repo.githubFullName}`,
+                stargazers_count: 0,
+                forks_count: 0,
+                open_issues_count: 0,
+                language: null,
+                created_at: '',
+                updated_at: '',
+                default_branch: 'main',
+              };
+
+              return (
+                <GitHubRepoCard
+                  key={repo.id}
+                  repo={githubRepo}
+                  href={`/${repo.githubOwner}/${repo.githubRepo}`}
+                  bounty={{
+                    openCount: repo.openBountyCount,
+                    totalValue: repo.totalBountyValue,
+                  }}
+                  layout="minimal"
+                />
+              );
+            })}
           </div>
         )}
       </div>

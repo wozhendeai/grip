@@ -20,11 +20,7 @@ export function BountyCard({ bounty, index = 0 }: BountyCardProps) {
   const labels = bounty.labels ?? [];
 
   return (
-    <Link
-      href={bountyUrl}
-      className="group block opacity-0 animate-fade-up"
-      style={{ animationDelay: `${index * 50}ms` }}
-    >
+    <Link href={bountyUrl} className="group block">
       <article className="relative h-full overflow-hidden rounded-lg border border-border bg-card p-5 transition-colors hover:border-muted-foreground/50">
         {/* Header: Project + Status */}
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -57,9 +53,9 @@ export function BountyCard({ bounty, index = 0 }: BountyCardProps) {
         {/* Labels */}
         {labels.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5">
-            {labels.slice(0, 2).map((label) => (
+            {labels.slice(0, 2).map((label, idx) => (
               <span
-                key={label.name}
+                key={`${label.name}-${idx}`}
                 className="inline-flex items-center rounded bg-secondary px-2 py-0.5 text-xs text-muted-foreground"
               >
                 {label.name}

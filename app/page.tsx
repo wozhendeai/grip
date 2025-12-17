@@ -194,6 +194,7 @@ export default async function HomePage() {
               <Button
                 variant="outline"
                 size="lg"
+                nativeButton={false}
                 render={
                   <Link href="https://github.com" target="_blank">
                     View on GitHub

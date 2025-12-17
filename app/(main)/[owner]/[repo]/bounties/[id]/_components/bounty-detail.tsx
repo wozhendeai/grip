@@ -550,6 +550,7 @@ export function BountyDetail({
                 <Button
                   variant="outline"
                   className="w-full"
+                  nativeButton={false}
                   render={(props) => (
                     <a
                       {...props}

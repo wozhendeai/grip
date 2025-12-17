@@ -25,8 +25,7 @@ export function BountyListItem({ bounty, index = 0 }: BountyListItemProps) {
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 border-b border-border py-4 transition-colors hover:bg-muted/50 px-4 -mx-4 animate-fade-in-up opacity-0"
-      style={{ animationDelay: `${index * 50}ms` }}
+      className="group flex items-start gap-4 border-b border-border py-4 transition-colors hover:bg-muted/50 px-4 -mx-4"
     >
       {/* Repo Avatar */}
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-xs font-bold uppercase">

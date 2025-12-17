@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription } from '@/components/ui/empty';
 import { UserAvatar } from '@/components/user/user-avatar';
-import { getUserEarningsOverTime } from '@/lib/db/queries/payouts';
-import { getSubmissionsByUser } from '@/lib/db/queries/submissions';
-import type { getBountyDataByGitHubId, getUserByName } from '@/lib/db/queries/users';
-import type { GitHubActivity, GitHubUser } from '@/lib/github/user';
-import { formatTokenAmount } from '@/lib/tempo/format';
+import { getUserEarningsOverTime } from '@/db/queries/payouts';
+import { getSubmissionsByUser } from '@/db/queries/submissions';
+import type { getBountyDataByGitHubId, getUserByName } from '@/db/queries/users';
+import type { GitHubActivity, GitHubUser } from '@/lib/github';
+import { formatUnits } from 'viem';
 import { formatTimeAgo } from '@/lib/utils';
 import { ExternalLink, Github } from 'lucide-react';
 import Link from 'next/link';
@@ -92,7 +92,7 @@ export async function UserProfile({
           <div className="mt-6 flex items-center gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="text-success font-medium">
-                ${formatTokenAmount(bountyData.totalEarned.toString(), { trim: true })}
+                ${formatUnits(BigInt(bountyData.totalEarned), 6)}
               </span>
               <span>earned</span>
             </span>
@@ -133,8 +133,7 @@ export async function UserProfile({
                 <Link
                   key={item.bounty.id}
                   href={`/${item.bounty.githubOwner}/${item.bounty.githubRepo}/bounties/${item.bounty.id}`}
-                  className="block opacity-0 animate-fade-up"
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  className="block"
                 >
                   <div className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-muted-foreground/50">
                     <div className="flex items-start justify-between gap-4">
@@ -153,7 +152,7 @@ export async function UserProfile({
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="text-lg font-bold">
-                          +${formatTokenAmount(item.bounty.totalFunded.toString(), { trim: true })}
+                          +${formatUnits(BigInt(item.bounty.totalFunded), 6)}
                         </span>
                         <p className="text-xs text-muted-foreground">USDC</p>
                       </div>
