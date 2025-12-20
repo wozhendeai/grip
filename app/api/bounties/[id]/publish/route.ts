@@ -1,6 +1,6 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getBountyWithOptionalRepoSettings, isUserPrimaryFunder } from '@/db/queries/bounties';
 import { isUserRepoOwner } from '@/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   addLabelToIssue,
   commentOnIssue,

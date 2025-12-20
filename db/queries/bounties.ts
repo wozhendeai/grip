@@ -1,6 +1,6 @@
 import { bounties, bountyFunders, db, repoSettings, submissions, user } from '@/db';
-import { getNetworkForInsert, networkFilter } from '../network';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { getNetworkForInsert, networkFilter } from '../network';
 
 export type BountyStatus = 'open' | 'completed' | 'cancelled';
 

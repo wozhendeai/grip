@@ -1,9 +1,9 @@
 import { BountyCard } from '@/components/bounty/bounty-card';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
-import { getSession } from '@/lib/auth/auth-server';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';
 import type { Bounty, BountyProject } from '@/lib/types';
 import Link from 'next/link';

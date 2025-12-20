@@ -1,10 +1,10 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getBountyWithRepoSettings, updateBountyStatus } from '@/db/queries/bounties';
 import {
   getActiveSubmissionsForBounty,
   getSubmissionById,
   rejectSubmission,
 } from '@/db/queries/submissions';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { notifyPrRejected } from '@/lib/notifications';
 import { type NextRequest, NextResponse } from 'next/server';
 

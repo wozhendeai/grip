@@ -1,28 +1,28 @@
+import { db } from '@/db';
+import { getCurrentNetwork, getNetworkForInsert } from '@/db/network';
+import { accessKeys, activityLog } from '@/db/schema/business';
 import type { BetterAuthPlugin } from 'better-auth';
-import { createAuthMiddleware, createAuthEndpoint } from 'better-auth/api';
+import { createAuthEndpoint, createAuthMiddleware } from 'better-auth/api';
+import { and, eq } from 'drizzle-orm';
+import { KeyAuthorization } from 'tempo.ts/ox';
 import { keccak256, toHex } from 'viem';
 import type {
-  TempoPluginConfig,
+  AccessKeyStatus,
   CreateAccessKeyRequest,
   CreateAccessKeyResponse,
+  GetAccessKeyResponse,
   ListAccessKeysRequest,
   ListAccessKeysResponse,
-  GetAccessKeyResponse,
+  ListKeysResponse,
+  ListPasskeysResponse,
+  LoadKeyResponse,
+  PasskeyWithAddress,
   RevokeAccessKeyRequest,
   RevokeAccessKeyResponse,
-  AccessKeyStatus,
-  ListPasskeysResponse,
-  PasskeyWithAddress,
-  ListKeysResponse,
-  LoadKeyResponse,
   SaveKeyRequest,
   SaveKeyResponse,
+  TempoPluginConfig,
 } from './types';
-import { KeyAuthorization } from 'tempo.ts/ox';
-import { db } from '@/db';
-import { accessKeys, activityLog } from '@/db/schema/business';
-import { and, eq } from 'drizzle-orm';
-import { getCurrentNetwork, getNetworkForInsert } from '@/db/network';
 
 /**
  * Tempo Plugin for better-auth

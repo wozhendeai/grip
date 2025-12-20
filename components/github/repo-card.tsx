@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import type { GitHubRepo } from '@/lib/github/api';
 import { Badge } from '@/components/ui/badge';
+import type { GitHubRepo } from '@/lib/github/api';
+import Link from 'next/link';
 
 interface GitHubRepoCardProps {
   repo: GitHubRepo;

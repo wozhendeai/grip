@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { getGitHubToken, listOpenIssues } from '@/lib/github';
 import { type NextRequest, NextResponse } from 'next/server';
 

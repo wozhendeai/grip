@@ -1,5 +1,5 @@
-import { tempoClient } from './client';
 import { getFunderPendingLiabilities } from '@/db/queries/pending-payments';
+import { tempoClient } from './client';
 
 /**
  * Balance Check Utility

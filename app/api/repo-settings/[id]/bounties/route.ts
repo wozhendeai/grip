@@ -1,6 +1,6 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { createBounty, getBountyByGitHubIssueId } from '@/db/queries/bounties';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   addLabelToIssue,
   commentOnIssue,

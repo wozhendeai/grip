@@ -1,6 +1,4 @@
 import { db } from '@/db';
-import { accessKeys, activityLog } from '@/db/schema/business';
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getNetworkForInsert } from '@/db/network';
 import { getBountyWithRepoSettings } from '@/db/queries/bounties';
 import { getUserWallet } from '@/db/queries/passkeys';
@@ -12,6 +10,8 @@ import {
   getSubmissionWithDetails,
   getUserSubmissionForBounty,
 } from '@/db/queries/submissions';
+import { accessKeys, activityLog } from '@/db/schema/business';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { notifyPrApproved } from '@/lib/notifications';
 import { buildPayoutTransaction, encodeBountyMemo } from '@/lib/tempo';
 import { tempoClient } from '@/lib/tempo/client';

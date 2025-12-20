@@ -12,17 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { signOut, useSession } from '@/lib/auth/auth-client';
-import { BookOpen, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
 } from '@/components/ui/navigation-menu';
+import { signOut, useSession } from '@/lib/auth/auth-client';
+import { BookOpen, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { NavbarBalance } from './navbar-balance';
 
 /**

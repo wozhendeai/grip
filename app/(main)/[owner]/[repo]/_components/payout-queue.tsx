@@ -12,8 +12,8 @@ import {
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useWriteContract } from 'wagmi';
 import { Abis } from 'tempo.ts/viem';
+import { useWriteContract } from 'wagmi';
 
 /**
  * Payout Queue - SDK Version

@@ -1,13 +1,13 @@
 import { db } from '@/db';
+import * as schema from '@/db/schema/auth';
+import { signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
+import { getBackendWalletAddress } from '@/lib/turnkey/client';
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { createAuthMiddleware } from 'better-auth/api';
 import { tempo } from './tempo-plugin/tempo-plugin';
-import { getBackendWalletAddress } from '@/lib/turnkey/client';
-import { signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
 import type { TempoTransactionParams } from './tempo-plugin/types';
-import * as schema from '@/db/schema/auth';
 
 /**
  * better-auth server configuration

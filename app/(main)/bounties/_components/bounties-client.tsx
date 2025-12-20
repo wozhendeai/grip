@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/select';
 import { StatCard } from '@/components/ui/stat-card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatUnits } from 'viem';
 import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { formatUnits } from 'viem';
 import { BountyListItem } from './bounty-list-item';
 
 /**

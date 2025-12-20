@@ -1,6 +1,6 @@
-import { getSession } from '@/lib/auth/auth-server';
 import { getUserWallet } from '@/db/queries/passkeys';
 import { getBountyDataByGitHubId, getUserByName } from '@/db/queries/users';
+import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubUser, fetchGitHubUserActivity } from '@/lib/github';
 import { notFound } from 'next/navigation';
 import { UserProfile } from './_components/user-profile';

@@ -1,7 +1,7 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import Link from 'next/link';
 import { GitHubRepoCard } from '@/components/github/repo-card';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import type { GitHubRepo } from '@/lib/github/api';
+import Link from 'next/link';
 
 export interface TopRepo {
   id: string;

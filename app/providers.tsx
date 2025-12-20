@@ -15,10 +15,10 @@
  * - Share the same passkey credentials between both systems
  */
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
-import type { ReactNode } from 'react';
 import { config } from '@/lib/wagmi-config';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+import { WagmiProvider } from 'wagmi';
 
 // Create a single QueryClient instance for the app
 // Using default configuration which handles:

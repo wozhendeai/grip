@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { getSession } from '@/lib/auth/auth-server';
 import { getRepoSettingsByName, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { getSession } from '@/lib/auth/auth-server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SettingsLayout } from './_components/settings-layout';

@@ -13,9 +13,9 @@
  * - Use a single passkey for both auth and transaction signing
  */
 
-import { http, createConfig } from 'wagmi';
 import { tempo } from 'tempo.ts/chains';
-import { webAuthn, KeyManager } from 'tempo.ts/wagmi';
+import { KeyManager, webAuthn } from 'tempo.ts/wagmi';
+import { http, createConfig } from 'wagmi';
 import { TEMPO_RPC_URL, TEMPO_TOKENS } from './tempo/constants';
 
 /**

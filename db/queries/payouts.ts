@@ -1,6 +1,6 @@
 import { bounties, db, passkey, payouts, repoSettings, submissions, user } from '@/db';
-import { getNetworkForInsert, networkFilter } from '../network';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { getNetworkForInsert, networkFilter } from '../network';
 
 export type PayoutStatus = 'pending' | 'confirmed' | 'failed';
 

@@ -1,5 +1,5 @@
-import { formatUnits } from 'viem';
 import { cn } from '@/lib/utils';
+import { formatUnits } from 'viem';
 
 interface TokenAmountProps {
   /** Amount as BigInt string (e.g., "1000000" for 1.0 tokens with 6 decimals) */

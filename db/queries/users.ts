@@ -1,6 +1,6 @@
 import { account, bounties, db, passkey, payouts, user } from '@/db';
-import { networkFilter } from '../network';
 import { and, eq, sql } from 'drizzle-orm';
+import { networkFilter } from '../network';
 
 /**
  * Get user by name with computed stats and wallet address

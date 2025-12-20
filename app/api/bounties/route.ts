@@ -1,4 +1,3 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import {
   type BountyStatus,
   type SortOption,
@@ -7,6 +6,7 @@ import {
   updateBountyStatus,
 } from '@/db/queries/bounties';
 import { doesRepoRequireOwnerApproval, getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   addLabelToIssue,
   commentOnIssue,

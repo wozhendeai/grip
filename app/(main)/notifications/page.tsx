@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getPaginatedNotifications } from '@/db/queries/notifications';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { Suspense } from 'react';
 import { NotificationsList } from './_components/notifications-list';
 

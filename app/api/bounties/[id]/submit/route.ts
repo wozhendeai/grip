@@ -1,7 +1,7 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getBountyById } from '@/db/queries/bounties';
 import { getUserWallet } from '@/db/queries/passkeys';
 import { createSubmission, getUserSubmissionForBounty } from '@/db/queries/submissions';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {

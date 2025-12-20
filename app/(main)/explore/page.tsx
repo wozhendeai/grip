@@ -1,7 +1,7 @@
 import { getAllBounties } from '@/db/queries/bounties';
 import { getTopReposByBountyValue } from '@/db/queries/repo-settings';
 import { RecentActivity } from './_components/recent-activity';
-import { TopRepos, type TopRepo } from './_components/top-repos';
+import { type TopRepo, TopRepos } from './_components/top-repos';
 
 /**
  * Explore Page - Browse bounties and discover projects

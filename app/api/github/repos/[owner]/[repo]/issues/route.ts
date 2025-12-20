@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { requireAuth } from '@/lib/auth/auth-server';
 import {
   type GitHubIssue,
   type IssuesResult,

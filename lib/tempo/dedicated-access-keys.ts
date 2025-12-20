@@ -1,8 +1,8 @@
 import { db } from '@/db';
-import { accessKeys } from '@/db/schema/business';
 import { getNetworkForInsert } from '@/db/network';
-import { BACKEND_WALLET_ADDRESSES } from './constants';
+import { accessKeys } from '@/db/schema/business';
 import { eq } from 'drizzle-orm';
+import { BACKEND_WALLET_ADDRESSES } from './constants';
 
 /**
  * Create dedicated Access Key for a single payment

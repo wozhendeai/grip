@@ -1,9 +1,9 @@
 import { BountyStatus } from '@/components/bounty/bounty-status';
 import type { BountyStatus as BountyStatusType } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { formatUnits } from 'viem';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { formatUnits } from 'viem';
 
 interface FundedBountiesSectionProps {
   bounties: Array<{

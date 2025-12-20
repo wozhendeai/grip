@@ -16,9 +16,9 @@
  */
 
 import { turnkey } from '@/lib/turnkey/client';
-import { keccak256 } from 'viem';
-import { Transaction } from 'tempo.ts/viem';
 import { SignatureEnvelope } from 'tempo.ts/ox';
+import { Transaction } from 'tempo.ts/viem';
+import { keccak256 } from 'viem';
 import { TEMPO_CHAIN_ID } from './constants';
 
 /**

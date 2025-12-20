@@ -1,6 +1,6 @@
-import { getSession } from '@/lib/auth/auth-server';
-import { getPendingPaymentByClaimToken } from '@/db/queries/pending-payments';
 import { getUserWallet } from '@/db/queries/passkeys';
+import { getPendingPaymentByClaimToken } from '@/db/queries/pending-payments';
+import { getSession } from '@/lib/auth/auth-server';
 import { ClaimError } from './_components/claim-error';
 import { ClaimGithubMismatch } from './_components/claim-github-mismatch';
 import { ClaimLoginPrompt } from './_components/claim-login-prompt';

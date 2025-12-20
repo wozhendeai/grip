@@ -1,6 +1,6 @@
 import { tempo } from 'tempo.ts/chains';
 import { tempoActions } from 'tempo.ts/viem';
-import { createClient, http, publicActions } from 'viem';
+import { http, createClient, publicActions } from 'viem';
 
 /**
  * Tempo SDK Client

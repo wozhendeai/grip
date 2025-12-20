@@ -1,6 +1,6 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getPayoutsByRepoSettings } from '@/db/queries/payouts';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { buildTransferWithMemoData, encodeBountyMemo } from '@/lib/tempo/payments';
 import { type NextRequest, NextResponse } from 'next/server';
 

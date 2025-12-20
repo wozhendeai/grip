@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES } from '@/lib/tempo/constants';
-import { KeyAuthorization } from 'tempo.ts/ox';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { KeyAuthorization } from 'tempo.ts/ox';
 import { useSignMessage } from 'wagmi';
 
 type ApprovePendingPaymentModalProps = {

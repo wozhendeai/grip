@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
-import { KeyAuthorization } from 'tempo.ts/ox';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { KeyAuthorization } from 'tempo.ts/ox';
 import { useSignMessage } from 'wagmi';
 
 type AccessKey = {

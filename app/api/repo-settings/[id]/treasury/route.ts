@@ -1,6 +1,6 @@
 import { db, passkey } from '@/db';
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { tempoClient } from '@/lib/tempo/client';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { eq } from 'drizzle-orm';

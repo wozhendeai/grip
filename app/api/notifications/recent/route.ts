@@ -1,5 +1,5 @@
-import { requireAuth } from '@/lib/auth/auth-server';
 import { getRecentNotifications, getUnreadCount } from '@/db/queries/notifications';
+import { requireAuth } from '@/lib/auth/auth-server';
 import { type NextRequest, NextResponse } from 'next/server';
 
 /**

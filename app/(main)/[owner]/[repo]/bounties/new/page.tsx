@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { getSession } from '@/lib/auth/auth-server';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';

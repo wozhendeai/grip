@@ -1,7 +1,7 @@
+import { GitHubRepoCard } from '@/components/github/repo-card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { fetchGitHubUserRepositories } from '@/lib/github';
 import { FolderGit2 } from 'lucide-react';
-import { GitHubRepoCard } from '@/components/github/repo-card';
 
 interface ProjectsSectionProps {
   username: string; // GitHub username (for API)

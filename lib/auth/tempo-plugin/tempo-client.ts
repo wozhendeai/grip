@@ -1,18 +1,18 @@
 import type { BetterAuthClientPlugin } from 'better-auth/client';
 import type { tempo } from './tempo-plugin';
 import type {
+  AccessKeyStatus,
   CreateAccessKeyRequest,
   CreateAccessKeyResponse,
-  ListAccessKeysResponse,
   GetAccessKeyResponse,
+  ListAccessKeysResponse,
+  ListKeysResponse,
+  ListPasskeysResponse,
+  LoadKeyResponse,
   RevokeAccessKeyRequest,
   RevokeAccessKeyResponse,
-  ListPasskeysResponse,
-  ListKeysResponse,
-  LoadKeyResponse,
   SaveKeyRequest,
   SaveKeyResponse,
-  AccessKeyStatus,
 } from './types';
 
 /**

@@ -14,8 +14,8 @@ import {
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Abis } from 'tempo.ts/viem';
+import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
 /**
  * Payment signing modal - SDK Version
