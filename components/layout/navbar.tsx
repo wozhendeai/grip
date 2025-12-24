@@ -19,10 +19,12 @@ import {
   NavigationMenuList,
 } from '@/components/ui/navigation-menu';
 import { signOut, useSession } from '@/lib/auth/auth-client';
-import { BookOpen, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
+import { BookOpen, LogOut, Plus, Search, Settings, User, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CreateOrganizationModal } from '@/components/organization/create-organization-modal';
+import { OrganizationSwitcher } from './organization-switcher';
 import { NavbarBalance } from './navbar-balance';
 
 /**
@@ -30,11 +32,11 @@ import { NavbarBalance } from './navbar-balance';
  *
  * Design decisions:
  * - Minimal navigation with Explore and Bounties links
- * - User dropdown with structured sections (like MeritSystems):
+ * - User dropdown with streamlined structure:
  *   1. User info header
- *   2. Navigation links (Your Profile, Dashboard)
- *   3. Theme toggle row
- *   4. Settings, Documentation links
+ *   2. Theme toggle
+ *   3. Navigation links (Your Profile, Wallet, Settings, Documentation)
+ *   4. Organization switcher (with section label)
  *   5. Sign out
  * - Theme toggle uses 3-button pattern (light/dark/system)
  */
@@ -43,6 +45,7 @@ export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [createOrgModalOpen, setCreateOrgModalOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   // Fetch user's wallet address when session loads
@@ -78,6 +81,9 @@ export function Navbar() {
     <>
       {/* Command Menu - controlled from navbar */}
       <CommandMenu open={commandMenuOpen} onOpenChange={setCommandMenuOpen} />
+
+      {/* Create Organization Modal */}
+      <CreateOrganizationModal open={createOrgModalOpen} onOpenChange={setCreateOrgModalOpen} />
 
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
         <nav className="container flex h-16 items-center justify-between">
@@ -188,52 +194,79 @@ export function Navbar() {
                     </div>
                   </div>
 
-                  {/* Navigation Links */}
+                  {/* Theme */}
                   <div className="p-1">
-                    <DropdownMenuItem
-                      render={<Link href={`/u/${session.user.name}`} className="cursor-pointer" />}
-                    >
-                      <User className="mr-2 h-4 w-4" />
-                      Your Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href="/wallet" className="cursor-pointer" />}>
-                      <Wallet className="mr-2 h-4 w-4" />
-                      Wallet
-                    </DropdownMenuItem>
-                  </div>
-
-                  <DropdownMenuSeparator />
-
-                  {/* Theme Toggle */}
-                  <div className="p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Theme</span>
+                    <div className="flex items-center justify-between px-1 py-0.5">
+                      <span className="text-xs text-muted-foreground">Theme</span>
                       <ThemeToggle />
                     </div>
                   </div>
 
                   <DropdownMenuSeparator />
 
-                  {/* Settings & Links */}
+                  {/* Navigation */}
                   <div className="p-1">
-                    <DropdownMenuItem render={<Link href="/settings" className="cursor-pointer" />}>
+                    <DropdownMenuItem
+                      render={
+                        <Link
+                          href={`/u/${session.user.name}`}
+                          className="flex items-center gap-2 cursor-pointer"
+                        />
+                      }
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Your Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={
+                        <Link href="/wallet" className="flex items-center gap-2 cursor-pointer" />
+                      }
+                    >
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Wallet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={
+                        <Link href="/settings" className="flex items-center gap-2 cursor-pointer" />
+                      }
+                    >
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      render={(props) => (
-                        <a
-                          {...props}
-                          href="https://github.com"
+                      render={
+                        <Link
+                          href={process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.grip.dev'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="cursor-pointer"
+                          className="flex items-center gap-2 cursor-pointer"
                         />
-                      )}
+                      }
                     >
                       <BookOpen className="mr-2 h-4 w-4" />
-                      Documentation
+                      Docs
                     </DropdownMenuItem>
+                  </div>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Organization Switcher Section */}
+                  <div className="px-3 py-2">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Switch Context
+                    </span>
+                  </div>
+                  <div className="p-2">
+                    <OrganizationSwitcher />
+
+                    <button
+                      onClick={() => setCreateOrgModalOpen(true)}
+                      type="button"
+                      className="w-full mt-2 flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create organization
+                    </button>
                   </div>
 
                   <DropdownMenuSeparator />
