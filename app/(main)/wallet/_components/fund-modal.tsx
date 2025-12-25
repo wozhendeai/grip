@@ -116,8 +116,8 @@ export function FundModal({ open, onOpenChange, walletAddress }: FundModalProps)
           <div
             className={`rounded-lg border p-3 text-sm ${
               faucetStatus === 'success'
-                ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200'
-                : 'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200'
+                ? 'border-success/30 bg-success/10 text-success'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
             }`}
           >
             {faucetMessage}

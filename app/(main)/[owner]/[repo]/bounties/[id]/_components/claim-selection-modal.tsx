@@ -86,7 +86,7 @@ export function ClaimSelectionModal({
                     </div>
                   </div>
 
-                  <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400">
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                     {submission.status}
                   </span>
                 </div>

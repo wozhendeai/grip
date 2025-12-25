@@ -139,7 +139,7 @@ export async function UserProfile({
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="inline-flex items-center rounded bg-success/10 border border-success/30 px-1.5 py-0.5 text-[10px] font-bold uppercase text-success">
+                          <span className="inline-flex items-center rounded bg-success/10 border border-success/30 px-1.5 py-0.5 text-xs font-bold uppercase text-success">
                             PAID
                           </span>
                           <code className="text-xs text-muted-foreground">

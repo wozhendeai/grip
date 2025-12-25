@@ -64,7 +64,7 @@ export function FundedBountiesSection({ bounties }: FundedBountiesSectionProps) 
               </h3>
               <span
                 className={cn(
-                  'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                  'flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold',
                   statusBadgeColors[status as BountyStatusType]
                 )}
               >

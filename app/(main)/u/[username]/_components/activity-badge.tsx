@@ -19,7 +19,7 @@ export function ActivityBadge({ activity }: ActivityBadgeProps) {
   if (activity.activityLevel === 'active') {
     return (
       <Badge variant="default" className="gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-green-500" />
+        <span className="h-2 w-2 rounded-full bg-success" />
         Active
       </Badge>
     );
@@ -28,7 +28,7 @@ export function ActivityBadge({ activity }: ActivityBadgeProps) {
   if (activity.activityLevel === 'recent') {
     return (
       <Badge variant="secondary" className="gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-yellow-500" />
+        <span className="h-2 w-2 rounded-full bg-chart-4" />
         Recently Active
       </Badge>
     );

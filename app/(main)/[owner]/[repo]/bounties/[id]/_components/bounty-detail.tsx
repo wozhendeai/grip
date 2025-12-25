@@ -381,7 +381,7 @@ export function BountyDetail({
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400">
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                           {submission.status}
                         </span>
                       </div>
@@ -457,7 +457,7 @@ export function BountyDetail({
               <div className="rounded-lg border border-border bg-card p-6">
                 <h2 className="mb-4 text-sm font-medium text-muted-foreground">Pull Request</h2>
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <GitPullRequest className="h-5 w-5" />
                   </div>
                   <div>
@@ -494,7 +494,7 @@ export function BountyDetail({
                 activeSubmission.status === 'approved' ? (
                 canShowApprovalActions ? (
                   <div className="space-y-3">
-                    <p className="text-sm font-medium text-blue-400 text-center">
+                    <p className="text-sm font-medium text-primary text-center">
                       Ready for Approval
                     </p>
                     <p className="text-xs text-muted-foreground text-center mb-4">
@@ -560,7 +560,7 @@ export function BountyDetail({
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-sm font-medium text-blue-400">Under Review</p>
+                    <p className="text-sm font-medium text-primary">Under Review</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       PR submitted, awaiting approval
                     </p>

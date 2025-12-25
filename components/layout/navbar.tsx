@@ -152,7 +152,7 @@ export function Navbar() {
               onClick={() => setCommandMenuOpen(true)}
             >
               <Search className="h-4 w-4" />
-              <kbd className="pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium hidden sm:flex">
+              <kbd className="pointer-events-none h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-xs font-medium hidden sm:flex">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>

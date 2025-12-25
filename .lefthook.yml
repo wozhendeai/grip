@@ -110,6 +110,36 @@ pre-commit:
 
         See output above for specific issues and how to fix them.
 
+    # 6. Design system enforcement check
+    # Prevents hardcoded CSS values and enforces design system usage
+    # Checks: colors, spacing, font sizes, border-radius
+    # Excluded: components/ui/* (design system components), app/globals.css
+    design-system:
+      glob: "*.{ts,tsx,js,jsx}"
+      run: node scripts/check-design-system.js
+      fail_text: |
+        ❌ Design system violations detected!
+
+        This check enforces consistent usage of the design system.
+
+        Common violations:
+        - Hardcoded colors (bg-blue-50) → Use semantic tokens (bg-primary)
+        - Arbitrary spacing (p-[23px]) → Use spacing scale (p-6)
+        - Arbitrary font sizes (text-[14px]) → Use text utilities (text-sm)
+        - Arbitrary border-radius (rounded-[8px]) → Use radius tokens (rounded-md)
+
+        Available design tokens:
+        - Colors: primary, secondary, destructive, muted, accent, success, etc.
+        - Spacing: 0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, etc.
+        - Text: text-xs, text-sm, text-base, text-lg, body-sm, body-xs
+        - Radius: rounded-sm, rounded-md, rounded-lg, rounded-xl
+
+        Examples:
+        ❌ className="bg-blue-50 p-[15px] text-[14px] rounded-[8px]"
+        ✅ className="bg-primary/10 p-4 text-sm rounded-md"
+
+        See output above for specific violations and suggested fixes.
+
 # ============================================
 # COMMIT-MSG HOOK
 # Validates commit message format
