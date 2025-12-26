@@ -236,6 +236,27 @@ export async function fetchGitHubUserRepositories(
   return data ?? [];
 }
 
+/**
+ * Fetch organization's public repositories (uses server token)
+ * Caches for 1 hour. Returns empty array if org not found.
+ */
+export async function fetchGitHubOrgRepositories(
+  orgLogin: string,
+  options: {
+    sort?: 'created' | 'updated' | 'pushed' | 'full_name';
+    perPage?: number;
+  } = {}
+): Promise<GitHubRepo[]> {
+  const { sort = 'updated', perPage = 30 } = options;
+
+  const data = await githubFetch<GitHubRepo[]>(
+    `/orgs/${orgLogin}/repos?sort=${sort}&per_page=${perPage}&type=public`,
+    { next: { revalidate: 3600 } }
+  );
+
+  return data ?? [];
+}
+
 // ============ Issue Operations (Requires User OAuth Token) ============
 
 /**

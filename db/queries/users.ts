@@ -1,4 +1,5 @@
 import { account, bounties, db, passkey, payouts, user } from '@/db';
+import { member } from '@/db/schema/auth';
 import { and, eq, sql } from 'drizzle-orm';
 import { networkFilter } from '../network';
 
@@ -213,4 +214,28 @@ export async function findUserByGitHubUserId(
     .limit(1);
 
   return result?.id ?? null;
+}
+
+/**
+ * Get organizations a user belongs to
+ *
+ * Returns organization memberships with essential display data.
+ * Used in user profile to show "Member of" section.
+ */
+export async function getUserOrganizations(userId: string) {
+  return db.query.member.findMany({
+    where: eq(member.userId, userId),
+    with: {
+      organization: {
+        columns: {
+          id: true,
+          name: true,
+          logo: true,
+          slug: true,
+          githubOrgLogin: true,
+        },
+      },
+    },
+    orderBy: (member, { asc }) => [asc(member.createdAt)],
+  });
 }

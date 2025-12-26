@@ -131,11 +131,11 @@ export function Navbar() {
                 </NavigationMenuItem>
                 <NavigationMenuItem>
                   <NavigationMenuLink
-                    href="/bounties"
-                    active={pathname === '/bounties'}
+                    href="/dashboard"
+                    active={pathname === '/dashboard'}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors data-[active=true]:text-foreground data-[active=true]:font-semibold"
                   >
-                    Bounties
+                    Dashboard
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               </NavigationMenuList>
@@ -250,7 +250,7 @@ export function Navbar() {
                   <DropdownMenuItem
                     render={
                       <Link
-                        href={`/u/${session.user.name}`}
+                        href={`/${session.user.name}`}
                         className="flex items-center gap-2 cursor-pointer"
                       />
                     }

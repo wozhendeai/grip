@@ -1,7 +1,6 @@
-import { GitHubRepoCard } from '@/components/github/repo-card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import type { GitHubRepo } from '@/lib/github/api';
 import Link from 'next/link';
+import { TopRepoCard } from './top-repo-card';
 
 export interface TopRepo {
   id: string;
@@ -52,42 +51,13 @@ export function TopRepos({ repos }: TopReposProps) {
           </Empty>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {repos.map((repo) => {
-              // Transform TopRepo to GitHubRepo format
-              const githubRepo: GitHubRepo = {
-                id: Number.parseInt(repo.id),
-                name: repo.githubRepo,
-                full_name: repo.githubFullName,
-                owner: {
-                  login: repo.githubOwner,
-                  avatar_url: `https://github.com/${repo.githubOwner}.png`,
-                  id: 0,
-                },
-                description: null,
-                private: false,
-                html_url: `https://github.com/${repo.githubFullName}`,
-                stargazers_count: 0,
-                forks_count: 0,
-                open_issues_count: 0,
-                language: null,
-                created_at: '',
-                updated_at: '',
-                default_branch: 'main',
-              };
-
-              return (
-                <GitHubRepoCard
-                  key={repo.id}
-                  repo={githubRepo}
-                  href={`/${repo.githubOwner}/${repo.githubRepo}`}
-                  bounty={{
-                    openCount: repo.openBountyCount,
-                    totalValue: repo.totalBountyValue,
-                  }}
-                  layout="minimal"
-                />
-              );
-            })}
+            {repos.map((repo) => (
+              <TopRepoCard
+                key={repo.id}
+                repo={repo}
+                href={`/${repo.githubOwner}/${repo.githubRepo}`}
+              />
+            ))}
           </div>
         )}
       </div>

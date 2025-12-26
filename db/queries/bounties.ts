@@ -457,3 +457,238 @@ export async function isUserPrimaryFunder(bountyId: string, userId: string): Pro
   const bounty = await getBountyById(bountyId);
   return bounty?.primaryFunderId === userId;
 }
+
+// =============================================================================
+// DASHBOARD QUERIES
+// =============================================================================
+
+export type DashboardStats = {
+  earned: { total: string; count: number };
+  pending: { total: string; count: number };
+  created: { total: string; count: number };
+  claimed: { count: number };
+};
+
+/**
+ * Get comprehensive dashboard stats for user
+ *
+ * Computes all stats in parallel for performance.
+ * Used in Dashboard header stats.
+ */
+export async function getUserDashboardStats(userId: string): Promise<DashboardStats> {
+  // Import payouts inline to avoid circular dependency
+  const { payouts } = await import('@/db');
+
+  const [earnedResult, pendingResult, createdResult, claimedResult] = await Promise.all([
+    // Earned: confirmed payouts to this user
+    db
+      .select({
+        total: sql<bigint>`coalesce(sum(${payouts.amount}), 0)::bigint`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(payouts)
+      .where(
+        and(
+          networkFilter(payouts),
+          eq(payouts.recipientUserId, userId),
+          eq(payouts.status, 'confirmed')
+        )
+      ),
+
+    // Pending: approved/merged submissions not yet paid
+    db
+      .select({
+        total: sql<bigint>`coalesce(sum(${bounties.totalFunded}), 0)::bigint`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(submissions)
+      .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+      .leftJoin(payouts, eq(submissions.id, payouts.submissionId))
+      .where(
+        and(
+          networkFilter(bounties),
+          eq(submissions.userId, userId),
+          inArray(submissions.status, ['approved', 'merged']),
+          sql`${payouts.id} IS NULL` // No payout exists yet
+        )
+      ),
+
+    // Created: bounties where user is primary funder
+    db
+      .select({
+        total: sql<bigint>`coalesce(sum(${bounties.totalFunded}), 0)::bigint`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(bounties)
+      .where(and(networkFilter(bounties), eq(bounties.primaryFunderId, userId))),
+
+    // Claimed: distinct bounties user has submitted work on
+    db
+      .select({
+        count: sql<number>`count(distinct ${submissions.bountyId})::int`,
+      })
+      .from(submissions)
+      .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+      .where(and(networkFilter(bounties), eq(submissions.userId, userId))),
+  ]);
+
+  return {
+    earned: {
+      total: (earnedResult[0]?.total ?? BigInt(0)).toString(),
+      count: earnedResult[0]?.count ?? 0,
+    },
+    pending: {
+      total: (pendingResult[0]?.total ?? BigInt(0)).toString(),
+      count: pendingResult[0]?.count ?? 0,
+    },
+    created: {
+      total: (createdResult[0]?.total ?? BigInt(0)).toString(),
+      count: createdResult[0]?.count ?? 0,
+    },
+    claimed: {
+      count: claimedResult[0]?.count ?? 0,
+    },
+  };
+}
+
+export type CreatedBountyWithSubmissionCount = {
+  bounty: typeof bounties.$inferSelect;
+  repoSettings: typeof repoSettings.$inferSelect | null;
+  submissionCount: number;
+  activeSubmissionCount: number;
+};
+
+/**
+ * Get bounties created by user (where user is primary funder)
+ *
+ * Returns bounties with their current status and submission counts.
+ * Used in Dashboard "Created" tab.
+ */
+export async function getBountiesCreatedByUser(
+  userId: string,
+  options?: {
+    status?: BountyStatus | BountyStatus[];
+    limit?: number;
+    offset?: number;
+  }
+): Promise<CreatedBountyWithSubmissionCount[]> {
+  const conditions = [networkFilter(bounties), eq(bounties.primaryFunderId, userId)];
+
+  if (options?.status) {
+    if (Array.isArray(options.status)) {
+      conditions.push(inArray(bounties.status, options.status));
+    } else {
+      conditions.push(eq(bounties.status, options.status));
+    }
+  }
+
+  const results = await db
+    .select({
+      bounty: bounties,
+      repoSettings: repoSettings,
+      submissionCount: sql<number>`count(${submissions.id})::int`,
+      activeSubmissionCount: sql<number>`count(${submissions.id}) filter (where ${submissions.status} in ('pending', 'approved', 'merged'))::int`,
+    })
+    .from(bounties)
+    .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
+    .leftJoin(submissions, eq(bounties.id, submissions.bountyId))
+    .where(and(...conditions))
+    .groupBy(bounties.id, repoSettings.githubRepoId)
+    .orderBy(desc(bounties.createdAt))
+    .limit(options?.limit ?? 50)
+    .offset(options?.offset ?? 0);
+
+  return results;
+}
+
+export type ClaimedBountyListItem = {
+  submission: typeof submissions.$inferSelect;
+  bounty: typeof bounties.$inferSelect;
+  repoSettings: typeof repoSettings.$inferSelect | null;
+};
+
+/**
+ * Get bounties user has claimed (submitted work for)
+ *
+ * Returns active submissions (not paid yet).
+ * Used in Dashboard "Claimed" tab.
+ */
+export async function getUserActiveSubmissions(
+  userId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+  }
+): Promise<ClaimedBountyListItem[]> {
+  return db
+    .select({
+      submission: submissions,
+      bounty: bounties,
+      repoSettings: repoSettings,
+    })
+    .from(submissions)
+    .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+    .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
+    .where(
+      and(
+        networkFilter(bounties),
+        eq(submissions.userId, userId),
+        inArray(submissions.status, ['pending', 'approved', 'merged'])
+      )
+    )
+    .orderBy(desc(submissions.createdAt))
+    .limit(options?.limit ?? 50)
+    .offset(options?.offset ?? 0);
+}
+
+export type CompletedBountyListItem = {
+  submission: typeof submissions.$inferSelect;
+  bounty: typeof bounties.$inferSelect;
+  repoSettings: typeof repoSettings.$inferSelect | null;
+  payout: {
+    id: string;
+    amount: bigint;
+    confirmedAt: string | null;
+    txHash: string | null;
+  } | null;
+};
+
+/**
+ * Get bounties where user was paid
+ *
+ * Returns submissions with status 'paid' and payout details.
+ * Used in Dashboard "Completed" tab.
+ */
+export async function getCompletedBountiesByUser(
+  userId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+  }
+): Promise<CompletedBountyListItem[]> {
+  // Import payouts inline to avoid circular dependency
+  const { payouts } = await import('@/db');
+
+  return db
+    .select({
+      submission: submissions,
+      bounty: bounties,
+      repoSettings: repoSettings,
+      payout: {
+        id: payouts.id,
+        amount: payouts.amount,
+        confirmedAt: payouts.confirmedAt,
+        txHash: payouts.txHash,
+      },
+    })
+    .from(submissions)
+    .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+    .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
+    .leftJoin(payouts, eq(submissions.id, payouts.submissionId))
+    .where(
+      and(networkFilter(bounties), eq(submissions.userId, userId), eq(submissions.status, 'paid'))
+    )
+    .orderBy(desc(submissions.createdAt))
+    .limit(options?.limit ?? 50)
+    .offset(options?.offset ?? 0);
+}

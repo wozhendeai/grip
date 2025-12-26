@@ -184,3 +184,96 @@ export async function getOrgPendingLiabilities(orgId: string) {
 
   return Object.values(liabilitiesByToken);
 }
+
+// ============================================================================
+// ORGANIZATION PROFILES
+// ============================================================================
+
+/**
+ * Get GRIP organization by GitHub login
+ * Returns null if org hasn't linked GitHub account
+ */
+export async function getOrgByGithubLogin(githubLogin: string) {
+  const { organization } = await import('@/db/schema/auth');
+
+  return db.query.organization.findFirst({
+    where: eq(organization.githubOrgLogin, githubLogin),
+    with: {
+      members: {
+        with: {
+          user: true,
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Get GRIP organization by slug
+ *
+ * Used for route resolution at /:slug
+ * Returns null if org doesn't exist with this slug
+ */
+export async function getOrgBySlug(slug: string) {
+  const { organization } = await import('@/db/schema/auth');
+
+  return db.query.organization.findFirst({
+    where: eq(organization.slug, slug),
+    with: {
+      members: {
+        with: {
+          user: true,
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Get organization bounty data (funded bounties + stats)
+ * Similar to getBountyDataByGitHubId but for orgs
+ */
+export async function getOrgBountyData(orgId: string) {
+  const { bounties } = await import('@/db/schema/business');
+
+  // Get bounties funded/created by organization
+  const funded = await db
+    .select({
+      id: bounties.id,
+      title: bounties.title,
+      amount: bounties.totalFunded,
+      status: bounties.status,
+      githubOwner: bounties.githubOwner,
+      githubRepo: bounties.githubRepo,
+      githubIssueNumber: bounties.githubIssueNumber,
+      createdAt: bounties.createdAt,
+    })
+    .from(bounties)
+    .where(and(networkFilter(bounties), eq(bounties.organizationId, orgId)))
+    .orderBy(bounties.createdAt);
+
+  const totalFunded = funded.reduce((sum, b) => sum + BigInt(b.amount), BigInt(0));
+
+  return {
+    funded,
+    totalFunded,
+    fundedCount: funded.length,
+  };
+}
+
+/**
+ * Get org members with their GRIP user data
+ */
+export async function getOrgMembersWithUsers(orgId: string) {
+  return db.query.member.findMany({
+    where: eq(member.organizationId, orgId),
+    with: {
+      user: {
+        with: {
+          passkeys: true,
+        },
+      },
+    },
+    orderBy: member.createdAt,
+  });
+}

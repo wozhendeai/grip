@@ -1,11 +1,20 @@
 import { TokenAmount } from '@/components/tempo/token-amount';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import type { GitHubRepo } from '@/lib/github';
 import type { BountyProject } from '@/lib/types';
-import { GitFork, Github, Plus, Star } from 'lucide-react';
+import {
+  CheckCircle,
+  Clock,
+  Code,
+  Coins,
+  ExternalLink,
+  GitFork,
+  Github,
+  Plus,
+  Star,
+} from 'lucide-react';
 import Link from 'next/link';
+import { EntityHeader } from '@/app/(main)/[owner]/_components/entity-header';
 
 interface ProjectHeaderProps {
   project: BountyProject;
@@ -20,12 +29,8 @@ interface ProjectHeaderProps {
 /**
  * Project header with stats
  *
- * Shows:
- * - Repo name + description (from GitHub)
- * - GitHub stats: Stars, forks, language
- * - Claimed badge (if repo is claimed)
- * - GRIP stats: Open bounties, Completed, Total paid
- * - Settings link (if user has permission)
+ * Uses unified EntityHeader component with repo-specific layout
+ * Shows repo name, description, GitHub stats, and BountyLane stats grid
  */
 export function ProjectHeader({
   project,
@@ -33,87 +38,75 @@ export function ProjectHeader({
   isClaimed,
   openBounties = 0,
   completedBounties = 0,
-  totalFunded = '0', // Default to '0' string for BigInt
+  totalFunded = '0',
   isLoggedIn = false,
 }: ProjectHeaderProps) {
   return (
-    <div className="space-y-6">
-      {/* Title + Description + Actions */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">
-              {github.owner.login}/{github.name}
-            </h1>
-            <a
-              href={github.html_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Github className="h-5 w-5" />
-            </a>
-            {isClaimed && <Badge variant="secondary">Claimed</Badge>}
+    <EntityHeader
+      type="repo"
+      name={github.full_name}
+      handle={github.name}
+      url={github.html_url}
+      avatar={github.owner.avatar_url}
+      description={github.description}
+      isLinked={isClaimed}
+      metadata={{
+        primary: (
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Star className="h-3.5 w-3.5" />
+              {github.stargazers_count.toLocaleString()}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <GitFork className="h-3.5 w-3.5" />
+              {github.forks_count.toLocaleString()}
+            </span>
+            {github.language && (
+              <span className="flex items-center gap-1.5">
+                <Code className="h-3.5 w-3.5" />
+                {github.language}
+              </span>
+            )}
           </div>
-          {github.description && <p className="mt-2 text-muted-foreground">{github.description}</p>}
-
-          {/* GitHub Stats */}
-          <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Star className="h-4 w-4" />
-              <span>{github.stargazers_count.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <GitFork className="h-4 w-4" />
-              <span>{github.forks_count.toLocaleString()}</span>
-            </div>
-            {github.language && <span>• {github.language}</span>}
+        ),
+      }}
+      action={
+        isLoggedIn ? (
+          <Button size="sm">
+            <Link href={`/${github.owner.login}/${github.name}/bounties/new`}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Bounty
+            </Link>
+          </Button>
+        ) : undefined
+      }
+    >
+      {/* Bounty Stats */}
+      <div className="mt-6 flex items-center gap-6 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Coins className="h-3.5 w-3.5" />
+          <div className="flex items-baseline gap-1.5">
+            <TokenAmount amount={totalFunded} symbol="USDC" className="text-foreground" />
+            <span>funded</span>
           </div>
         </div>
 
-        {/* Actions */}
-        {isLoggedIn && (
-          <Button
-            render={
-              <Link href={`/${github.owner.login}/${github.name}/bounties/new`}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Bounty
-              </Link>
-            }
-            size="sm"
-          />
-        )}
+        <div className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" />
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-medium text-foreground">{openBounties}</span>
+            <span>open</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <CheckCircle className="h-3.5 w-3.5" />
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-medium text-foreground">{completedBounties}</span>
+            <span>completed</span>
+          </div>
+        </div>
       </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Total Funded</p>
-            <TokenAmount amount={totalFunded} symbol="USDC" className="text-xl font-bold" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Open Bounties</p>
-            <p className="text-xl font-bold">{openBounties}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Completed</p>
-            <p className="text-xl font-bold">{completedBounties}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Badges */}
-      <div className="flex gap-2">
-        {isClaimed && <Badge variant="secondary">Claimed</Badge>}
-        {openBounties > 0 && <Badge variant="default">{openBounties} Open</Badge>}
-      </div>
-    </div>
+    </EntityHeader>
   );
 }

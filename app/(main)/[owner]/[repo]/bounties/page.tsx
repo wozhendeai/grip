@@ -1,5 +1,6 @@
-import { BountyGrid } from '@/app/(main)/explore/_components/bounty-grid';
+import { BountyCard } from '@/components/bounty/bounty-card';
 import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import type { Bounty } from '@/lib/types';
@@ -93,7 +94,20 @@ export default async function BountiesPage({ params }: BountiesPageProps) {
       </div>
 
       {/* Bounty Grid */}
-      <BountyGrid bounties={bounties} />
+      {bounties.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No bounties yet</EmptyTitle>
+            <EmptyDescription>There are no bounties for this repository yet.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {bounties.map((bounty, index) => (
+            <BountyCard key={bounty.id} bounty={bounty} index={index} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

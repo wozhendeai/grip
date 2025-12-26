@@ -1,14 +1,13 @@
 import { BountyCard } from '@/components/bounty/bounty-card';
-import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';
 import type { Bounty, BountyProject } from '@/lib/types';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ProjectHeader } from './_components/project-header';
+import { BountiesEmptyState } from './_components/bounties-empty-state';
+import { RepoInfoHeader } from './_components/repo-info-header';
+import { RepoStatsCard } from './_components/repo-stats-card';
 
 interface ProjectPageProps {
   params: Promise<{ owner: string; repo: string }>;
@@ -105,74 +104,43 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <div className="container py-8">
-      <ProjectHeader
-        project={project}
-        github={githubRepo}
-        isClaimed={!!repoSettings}
-        openBounties={openBounties}
-        completedBounties={completedBounties}
-        totalFunded={totalFunded}
-        isLoggedIn={!!session?.user}
-      />
+      <div className="mx-auto max-w-7xl">
+        {/* Full width header section */}
+        <RepoInfoHeader github={githubRepo} isClaimed={!!repoSettings} />
 
-      {/* Recent Bounties */}
-      <div className="mt-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Recent Bounties</h2>
-          {bounties.length > 3 && (
-            <Button
-              render={<Link href={`/${owner}/${repo}/bounties`}>View All</Link>}
-              variant="outline"
-            />
-          )}
-        </div>
+        {/* Full width heading */}
+        <h2 className="mt-8 mb-4 text-xl font-semibold">Recent Bounties</h2>
 
-        {recentBounties.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {recentBounties.map((bounty) => (
-              <BountyCard key={bounty.id} bounty={bounty} />
-            ))}
-          </div>
-        ) : (
-          <Empty>
-            <EmptyDescription>
-              No bounties yet on this repository.
-              {!repoSettings && ' Anyone can create a bounty!'}
-            </EmptyDescription>
-          </Empty>
-        )}
-      </div>
-
-      {/* Settings/Claim link moved to footer (was prominent button in header)
-          Settings is optional - only needed for advanced features:
-          - Webhook auto-install (PR merge detection)
-          - Bounty restrictions and auto-approval settings
-          - Team member permissions
-          Most users create permissionless bounties without claiming
-          Trade-off: Less visibility for advanced feature, cleaner header
-          See: Plan misty-pondering-cascade.md */}
-      {session?.user && (canManage || !repoSettings) && (
-        <div className="mt-12 border-t border-border pt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {!repoSettings ? (
-              <>
-                Maintainer?{' '}
-                <Link href={`/${owner}/${repo}/settings`} className="text-primary hover:underline">
-                  Claim this repo
-                </Link>{' '}
-                to enable webhooks and auto-approval.
-              </>
+        {/* Two-column layout for bounties + stats */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left Column - Bounties */}
+          <div className="flex-1">
+            {recentBounties.length > 0 ? (
+              <div className="space-y-4">
+                {recentBounties.map((bounty) => (
+                  <BountyCard key={bounty.id} bounty={bounty} />
+                ))}
+              </div>
             ) : (
-              <>
-                <Link href={`/${owner}/${repo}/settings`} className="text-primary hover:underline">
-                  Project settings
-                </Link>{' '}
-                · Manage webhooks, treasury, and permissions
-              </>
+              <BountiesEmptyState isClaimed={!!repoSettings} />
             )}
-          </p>
+          </div>
+
+          {/* Right Column - Sticky Stats */}
+          <aside className="lg:w-80 lg:sticky lg:top-8 lg:self-start">
+            <RepoStatsCard
+              owner={owner}
+              repo={repo}
+              totalFunded={totalFunded}
+              openBounties={openBounties}
+              completedBounties={completedBounties}
+              isClaimed={!!repoSettings}
+              canManage={!!canManage}
+              isLoggedIn={!!session?.user}
+            />
+          </aside>
         </div>
-      )}
+      </div>
     </div>
   );
 }
