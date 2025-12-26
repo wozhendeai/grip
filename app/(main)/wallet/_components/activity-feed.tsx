@@ -320,8 +320,8 @@ function EarningItem({ record }: { record: EarningRecord }) {
   return (
     <div className="flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors">
       {/* Icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-950">
-        <ArrowDownWideNarrow className="h-5 w-5 text-green-600 dark:text-green-400" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success/10">
+        <ArrowDownWideNarrow className="h-5 w-5 text-success" />
       </div>
 
       {/* Content */}
@@ -383,8 +383,8 @@ function SentPaymentItem({ record }: { record: SentPaymentRecord }) {
   return (
     <div className="flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors">
       {/* Icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
-        <ArrowUpWideNarrow className="h-5 w-5 text-red-600 dark:text-red-400" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+        <ArrowUpWideNarrow className="h-5 w-5 text-destructive" />
       </div>
 
       {/* Content */}
@@ -401,7 +401,7 @@ function SentPaymentItem({ record }: { record: SentPaymentRecord }) {
             <TokenAmount
               amount={payout.amount.toString()}
               symbol="USDC"
-              className="font-semibold text-red-600 dark:text-red-400"
+              className="font-semibold text-destructive"
             />
             <Badge
               variant={payout.status === 'confirmed' ? 'default' : 'secondary'}
@@ -461,8 +461,8 @@ function PendingPaymentItem({ payment }: { payment: PendingPaymentRecord }) {
   return (
     <div className="flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors">
       {/* Amber icon for "pending" state */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950">
-        <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-chart-4/10">
+        <Clock className="h-5 w-5 text-chart-4" />
       </div>
 
       {/* Content */}

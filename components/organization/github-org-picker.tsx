@@ -111,13 +111,11 @@ export function GitHubOrgPicker({ onSelect, onBack }: GitHubOrgPickerProps) {
   if (errorType === 'insufficient_scope') {
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50 rounded-lg">
-          <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+        <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <Lock className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <p className="body-sm font-medium text-blue-900 dark:text-blue-100">
-              Additional Permission Required
-            </p>
-            <p className="body-xs text-blue-800 dark:text-blue-200 mt-1">
+            <p className="body-sm font-medium text-primary">Additional Permission Required</p>
+            <p className="body-xs text-muted-foreground mt-1">
               GRIP needs permission to access your GitHub organizations. This is needed to verify
               you're an admin and authorize the link.
             </p>
