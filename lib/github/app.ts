@@ -245,7 +245,7 @@ function getAppSlug(): string {
 /**
  * Build the GitHub App installation URL for a specific repository
  */
-export function getInstallUrl(owner: string, repo: string, state: string): string {
+export function getInstallUrl(owner: string, _repo: string, state: string): string {
   const encodedState = encodeURIComponent(state);
 
   // Suggest installing on specific repo
