@@ -92,4 +92,5 @@ export async function getGitHubToken(userId: string): Promise<string | null> {
 // ============ Re-exports ============
 
 export * from './api';
+export * from './app';
 export * from './webhooks';

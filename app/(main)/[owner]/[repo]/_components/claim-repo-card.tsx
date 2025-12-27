@@ -3,26 +3,25 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSession } from '@/lib/auth/auth-client';
-import { CheckCircle, Sparkles } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { CheckCircle, ExternalLink, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 interface ClaimRepoCardProps {
-  repoFullName: string;
+  owner: string;
+  repo: string;
 }
 
 /**
  * Claim Repository Card
  *
- * Shows call-to-action for users with push access to claim unclaimed repos.
+ * Shows call-to-action for users to claim a repo by installing the GRIP GitHub App.
  * Claiming a repo unlocks:
  * - Webhook auto-install (for PR merge detection)
  * - Settings access (auto-approve, payout mode)
  * - Maintainer badge on repo page
  */
-export function ClaimRepoCard({ repoFullName }: ClaimRepoCardProps) {
+export function ClaimRepoCard({ owner, repo }: ClaimRepoCardProps) {
   const { data: session } = useSession();
-  const router = useRouter();
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,23 +30,20 @@ export function ClaimRepoCard({ repoFullName }: ClaimRepoCardProps) {
     setError(null);
 
     try {
-      const res = await fetch('/api/projects', {
+      const res = await fetch(`/api/repos/${owner}/${repo}/claim`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoFullName }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to claim repository');
+        throw new Error(data.error || 'Failed to initiate claim');
       }
 
-      // Success - refresh the page to show claimed state
-      router.refresh();
+      // Redirect to GitHub App installation page
+      window.location.href = data.installUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to claim repository');
-    } finally {
       setClaiming(false);
     }
   }
@@ -64,7 +60,7 @@ export function ClaimRepoCard({ repoFullName }: ClaimRepoCardProps) {
           <div className="flex-1">
             <h3 className="heading-3">Claim this repository</h3>
             <p className="body-base text-muted-foreground mt-2">
-              Unlock additional features for this repository by claiming it.
+              Install the GRIP Bounties GitHub App to unlock additional features.
             </p>
 
             <div className="mt-4 space-y-2">
@@ -89,7 +85,14 @@ export function ClaimRepoCard({ repoFullName }: ClaimRepoCardProps) {
             )}
 
             <Button onClick={handleClaim} disabled={claiming} className="mt-6">
-              {claiming ? 'Claiming...' : 'Claim Repository'}
+              {claiming ? (
+                'Redirecting to GitHub...'
+              ) : (
+                <>
+                  Install GRIP App
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </div>
         </div>

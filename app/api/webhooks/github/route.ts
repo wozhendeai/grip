@@ -1,5 +1,9 @@
 import { bounties, db, repoSettings } from '@/db';
-import { getBountyByGitHubIssueId, updateBountyStatus } from '@/db/queries/bounties';
+import { updateBountyStatus } from '@/db/queries/bounties';
+import {
+  unclaimRepoByGithubRepoId,
+  unclaimReposByInstallationId,
+} from '@/db/queries/repo-settings';
 import {
   findOrCreateSubmissionForGitHubUser,
   getActiveSubmissionsForBounty,
@@ -7,6 +11,8 @@ import {
 } from '@/db/queries/submissions';
 import { findUserByGitHubUsername } from '@/db/queries/users';
 import {
+  type InstallationEvent,
+  type InstallationRepositoriesEvent,
   type IssueEvent,
   type PingEvent,
   type PullRequestEvent,
@@ -17,6 +23,9 @@ import { notifyPrSubmitted } from '@/lib/notifications';
 import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 
+// App-level events that use GITHUB_APP_WEBHOOK_SECRET instead of per-repo secret
+const APP_LEVEL_EVENTS = ['installation', 'installation_repositories'];
+
 /**
  * GitHub Webhook Handler
  *
@@ -24,8 +33,12 @@ import { type NextRequest, NextResponse } from 'next/server';
  * - ping: Webhook setup verification
  * - pull_request.opened: Detect PRs that reference bounty issues
  * - pull_request.closed + merged: Mark bounty as ready for approval
+ * - installation: GitHub App installed/uninstalled
+ * - installation_repositories: Repos added/removed from installation
  *
- * Security: Verifies webhook signature using per-repo secret
+ * Security:
+ * - App-level events verified with GITHUB_APP_WEBHOOK_SECRET
+ * - Repo-level events verified with per-repo webhookSecret
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,15 +55,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse payload
-    let payload: PullRequestEvent | IssueEvent | PingEvent;
+    let payload:
+      | PullRequestEvent
+      | IssueEvent
+      | PingEvent
+      | InstallationEvent
+      | InstallationRepositoriesEvent;
     try {
       payload = JSON.parse(rawBody);
     } catch {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
-    // Get repository ID to find the repo settings
-    const repoId = payload.repository?.id;
+    // Handle app-level events (installation, installation_repositories)
+    if (APP_LEVEL_EVENTS.includes(event)) {
+      const appSecret = process.env.GITHUB_APP_WEBHOOK_SECRET;
+      if (!appSecret) {
+        console.error('[webhook] Missing GITHUB_APP_WEBHOOK_SECRET for app-level event');
+        return NextResponse.json({ error: 'App webhook not configured' }, { status: 500 });
+      }
+
+      const isValid = verifyWebhookSignature(rawBody, signature, appSecret);
+      if (!isValid) {
+        console.error(`[webhook] Invalid app signature for delivery ${deliveryId}`);
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+
+      switch (event) {
+        case 'installation':
+          return handleInstallation(payload as InstallationEvent);
+        case 'installation_repositories':
+          return handleInstallationRepositories(payload as InstallationRepositoriesEvent);
+        default:
+          return NextResponse.json({ message: 'Event ignored' }, { status: 200 });
+      }
+    }
+
+    // Handle repo-level events (pull_request, issues, ping)
+    // These require a repository ID and per-repo webhook secret
+    const repoId = (payload as PullRequestEvent | IssueEvent | PingEvent).repository?.id;
     if (!repoId) {
       return NextResponse.json({ error: 'Missing repository ID' }, { status: 400 });
     }
@@ -67,7 +110,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Repository not registered' }, { status: 200 });
     }
 
-    // Verify webhook signature
+    // Verify webhook signature with per-repo secret
     if (!repo.webhookSecret) {
       console.error(`[webhook] Repo ${repo.githubRepoId} has no webhook secret`);
       return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
@@ -334,6 +377,52 @@ async function handleIssue(
         cancelledAt: new Date().toISOString(),
       });
       console.log(`[webhook] Bounty ${bounty.id} cancelled (issue closed)`);
+    }
+  }
+
+  return NextResponse.json({ message: 'Processed' });
+}
+
+/**
+ * Handle installation events (GitHub App installed/uninstalled)
+ *
+ * - deleted: Unclaim all repos for this installation
+ */
+async function handleInstallation(payload: InstallationEvent): Promise<NextResponse> {
+  const { action, installation } = payload;
+
+  console.log(
+    `[webhook] Installation ${installation.id} ${action} for ${installation.account.login}`
+  );
+
+  if (action === 'deleted') {
+    // App was uninstalled - unclaim all repos with this installation ID
+    const unclaimed = await unclaimReposByInstallationId(BigInt(installation.id));
+    console.log(
+      `[webhook] Unclaimed ${unclaimed.length} repos for installation ${installation.id}`
+    );
+  }
+
+  return NextResponse.json({ message: 'Processed' });
+}
+
+/**
+ * Handle installation_repositories events (repos added/removed from installation)
+ *
+ * - removed: Unclaim the removed repos
+ */
+async function handleInstallationRepositories(
+  payload: InstallationRepositoriesEvent
+): Promise<NextResponse> {
+  const { action, installation, repositories_removed } = payload;
+
+  console.log(`[webhook] Installation ${installation.id} repositories ${action}`);
+
+  if (action === 'removed' && repositories_removed) {
+    // Repos were removed from installation - unclaim each one
+    for (const repo of repositories_removed) {
+      await unclaimRepoByGithubRepoId(BigInt(repo.id));
+      console.log(`[webhook] Unclaimed repo ${repo.full_name} (${repo.id})`);
     }
   }
 
