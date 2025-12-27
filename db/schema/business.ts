@@ -188,9 +188,12 @@ export const repoSettings = pgTable(
     }),
     verifiedAt: timestamp('verified_at', { mode: 'string' }),
 
-    // GitHub webhook (optional)
+    // GitHub webhook (optional, legacy per-repo webhooks)
     webhookId: i64('webhook_id'),
     webhookSecret: text('webhook_secret'),
+
+    // GitHub App installation (for claimed repos)
+    installationId: i64('installation_id'),
 
     createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' })
@@ -200,6 +203,7 @@ export const repoSettings = pgTable(
   (table) => ({
     idxRepoSettingsOwner: index('idx_repo_settings_owner').on(table.verifiedOwnerUserId),
     idxRepoSettingsName: index('idx_repo_settings_name').on(table.githubOwner, table.githubRepo),
+    idxRepoSettingsInstallation: index('idx_repo_settings_installation').on(table.installationId),
   })
 );
 

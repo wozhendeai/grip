@@ -3,7 +3,12 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 /**
  * GitHub webhook event types we handle
  */
-export type GitHubWebhookEvent = 'pull_request' | 'issues' | 'ping';
+export type GitHubWebhookEvent =
+  | 'pull_request'
+  | 'issues'
+  | 'ping'
+  | 'installation'
+  | 'installation_repositories';
 
 /**
  * Pull request event payload (simplified)
@@ -73,6 +78,48 @@ export interface PingEvent {
     id: number;
     full_name: string;
   };
+}
+
+/**
+ * Installation event (GitHub App installed/uninstalled)
+ */
+export interface InstallationEvent {
+  action: 'created' | 'deleted' | 'suspend' | 'unsuspend' | 'new_permissions_accepted';
+  installation: {
+    id: number;
+    account: {
+      login: string;
+      id: number;
+    };
+  };
+  repositories?: Array<{
+    id: number;
+    full_name: string;
+  }>;
+}
+
+/**
+ * Installation repositories event (repos added/removed from installation)
+ */
+export interface InstallationRepositoriesEvent {
+  action: 'added' | 'removed';
+  installation: {
+    id: number;
+    account: {
+      login: string;
+      id: number;
+    };
+  };
+  repositories_added?: Array<{
+    id: number;
+    full_name: string;
+    private: boolean;
+  }>;
+  repositories_removed?: Array<{
+    id: number;
+    full_name: string;
+    private: boolean;
+  }>;
 }
 
 /**

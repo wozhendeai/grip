@@ -6,6 +6,7 @@ export type CreateRepoSettingsInput = {
   githubRepoId: bigint | string;
   githubOwner: string;
   githubRepo: string;
+  installationId?: bigint | string;
 };
 
 /**
@@ -18,6 +19,12 @@ export async function createRepoSettings(input: CreateRepoSettingsInput) {
   const githubRepoId =
     typeof input.githubRepoId === 'string' ? BigInt(input.githubRepoId) : input.githubRepoId;
 
+  const installationId = input.installationId
+    ? typeof input.installationId === 'string'
+      ? BigInt(input.installationId)
+      : input.installationId
+    : null;
+
   const [settings] = await db
     .insert(repoSettings)
     .values({
@@ -26,6 +33,7 @@ export async function createRepoSettings(input: CreateRepoSettingsInput) {
       githubRepo: input.githubRepo,
       verifiedOwnerUserId: input.verifiedOwnerUserId,
       verifiedAt: new Date().toISOString(),
+      installationId,
     })
     .returning();
 
@@ -208,4 +216,76 @@ export async function getRepoSettingsCount(): Promise<number> {
   const result = await db.select({ count: sql<number>`count(*)` }).from(repoSettings);
 
   return result[0]?.count ?? 0;
+}
+
+/**
+ * Unclaim all repos by installation ID
+ *
+ * Called when GitHub App is uninstalled. Nulls out verification fields
+ * but keeps the repo_settings record for historical bounty associations.
+ */
+export async function unclaimReposByInstallationId(installationId: bigint | string) {
+  const installationIdBigInt =
+    typeof installationId === 'string' ? BigInt(installationId) : installationId;
+
+  const updated = await db
+    .update(repoSettings)
+    .set({
+      verifiedOwnerUserId: null,
+      installationId: null,
+      verifiedAt: null,
+    })
+    .where(eq(repoSettings.installationId, installationIdBigInt))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Unclaim a single repo by GitHub repo ID
+ *
+ * Called when a repo is removed from a GitHub App installation.
+ * Nulls out verification fields but keeps the record.
+ */
+export async function unclaimRepoByGithubRepoId(githubRepoId: bigint | string) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set({
+      verifiedOwnerUserId: null,
+      installationId: null,
+      verifiedAt: null,
+    })
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated ?? null;
+}
+
+/**
+ * Update repo settings with installation ID and verified owner
+ *
+ * Used when claiming a repo via GitHub App installation.
+ */
+export async function updateRepoInstallation(
+  githubRepoId: bigint | string,
+  installationId: bigint | string,
+  verifiedOwnerUserId: string
+) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+  const installationIdBigInt =
+    typeof installationId === 'string' ? BigInt(installationId) : installationId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set({
+      installationId: installationIdBigInt,
+      verifiedOwnerUserId,
+      verifiedAt: new Date().toISOString(),
+    })
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated ?? null;
 }
