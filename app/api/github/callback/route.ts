@@ -147,6 +147,6 @@ export async function GET(request: NextRequest) {
     return redirect(`/${claimState.owner}/${claimState.repo}?error=database_error`);
   }
 
-  // Success - redirect to settings page
-  return redirect(`/${claimState.owner}/${claimState.repo}/settings?claimed=true`);
+  // Success - redirect to repo page with onboarding flow
+  return redirect(`/${claimState.owner}/${claimState.repo}?onboarding=true`);
 }

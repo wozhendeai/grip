@@ -212,6 +212,9 @@ export const repoSettings = pgTable(
     emailOnMerge: boolean('email_on_merge').notNull().default(true),
     emailOnPaymentFailure: boolean('email_on_payment_failure').notNull().default(true),
 
+    // Onboarding flow completion
+    onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
+
     createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' })
       .defaultNow()

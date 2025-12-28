@@ -319,6 +319,23 @@ export async function unclaimRepoByGithubRepoId(githubRepoId: bigint | string) {
 }
 
 /**
+ * Mark onboarding as complete for a repo
+ *
+ * Called when user completes or dismisses the onboarding flow.
+ */
+export async function markOnboardingComplete(githubRepoId: bigint | string) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set({ onboardingCompleted: true })
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated ?? null;
+}
+
+/**
  * Update repo settings with installation ID and verified owner
  *
  * Used when claiming a repo via GitHub App installation.

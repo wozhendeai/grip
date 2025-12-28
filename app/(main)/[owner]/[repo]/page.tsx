@@ -1,5 +1,7 @@
 import { BountyCard } from '@/components/bounty/bounty-card';
+import { RepoOnboardingModal } from '@/components/onboarding';
 import { getBountiesByGithubRepoId } from '@/db/queries/bounties';
+import { getUserOnboardingInfo } from '@/db/queries/passkeys';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';
@@ -11,6 +13,7 @@ import { RepoStatsCard } from './_components/repo-stats-card';
 
 interface ProjectPageProps {
   params: Promise<{ owner: string; repo: string }>;
+  searchParams: Promise<{ onboarding?: string }>;
 }
 
 /**
@@ -24,8 +27,9 @@ interface ProjectPageProps {
  * - Settings access (auto-approve, payout mode)
  * - Maintainer badge on repo page
  */
-export default async function ProjectPage({ params }: ProjectPageProps) {
+export default async function ProjectPage({ params, searchParams }: ProjectPageProps) {
   const { owner, repo } = await params;
+  const { onboarding } = await searchParams;
 
   // 1. Fetch from GitHub (works for ANY public repo)
   const githubRepo = await fetchGitHubRepo(owner, repo);
@@ -102,45 +106,70 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const session = await getSession();
   const canManage = repoSettings && session?.user?.id === repoSettings.verifiedOwnerUserId;
 
+  // Check if we should show the onboarding modal
+  // Show when: URL has ?onboarding=true OR repo is claimed by this user and onboarding not completed
+  const isVerifiedOwner = repoSettings?.verifiedOwnerUserId === session?.user?.id;
+  const showOnboarding =
+    isVerifiedOwner &&
+    (onboarding === 'true' || (repoSettings && !repoSettings.onboardingCompleted));
+
+  // Fetch user wallet info for onboarding modal
+  const userOnboardingInfo =
+    showOnboarding && session?.user?.id ? await getUserOnboardingInfo(session.user.id) : null;
+
   return (
-    <div className="container py-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Full width header section */}
-        <RepoInfoHeader github={githubRepo} isClaimed={!!repoSettings} />
+    <>
+      {/* Onboarding modal for newly claimed repos */}
+      {showOnboarding && repoSettings && userOnboardingInfo && (
+        <RepoOnboardingModal
+          repo={{
+            owner,
+            name: repo,
+            githubRepoId: repoSettings.githubRepoId.toString(),
+          }}
+          user={userOnboardingInfo}
+        />
+      )}
 
-        {/* Full width heading */}
-        <h2 className="mt-8 mb-4 text-xl font-semibold">Recent Bounties</h2>
+      <div className="container py-8">
+        <div className="mx-auto max-w-7xl">
+          {/* Full width header section */}
+          <RepoInfoHeader github={githubRepo} isClaimed={!!repoSettings} />
 
-        {/* Two-column layout for bounties + stats */}
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column - Bounties */}
-          <div className="flex-1">
-            {recentBounties.length > 0 ? (
-              <div className="space-y-4">
-                {recentBounties.map((bounty) => (
-                  <BountyCard key={bounty.id} bounty={bounty} />
-                ))}
-              </div>
-            ) : (
-              <BountiesEmptyState isClaimed={!!repoSettings} />
-            )}
+          {/* Full width heading */}
+          <h2 className="mt-8 mb-4 text-xl font-semibold">Recent Bounties</h2>
+
+          {/* Two-column layout for bounties + stats */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Left Column - Bounties */}
+            <div className="flex-1">
+              {recentBounties.length > 0 ? (
+                <div className="space-y-4">
+                  {recentBounties.map((bounty) => (
+                    <BountyCard key={bounty.id} bounty={bounty} />
+                  ))}
+                </div>
+              ) : (
+                <BountiesEmptyState isClaimed={!!repoSettings} />
+              )}
+            </div>
+
+            {/* Right Column - Sticky Stats */}
+            <aside className="lg:w-80 lg:sticky lg:top-8 lg:self-start">
+              <RepoStatsCard
+                owner={owner}
+                repo={repo}
+                totalFunded={totalFunded}
+                openBounties={openBounties}
+                completedBounties={completedBounties}
+                isClaimed={!!repoSettings}
+                canManage={!!canManage}
+                isLoggedIn={!!session?.user}
+              />
+            </aside>
           </div>
-
-          {/* Right Column - Sticky Stats */}
-          <aside className="lg:w-80 lg:sticky lg:top-8 lg:self-start">
-            <RepoStatsCard
-              owner={owner}
-              repo={repo}
-              totalFunded={totalFunded}
-              openBounties={openBounties}
-              completedBounties={completedBounties}
-              isClaimed={!!repoSettings}
-              canManage={!!canManage}
-              isLoggedIn={!!session?.user}
-            />
-          </aside>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,5 +1,7 @@
 import { db, passkey } from '@/db';
-import { desc, eq } from 'drizzle-orm';
+import { accessKeys } from '@/db/schema/business';
+import { and, desc, eq } from 'drizzle-orm';
+import { networkFilter } from '../network';
 
 /**
  * Get all passkeys for a user
@@ -57,4 +59,36 @@ export async function getPasskeyById(passkeyId: string) {
     .limit(1);
 
   return result ?? null;
+}
+
+export type UserOnboardingInfo = {
+  hasWallet: boolean;
+  walletAddress: string | null;
+  credentialId: string | null;
+  hasAccessKey: boolean;
+};
+
+/**
+ * Get user wallet and access key info for onboarding
+ * Returns combined data needed by the onboarding modal
+ */
+export async function getUserOnboardingInfo(userId: string): Promise<UserOnboardingInfo> {
+  // Get wallet (most recent passkey with tempo address)
+  const wallet = await getUserWallet(userId);
+
+  // Check for active access key
+  const [activeKey] = await db
+    .select({ id: accessKeys.id })
+    .from(accessKeys)
+    .where(
+      and(eq(accessKeys.userId, userId), eq(accessKeys.status, 'active'), networkFilter(accessKeys))
+    )
+    .limit(1);
+
+  return {
+    hasWallet: !!wallet?.tempoAddress,
+    walletAddress: wallet?.tempoAddress ?? null,
+    credentialId: wallet?.id ?? null,
+    hasAccessKey: !!activeKey,
+  };
 }
