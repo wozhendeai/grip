@@ -10,7 +10,7 @@ import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ArrowLeft, ArrowRight, CheckCircle2, Hand, Loader2, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { KeyAuthorization } from 'tempo.ts/ox';
-import { useSignMessage } from 'wagmi';
+import { useAccount, useConnect, useSignMessage } from 'wagmi';
 
 type PayoutMode = 'auto' | 'manual';
 

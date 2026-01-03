@@ -17,7 +17,10 @@
     "check:design-system": "node scripts/check-design-system.js",
     "prepare": "lefthook install",
     "hooks:install": "lefthook install",
-    "hooks:uninstall": "lefthook uninstall"
+    "hooks:uninstall": "lefthook uninstall",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
@@ -51,6 +54,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
