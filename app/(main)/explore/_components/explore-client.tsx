@@ -69,7 +69,9 @@ export function ExploreClient({ bounties, topRepos, stats }: ExploreClientProps)
     }
 
     if (minAmount > 0) {
-      filtered = filtered.filter((b) => Number(formatUnits(BigInt(b.totalFunded), 6)) >= minAmount);
+      filtered = filtered.filter(
+        (b) => b.totalFunded && Number(formatUnits(BigInt(b.totalFunded), 6)) >= minAmount
+      );
     }
 
     if (selectedTags.length > 0) {

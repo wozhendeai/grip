@@ -70,23 +70,27 @@ export async function getBackendWalletAddress(
     organizationId: process.env.TURNKEY_ORGANIZATION_ID,
   });
 
-  // Type assertion: Turnkey SDK types don't include 'accounts' property
-  // but the API actually returns it. This is a known gap in @turnkey/sdk-server types.
-  // Runtime structure: { walletId, walletName, accounts: [{ address, ... }], ... }
-  type WalletWithAccounts = {
-    walletName: string;
-    accounts?: Array<{ address: string }>;
-  };
-
-  const wallet = wallets.wallets.find((w) => w.walletName === walletName) as
-    | WalletWithAccounts
-    | undefined;
-  if (!wallet || !wallet.accounts?.[0]) {
-    throw new Error(
-      `Backend wallet not found for ${network}. ` +
-        `Run 'pnpm tsx scripts/init-turnkey-wallets.ts' to create wallet "${walletName}"`
+  const wallet = wallets.wallets.find((w) => w.walletName === walletName);
+  if (!wallet) {
+    console.error(
+      `[turnkey] Backend wallet "${walletName}" not found. Run 'pnpm tsx scripts/init-turnkey-wallets.ts' to create it.`
     );
+    throw new Error('Backend signing service unavailable');
   }
 
-  return wallet.accounts[0].address as `0x${string}`;
+  // getWallets doesn't include accounts, need to fetch them separately
+  const accountsResult = await turnkey.getWalletAccounts({
+    organizationId: process.env.TURNKEY_ORGANIZATION_ID,
+    walletId: wallet.walletId,
+  });
+
+  const account = accountsResult.accounts?.[0];
+  if (!account?.address) {
+    console.error(
+      `[turnkey] No account in wallet "${walletName}". Run 'pnpm tsx scripts/init-turnkey-wallets.ts' to create one.`
+    );
+    throw new Error('Backend signing service unavailable');
+  }
+
+  return account.address as `0x${string}`;
 }

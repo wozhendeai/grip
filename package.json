@@ -17,7 +17,10 @@
     "check:design-system": "node scripts/check-design-system.js",
     "prepare": "lefthook install",
     "hooks:install": "lefthook install",
-    "hooks:uninstall": "lefthook uninstall"
+    "hooks:uninstall": "lefthook uninstall",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
@@ -38,6 +41,7 @@
     "lucide-react": "^0.469.0",
     "next": "^15.2.7",
     "next-themes": "^0.4.6",
+    "ox": "^0.11.1",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -51,15 +55,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.30.1",
     "lefthook": "^2.0.9",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   }
 }

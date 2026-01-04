@@ -195,6 +195,26 @@ export const repoSettings = pgTable(
     // GitHub App installation (for claimed repos)
     installationId: i64('installation_id'),
 
+    // Auto-pay setting (requires active Access Key to function)
+    autoPayEnabled: boolean('auto_pay_enabled').notNull().default(false),
+
+    // Bounty defaults
+    defaultExpirationDays: integer('default_expiration_days'),
+
+    // Contributor eligibility: 'anyone' | 'collaborators'
+    contributorEligibility: text('contributor_eligibility').notNull().default('anyone'),
+
+    // Privacy
+    showAmountsPublicly: boolean('show_amounts_publicly').notNull().default(true),
+
+    // Email notifications (placeholder for future email service)
+    emailOnSubmission: boolean('email_on_submission').notNull().default(true),
+    emailOnMerge: boolean('email_on_merge').notNull().default(true),
+    emailOnPaymentFailure: boolean('email_on_payment_failure').notNull().default(true),
+
+    // Onboarding flow completion
+    onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
+
     createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' })
       .defaultNow()
@@ -866,3 +886,65 @@ export const notificationPreferences = pgTable('notification_preferences', {
     .notNull()
     .$onUpdate(() => new Date().toISOString()),
 });
+
+// ============================================================================
+// WEBHOOK DELIVERIES
+// ============================================================================
+
+/**
+ * Webhook Deliveries table
+ *
+ * Tracks GitHub webhook events received and their processing status.
+ * Used for:
+ * - Webhook status indicator (last event time, connection health)
+ * - Recent events log in settings UI
+ * - Debugging and monitoring webhook processing
+ *
+ * Events are logged for both app-level (installation) and repo-level events.
+ */
+export const webhookDeliveryStatuses = ['success', 'failed'] as const;
+export type WebhookDeliveryStatus = (typeof webhookDeliveryStatuses)[number];
+
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // GitHub identifiers
+    githubDeliveryId: varchar('github_delivery_id', { length: 64 }).notNull().unique(),
+    githubRepoId: i64('github_repo_id'),
+    githubInstallationId: i64('github_installation_id'),
+
+    // Event details
+    eventType: varchar('event_type', { length: 64 }).notNull(),
+    action: varchar('action', { length: 64 }),
+
+    // Processing result
+    status: varchar('status', { length: 20, enum: webhookDeliveryStatuses }).notNull(),
+    errorMessage: text('error_message'),
+
+    // Summary for display (compact payload extract)
+    payloadSummary: jsonb('payload_summary').$type<{
+      prNumber?: number;
+      issueNumber?: number;
+      username?: string;
+      repoFullName?: string;
+    }>(),
+
+    // Timestamps
+    receivedAt: timestamp('received_at', { mode: 'string' }).notNull().defaultNow(),
+    processedAt: timestamp('processed_at', { mode: 'string' }),
+
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    idxWebhookDeliveriesRepoId: index('idx_webhook_deliveries_repo_id').on(table.githubRepoId),
+    idxWebhookDeliveriesInstallation: index('idx_webhook_deliveries_installation').on(
+      table.githubInstallationId
+    ),
+    idxWebhookDeliveriesReceivedAt: index('idx_webhook_deliveries_received_at').on(
+      table.receivedAt
+    ),
+    idxWebhookDeliveriesStatus: index('idx_webhook_deliveries_status').on(table.status),
+  })
+);

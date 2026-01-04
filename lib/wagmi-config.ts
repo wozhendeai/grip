@@ -42,12 +42,25 @@ export const config = createConfig({
     webAuthn({
       // Custom KeyManager that stores public keys in our database
       // instead of localStorage (which would be lost on logout/device change)
-      keyManager: KeyManager.http({
-        // Better Auth plugin endpoints for KeyManager
-        // SDK expects these specific endpoint properties:
-        getPublicKey: '/api/auth/tempo/keymanager', // GET with ?credentialId=...
-        setPublicKey: '/api/auth/tempo/keymanager', // POST with body
-      }),
+      keyManager: KeyManager.http(
+        {
+          // Better Auth plugin endpoints for KeyManager
+          // SDK expects these specific endpoint properties with :credentialId placeholder
+          // The SDK will replace :credentialId with the actual credential ID
+          getPublicKey: '/api/auth/tempo/keymanager?credentialId=:credentialId',
+          setPublicKey: '/api/auth/tempo/keymanager?credentialId=:credentialId',
+        },
+        {
+          // CRITICAL: Include credentials (cookies) with requests
+          // Without this, the session cookie won't be sent and requests will fail with 401
+          fetch: (input, init) => {
+            return fetch(input, {
+              ...init,
+              credentials: 'include', // Include cookies for same-origin requests
+            });
+          },
+        }
+      ),
     }),
   ],
   // Disable auto-detection of injected wallets

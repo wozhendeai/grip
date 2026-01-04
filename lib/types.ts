@@ -171,7 +171,7 @@ export interface Bounty {
   labels: GithubLabel[] | null;
 
   // Funding (pooled promise model)
-  totalFunded: string; // BigInt serialized as string (sum of all promised amounts)
+  totalFunded: string | null; // BigInt serialized as string (null when hidden by repo settings)
   tokenAddress: string;
   primaryFunderId: string | null; // first funder (controls approval)
 

@@ -1,7 +1,9 @@
 import { getBountyById } from '@/db/queries/bounties';
 import { getUserWallet } from '@/db/queries/passkeys';
+import { getRepoSettingsByGithubRepoId } from '@/db/queries/repo-settings';
 import { createSubmission, getUserSubmissionForBounty } from '@/db/queries/submissions';
 import { requireAuth } from '@/lib/auth/auth-server';
+import { isUserCollaborator } from '@/lib/github/api';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
@@ -40,6 +42,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Check bounty is open
     if (bounty.status !== 'open') {
       return NextResponse.json({ error: 'Bounty is not accepting submissions' }, { status: 400 });
+    }
+
+    // Check contributor eligibility if repo has settings
+    const repoSettings = await getRepoSettingsByGithubRepoId(bounty.githubRepoId);
+    if (repoSettings?.contributorEligibility === 'collaborators') {
+      const githubUsername = session.user.name;
+      if (!githubUsername) {
+        return NextResponse.json(
+          { error: 'GitHub username not found. Please re-link your GitHub account.' },
+          { status: 400 }
+        );
+      }
+
+      const isCollaborator = await isUserCollaborator(
+        bounty.githubOwner,
+        bounty.githubRepo,
+        githubUsername
+      );
+
+      if (!isCollaborator) {
+        return NextResponse.json(
+          {
+            error: 'COLLABORATOR_REQUIRED',
+            message: 'This repository only accepts submissions from collaborators',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Validate PR fields

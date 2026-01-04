@@ -141,6 +141,27 @@
       "when": 1766852952173,
       "tag": "0019_romantic_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1766871805371,
+      "tag": "0020_brave_ironclad",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1766874773018,
+      "tag": "0021_salty_thaddeus_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1766890704083,
+      "tag": "0022_sweet_union_jack",
+      "breakpoints": true
     }
   ]
 }

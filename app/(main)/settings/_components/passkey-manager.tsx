@@ -2,7 +2,14 @@
 
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
 import { passkey } from '@/lib/auth/auth-client';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -26,22 +33,34 @@ interface PasskeyManagerProps {
 
 export function PasskeyManager({ wallet }: PasskeyManagerProps) {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [phase, setPhase] = useState<PasskeyPhase>('ready');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCreateWallet = async () => {
-    setIsCreating(true);
     setError(null);
+    setPhase('registering');
+
     try {
       await passkey.addPasskey({ name: 'GRIP Wallet' });
-      router.refresh(); // Refresh to show new wallet
+
+      setPhase('processing');
+      // Refresh to show new wallet
+      router.refresh();
+
+      setPhase('success');
+
+      setTimeout(() => {
+        setShowCreateModal(false);
+        setPhase('ready');
+        setError(null);
+      }, 2000);
     } catch (err) {
-      setError('Failed to create wallet. Make sure your device supports passkeys.');
-      console.error(err);
-    } finally {
-      setIsCreating(false);
+      const classified = classifyWebAuthnError(err, 'register', 'registration');
+      setError(classified);
+      setPhase('error');
     }
   };
 
@@ -49,7 +68,6 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
     if (!wallet) return;
 
     setIsDeleting(true);
-    setError(null);
     try {
       const result = await passkey.deletePasskey({ id: wallet.id });
       if (result.error) {
@@ -58,41 +76,86 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
       router.refresh(); // Refresh to update UI
       setShowDeleteConfirm(false);
     } catch (err) {
-      setError('Failed to delete wallet. Please try again.');
+      alert('Failed to delete wallet. Please try again.');
       console.error(err);
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const handleCloseCreateModal = (newOpen: boolean) => {
+    // Prevent closing during active operations
+    const canClose = !['connecting', 'signing', 'registering', 'processing'].includes(phase);
+
+    if (!newOpen && !canClose) {
+      return;
+    }
+
+    setShowCreateModal(newOpen);
+
+    // Reset state after close
+    if (!newOpen) {
+      setTimeout(() => {
+        setPhase('ready');
+        setError(null);
+      }, 300);
+    }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setPhase('ready');
+  };
+
   if (!wallet?.tempoAddress) {
     // No wallet - show creation UI
     return (
-      <div className="space-y-4">
-        {error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
-        )}
-        <p className="text-sm text-muted-foreground">
-          You don&apos;t have a wallet yet. Create one to receive bounty payments.
-        </p>
-        <Button onClick={handleCreateWallet} disabled={isCreating}>
-          {isCreating ? 'Creating...' : 'Create Wallet'}
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          This will prompt you to create a passkey using TouchID, FaceID, or your device&apos;s
-          authentication method.
-        </p>
-      </div>
+      <>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            You don&apos;t have a wallet yet. Create one to receive bounty payments.
+          </p>
+          <Button onClick={() => setShowCreateModal(true)}>Create Wallet</Button>
+          <p className="text-sm text-muted-foreground">
+            This will prompt you to create a passkey using TouchID, FaceID, or your device&apos;s
+            authentication method.
+          </p>
+        </div>
+
+        <Dialog open={showCreateModal} onOpenChange={handleCloseCreateModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{getPasskeyTitle(phase, error, 'registration', 'Wallet')}</DialogTitle>
+            </DialogHeader>
+
+            <PasskeyOperationContent
+              phase={phase}
+              error={error}
+              operationType="registration"
+              operationLabel="Wallet"
+              onRetry={handleRetry}
+              successMessage="Wallet created successfully!"
+            >
+              {phase === 'ready' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Create a secure wallet using your device biometrics.
+                  </p>
+                  <Button onClick={handleCreateWallet} className="w-full">
+                    Create Wallet
+                  </Button>
+                </div>
+              )}
+            </PasskeyOperationContent>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
   // Has wallet - show wallet details and delete option
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
-      )}
-
       <div className="p-4 bg-muted/50 rounded-lg space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Address</span>

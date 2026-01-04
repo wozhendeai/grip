@@ -123,6 +123,61 @@ export async function updateRepoOwnerApproval(
 }
 
 /**
+ * Toggle auto_pay_enabled flag for repo
+ *
+ * When enabled AND user has active Access Key:
+ * - Bounties are automatically paid when linked PR merges
+ * - Skips manual approval flow
+ *
+ * When disabled OR no Access Key:
+ * - Manual approval required for each payout
+ */
+export async function updateAutoPayEnabled(githubRepoId: bigint | string, autoPayEnabled: boolean) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set({
+      autoPayEnabled,
+    })
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated;
+}
+
+export type RepoSettingsUpdate = Partial<{
+  autoPayEnabled: boolean;
+  requireOwnerApproval: boolean;
+  defaultExpirationDays: number | null;
+  contributorEligibility: 'anyone' | 'collaborators';
+  showAmountsPublicly: boolean;
+  emailOnSubmission: boolean;
+  emailOnMerge: boolean;
+  emailOnPaymentFailure: boolean;
+}>;
+
+/**
+ * Update repo settings (batch update for all configurable fields)
+ *
+ * Used by settings page to update multiple fields at once.
+ */
+export async function updateRepoSettings(
+  githubRepoId: bigint | string,
+  updates: RepoSettingsUpdate
+) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set(updates)
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated;
+}
+
+/**
  * Check if user is verified owner of repo
  *
  * Used for permission checks in settings pages and approval flows.
@@ -257,6 +312,23 @@ export async function unclaimRepoByGithubRepoId(githubRepoId: bigint | string) {
       installationId: null,
       verifiedAt: null,
     })
+    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
+    .returning();
+
+  return updated ?? null;
+}
+
+/**
+ * Mark onboarding as complete for a repo
+ *
+ * Called when user completes or dismisses the onboarding flow.
+ */
+export async function markOnboardingComplete(githubRepoId: bigint | string) {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [updated] = await db
+    .update(repoSettings)
+    .set({ onboardingCompleted: true })
     .where(eq(repoSettings.githubRepoId, repoIdBigInt))
     .returning();
 

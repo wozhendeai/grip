@@ -139,7 +139,6 @@ export function AccessKeyManager({ initialKeys, credentialId }: AccessKeyManager
             open={showCreateModal}
             onOpenChange={setShowCreateModal}
             onSuccess={handleCreateSuccess}
-            credentialId={credentialId}
           />
         )}
       </CardContent>

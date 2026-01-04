@@ -4,12 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
 import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
-import { CheckCircle, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
+import { useCallback, useState } from 'react';
 import { KeyAuthorization } from 'tempo.ts/ox';
-import { useSignMessage } from 'wagmi';
+import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
 
 type AccessKey = {
   id: string;
@@ -26,46 +31,62 @@ type CreateAccessKeyModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (key: AccessKey) => void;
-  credentialId: string; // User's passkey credential ID
 };
 
-export function CreateAccessKeyModal({
-  open,
-  onOpenChange,
-  onSuccess,
-  credentialId,
-}: CreateAccessKeyModalProps) {
-  const [status, setStatus] = useState<'ready' | 'signing' | 'creating' | 'success' | 'error'>(
-    'ready'
-  );
-  const [spendingLimit, setSpendingLimit] = useState('10000'); // Default $10k
-  const [error, setError] = useState<string | null>(null);
+export function CreateAccessKeyModal({ open, onOpenChange, onSuccess }: CreateAccessKeyModalProps) {
+  const [phase, setPhase] = useState<PasskeyPhase>('ready');
+  const [spendingLimit, setSpendingLimit] = useState('10000');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
 
-  // SDK hook for signing messages with WebAuthn
-  const { signMessageAsync } = useSignMessage();
+  const connectors = useConnectors();
+  const connections = useConnections();
+  const connect = useConnect();
+  const signMessage = useSignMessage();
 
-  async function handleCreate() {
+  const handleCreate = useCallback(async () => {
+    setError(null);
+    setPhase('connecting');
+
     try {
-      setStatus('signing');
-      setError(null);
+      console.log('[Access Key] Starting creation flow');
+      console.log('[Access Key] Current connections:', connections.length);
 
-      // Get current network and backend wallet address
+      // Connect if not already connected
+      if (connections.length === 0) {
+        console.log('[Access Key] No active connection, connecting...');
+
+        const webAuthnConnector = connectors.find(
+          (c) => c.id === 'webAuthn' || c.type === 'webAuthn'
+        );
+
+        console.log('[Access Key] Found webAuthn connector:', !!webAuthnConnector);
+
+        if (!webAuthnConnector) {
+          setError({
+            type: 'unknown',
+            message: 'WebAuthn connector not available. Please refresh and try again.',
+            phase: 'connect',
+          });
+          setPhase('error');
+          return;
+        }
+
+        console.log('[Access Key] Calling connect.mutateAsync()...');
+        await connect.mutateAsync({ connector: webAuthnConnector });
+        console.log('[Access Key] ✅ Connected successfully');
+      } else {
+        console.log('[Access Key] Already connected, skipping connection');
+      }
+
+      // Sign authorization
+      setPhase('signing');
+      console.log('[Access Key] Starting signing phase...');
+
       const network = getCurrentNetwork();
       const backendWalletAddress = BACKEND_WALLET_ADDRESSES[network];
 
-      // Build KeyAuthorization params
-      const params = {
-        chainId: 42429, // Tempo testnet
-        keyType: 0 as const, // secp256k1
-        keyId: backendWalletAddress,
-        limits: {
-          [TEMPO_TOKENS.USDC]: (BigInt(spendingLimit) * BigInt(1_000_000)).toString(), // Convert to 6 decimals
-        },
-      };
-
-      // Create KeyAuthorization and compute sign payload using Tempo SDK
       const authorization = KeyAuthorization.from({
-        chainId: BigInt(params.chainId),
+        chainId: BigInt(42429),
         type: 'secp256k1',
         address: backendWalletAddress as `0x${string}`,
         limits: [
@@ -77,84 +98,145 @@ export function CreateAccessKeyModal({
       });
 
       const hash = KeyAuthorization.getSignPayload(authorization);
+      console.log('[Access Key] Calling signMessage.mutateAsync()...');
 
-      // Sign with passkey via SDK (triggers WebAuthn prompt)
-      const signature = await signMessageAsync({
-        message: { raw: hash },
-      });
+      // TODO: Credential targeting issue - if user has multiple passkeys in browser but only
+      // one in DB, the Tempo SDK might show all passkeys instead of the correct one.
+      // Solution: Fetch credentialID from DB and update localStorage['webAuthn.lastActiveCredential']
+      // before signing to ensure SDK targets the correct credential.
+      // See: tempo.ts/src/wagmi/Connector.ts line 377
+      const signature = await signMessage.mutateAsync({ message: { raw: hash } });
+      console.log('[Access Key] ✅ Signed successfully');
 
-      setStatus('creating');
-
-      // Create Access Key via Better Auth plugin
+      // Create access key
+      setPhase('processing');
       const createRes = await fetch('/api/auth/tempo/access-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           keyId: backendWalletAddress,
-          chainId: params.chainId,
-          keyType: params.keyType,
-          limits: params.limits,
+          chainId: 42429,
+          keyType: 0,
+          limits: {
+            // TODO: Check this
+            [TEMPO_TOKENS.USDC]: (BigInt(spendingLimit) * BigInt(1_000_000)).toString(),
+          },
           signature,
           label: 'GRIP Auto-pay',
         }),
       });
 
       if (!createRes.ok) {
-        const data = await createRes.json();
-        throw new Error(data.error || 'Failed to create Access Key');
+        const data = await createRes.json().catch(() => ({}));
+        setError({
+          type: 'operation_failed',
+          message: data.error || 'Failed to create Access Key. Please try again.',
+          phase: 'process',
+        });
+        setPhase('error');
+        return;
       }
 
       const { accessKey } = await createRes.json();
-
-      setStatus('success');
+      setPhase('success');
       onSuccess(accessKey);
 
-      // Auto-close after success
       setTimeout(() => {
         onOpenChange(false);
-        setStatus('ready');
+        setPhase('ready');
+        setError(null);
       }, 2000);
     } catch (err) {
-      console.error('Create Access Key error:', err);
-      setStatus('error');
+      console.error('[Access Key] ❌ Error occurred:', err);
+      console.error(
+        '[Access Key] Error type:',
+        err instanceof Error ? err.constructor.name : typeof err
+      );
+      console.error(
+        '[Access Key] Error message:',
+        err instanceof Error ? err.message : String(err)
+      );
 
-      // User-friendly error messages
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Passkey signature cancelled. Please try again.');
-        } else if (err.name === 'NotSupportedError') {
-          setError("Your device doesn't support passkeys.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('Failed to create Access Key. Please try again.');
-      }
+      // Classify error based on current phase
+      const currentPhase = phase === 'connecting' ? 'connect' : 'sign';
+      const classified = classifyWebAuthnError(err, currentPhase, 'signing');
+
+      console.error('[Access Key] Classified as:', classified.type);
+      console.error('[Access Key] User message:', classified.message);
+
+      setError(classified);
+      setPhase('error');
     }
-  }
+  }, [
+    connections.length,
+    connectors,
+    connect,
+    signMessage,
+    spendingLimit,
+    onSuccess,
+    onOpenChange,
+    phase,
+  ]);
 
-  function handleClose() {
-    // Prevent closing during signing/creating
-    if (status === 'signing' || status === 'creating') return;
+  const handleClose = useCallback(
+    (newOpen: boolean) => {
+      // Prevent closing during active operations
+      const canClose = !['connecting', 'signing', 'registering', 'processing'].includes(phase);
 
-    onOpenChange(false);
-    // Reset state when closing
-    setTimeout(() => {
-      setStatus('ready');
-      setError(null);
-      setSpendingLimit('10000');
-    }, 300);
-  }
+      if (!newOpen && !canClose) {
+        return;
+      }
+
+      onOpenChange(newOpen);
+
+      // Reset state after close
+      if (!newOpen) {
+        setTimeout(() => {
+          setPhase('ready');
+          setError(null);
+          setSpendingLimit('10000');
+        }, 300);
+      }
+    },
+    [phase, onOpenChange]
+  );
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setPhase('ready');
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enable Auto-Pay</DialogTitle>
+          <DialogTitle>{getPasskeyTitle(phase, error, 'signing', 'Access Key')}</DialogTitle>
         </DialogHeader>
 
-        {status === 'ready' && (
-          <div className="space-y-6">
+        <PasskeyOperationContent
+          phase={phase}
+          error={error}
+          operationType="signing"
+          operationLabel="Access Key"
+          onRetry={handleRetry}
+          onCreateWallet={() => {
+            window.location.href = '/settings/wallet';
+          }}
+          successMessage="Auto-Pay enabled!"
+          educationalContent={
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <h4 className="heading-4">What is Auto-Pay?</h4>
+              <ul className="body-sm text-muted-foreground space-y-1">
+                <li>• Automatically signs bounty payouts without manual approval</li>
+                <li>• You control spending limits and can revoke anytime</li>
+                <li>• Secured by Tempo's Account Keychain (on-chain authorization)</li>
+                <li>• Private keys never leave Turnkey's secure HSM</li>
+              </ul>
+            </div>
+          }
+        >
+          {/* Custom ready-state content */}
+          {phase === 'ready' && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="spending-limit">Spending Limit (USDC)</Label>
@@ -172,71 +254,16 @@ export function CreateAccessKeyModal({
                 </p>
               </div>
 
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <h4 className="heading-4">What is Auto-Pay?</h4>
-                <ul className="body-sm text-muted-foreground space-y-1">
-                  <li>• Automatically signs bounty payouts without manual approval</li>
-                  <li>• You control spending limits and can revoke anytime</li>
-                  <li>• Secured by Tempo's Account Keychain (on-chain authorization)</li>
-                  <li>• Private keys never leave Turnkey's secure HSM</li>
-                </ul>
-              </div>
+              <Button
+                onClick={handleCreate}
+                className="w-full"
+                disabled={!spendingLimit || Number(spendingLimit) <= 0}
+              >
+                Sign & Enable Auto-Pay
+              </Button>
             </div>
-
-            <Button
-              onClick={handleCreate}
-              className="w-full"
-              disabled={!spendingLimit || Number(spendingLimit) <= 0}
-            >
-              Sign & Enable Auto-Pay
-            </Button>
-          </div>
-        )}
-
-        {status === 'signing' && (
-          <div className="text-center py-12 space-y-4">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <div className="space-y-2">
-              <p className="body-base font-medium">Waiting for passkey signature...</p>
-              <p className="body-sm text-muted-foreground">
-                Check your device for the passkey prompt
-              </p>
-            </div>
-          </div>
-        )}
-
-        {status === 'creating' && (
-          <div className="text-center py-12 space-y-4">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <div className="space-y-2">
-              <p className="body-base font-medium">Creating Access Key...</p>
-              <p className="body-sm text-muted-foreground">This will only take a moment</p>
-            </div>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className="text-center py-12 space-y-4">
-            <CheckCircle className="mx-auto h-12 w-12 text-primary" />
-            <div className="space-y-2">
-              <p className="body-base font-medium">Auto-Pay enabled!</p>
-              <p className="body-sm text-muted-foreground">
-                Your bounty payouts will now be signed automatically
-              </p>
-            </div>
-          </div>
-        )}
-
-        {status === 'error' && (
-          <div className="space-y-6">
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-              <p className="body-sm text-destructive">{error}</p>
-            </div>
-            <Button onClick={() => setStatus('ready')} variant="outline" className="w-full">
-              Try Again
-            </Button>
-          </div>
-        )}
+          )}
+        </PasskeyOperationContent>
       </DialogContent>
     </Dialog>
   );

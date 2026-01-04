@@ -2,9 +2,14 @@
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
 import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES } from '@/lib/tempo/constants';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
 import { useState } from 'react';
 import { KeyAuthorization } from 'tempo.ts/ox';
 import { useSignMessage } from 'wagmi';
@@ -46,17 +51,17 @@ export function ApprovePendingPaymentModal({
   paymentDetails,
   credentialId,
 }: ApprovePendingPaymentModalProps) {
-  const [status, setStatus] = useState<'ready' | 'signing' | 'success' | 'error'>('ready');
-  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<PasskeyPhase>('ready');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
 
   // SDK hook for signing messages with WebAuthn
   const { signMessageAsync } = useSignMessage();
 
   async function handleAuthorize() {
-    try {
-      setStatus('signing');
-      setError(null);
+    setError(null);
+    setPhase('signing');
 
+    try {
       // Get current network and backend wallet address
       const network = getCurrentNetwork();
       const backendWalletAddress = BACKEND_WALLET_ADDRESSES[network];
@@ -78,12 +83,18 @@ export function ApprovePendingPaymentModal({
       // Compute signature hash using Tempo SDK
       const authHash = KeyAuthorization.getSignPayload(authorization);
 
+      // TODO: Credential targeting issue - if user has multiple passkeys in browser but only
+      // one in DB, the Tempo SDK might show all passkeys instead of the correct one.
+      // Solution: Fetch credentialID from DB and update localStorage['webAuthn.lastActiveCredential']
+      // before signing to ensure SDK targets the correct credential.
+      // See: tempo.ts/src/wagmi/Connector.ts line 377
+
       // Sign with passkey via SDK (triggers WebAuthn prompt)
       const signature = await signMessageAsync({
         message: { raw: authHash },
       });
 
-      setStatus('success');
+      setPhase('success');
 
       // Return signature to parent component
       // Parent will retry approval API with this signature
@@ -92,33 +103,38 @@ export function ApprovePendingPaymentModal({
       // Auto-close after success
       setTimeout(() => {
         onOpenChange(false);
-        setStatus('ready');
+        setPhase('ready');
+        setError(null);
       }, 1500);
     } catch (err) {
-      console.error('Authorize payment error:', err);
-      setStatus('error');
-
-      // User-friendly error messages
-      // Pattern: match WebAuthn error names to provide clear guidance
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Passkey signature cancelled. Please try again.');
-        } else if (err.name === 'NotSupportedError') {
-          setError("Your device doesn't support passkeys.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('Failed to authorize payment. Please try again.');
-      }
+      const classified = classifyWebAuthnError(err, 'sign', 'signing');
+      setError(classified);
+      setPhase('error');
     }
   }
 
-  function handleClose() {
-    if (status === 'signing') return; // Don't close during signing
-    onOpenChange(false);
-    setStatus('ready');
+  function handleClose(newOpen: boolean) {
+    // Prevent closing during active operations
+    const canClose = !['connecting', 'signing', 'registering', 'processing'].includes(phase);
+
+    if (!newOpen && !canClose) {
+      return;
+    }
+
+    onOpenChange(newOpen);
+
+    // Reset state after close
+    if (!newOpen) {
+      setTimeout(() => {
+        setPhase('ready');
+        setError(null);
+      }, 300);
+    }
+  }
+
+  function handleRetry() {
     setError(null);
+    setPhase('ready');
   }
 
   // Format amount for display (assuming 6 decimals for USDC)
@@ -129,82 +145,64 @@ export function ApprovePendingPaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Authorize Pending Payment</DialogTitle>
+          <DialogTitle>{getPasskeyTitle(phase, error, 'signing', 'Pending Payment')}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <PasskeyOperationContent
+          phase={phase}
+          error={error}
+          operationType="signing"
+          operationLabel="Pending Payment"
+          onRetry={handleRetry}
+          onCreateWallet={() => {
+            window.location.href = '/settings/wallet';
+          }}
+          successMessage="Authorization Complete!"
+          educationalContent={
+            <div className="rounded-lg bg-primary/10 p-4 space-y-2">
+              <h4 className="heading-4">What happens next?</h4>
+              <ul className="body-sm text-muted-foreground space-y-1">
+                <li>• You authorize a one-time payment of ${formattedAmount} USDC</li>
+                <li>
+                  • Funds stay in your wallet until @{paymentDetails.recipientGithubUsername}{' '}
+                  creates an account
+                </li>
+                <li>• When they claim, the payment executes automatically</li>
+                <li>• Authorization expires in 1 year if unclaimed</li>
+              </ul>
+            </div>
+          }
+        >
           {/* Payment Details */}
-          <div className="space-y-2">
-            <p className="body-base text-muted-foreground">
-              @{paymentDetails.recipientGithubUsername} doesn't have a wallet yet. Authorize this
-              payment now, and it will be sent automatically when they create an account.
-            </p>
+          {phase === 'ready' && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="body-base text-muted-foreground">
+                  @{paymentDetails.recipientGithubUsername} doesn't have a wallet yet. Authorize
+                  this payment now, and it will be sent automatically when they create an account.
+                </p>
 
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="body-sm text-muted-foreground">Amount</span>
-                <span className="heading-3">${formattedAmount} USDC</span>
+                <div className="rounded-lg bg-muted p-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="body-sm text-muted-foreground">Amount</span>
+                    <span className="heading-3">${formattedAmount} USDC</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Educational Copy */}
-          <div className="rounded-lg bg-primary/10 p-4 space-y-2">
-            <h4 className="heading-4">What happens next?</h4>
-            <ul className="body-sm text-muted-foreground space-y-1">
-              <li>• You authorize a one-time payment of ${formattedAmount} USDC</li>
-              <li>
-                • Funds stay in your wallet until @{paymentDetails.recipientGithubUsername} creates
-                an account
-              </li>
-              <li>• When they claim, the payment executes automatically</li>
-              <li>• Authorization expires in 1 year if unclaimed</li>
-            </ul>
-          </div>
-
-          {/* Error State */}
-          {status === 'error' && error && (
-            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-              <div className="space-y-2 flex-1">
-                <p className="body-sm text-destructive">{error}</p>
-                <Button onClick={handleAuthorize} variant="outline" size="sm">
-                  Try Again
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            {status === 'ready' && (
-              <>
-                <Button onClick={handleClose} variant="outline" className="flex-1">
+              <div className="flex gap-2">
+                <Button onClick={() => onOpenChange(false)} variant="outline" className="flex-1">
                   Cancel
                 </Button>
                 <Button onClick={handleAuthorize} className="flex-1">
                   Authorize Payment
                 </Button>
-              </>
-            )}
-
-            {status === 'signing' && (
-              <div className="flex items-center justify-center gap-2 p-4 w-full">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="body-base">Waiting for passkey signature...</span>
               </div>
-            )}
-
-            {status === 'success' && (
-              <div className="flex items-center justify-center gap-2 p-4 w-full text-primary">
-                <CheckCircle className="h-5 w-5" />
-                <span className="body-base font-medium">Authorization Complete!</span>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </PasskeyOperationContent>
       </DialogContent>
     </Dialog>
   );

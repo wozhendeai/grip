@@ -35,16 +35,20 @@ export function BountyCard({ bounty, index = 0 }: BountyCardProps) {
 
         {/* Amount - with completed state styling */}
         <div className="mb-4">
-          {isCompleted ? (
+          {bounty.totalFunded === null ? (
+            <span className="text-2xl font-bold text-muted-foreground">Hidden</span>
+          ) : isCompleted ? (
             <div className="inline-flex items-center gap-2">
               <span className="text-2xl font-bold text-muted-foreground line-through">
-                ${bounty.totalFunded.toLocaleString()}
+                ${Number(bounty.totalFunded).toLocaleString()}
               </span>
               <span className="text-sm font-medium text-success">PAID</span>
             </div>
           ) : (
             <>
-              <span className="text-2xl font-bold">${bounty.totalFunded.toLocaleString()}</span>
+              <span className="text-2xl font-bold">
+                ${Number(bounty.totalFunded).toLocaleString()}
+              </span>
               <span className="ml-1 text-sm text-muted-foreground">USDC</span>
             </>
           )}

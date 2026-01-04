@@ -214,6 +214,27 @@ export async function canUserManageRepo(
 }
 
 /**
+ * Check if user is a collaborator on a repository (any permission level)
+ *
+ * Used to enforce contributor eligibility settings.
+ * Returns true if user has any collaborator access (read, triage, write, maintain, or admin).
+ * Returns false if user is not a collaborator or if check fails.
+ */
+export async function isUserCollaborator(
+  owner: string,
+  repo: string,
+  username: string
+): Promise<boolean> {
+  const permission = await githubFetch<{ permission: string }>(
+    `/repos/${owner}/${repo}/collaborators/${username}/permission`,
+    { next: { revalidate: 300 } } // Cache 5 min (shorter than canUserManageRepo)
+  );
+
+  // Any non-null permission means they're a collaborator
+  return permission !== null;
+}
+
+/**
  * Fetch a GitHub user's public repositories (uses server token)
  *
  * Uses public API with server GITHUB_TOKEN (no user auth required).

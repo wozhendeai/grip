@@ -692,3 +692,22 @@ export async function getCompletedBountiesByUser(
     .limit(options?.limit ?? 50)
     .offset(options?.offset ?? 0);
 }
+
+/**
+ * Get total committed balance for a repo (sum of open bounty amounts)
+ *
+ * "Committed" = total funds promised to open bounties.
+ * Used in treasury settings to show how much is allocated.
+ */
+export async function getCommittedBalanceByRepoId(githubRepoId: bigint | string): Promise<bigint> {
+  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
+
+  const [result] = await db
+    .select({
+      committed: sql<bigint>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
+    })
+    .from(bounties)
+    .where(and(networkFilter(bounties), eq(bounties.githubRepoId, repoIdBigInt)));
+
+  return result?.committed ?? BigInt(0);
+}

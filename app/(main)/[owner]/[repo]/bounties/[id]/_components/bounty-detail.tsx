@@ -293,10 +293,12 @@ export function BountyDetail({
               <p className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
                 Bounty Amount
               </p>
-              {isPaid ? (
+              {bounty.totalFunded === null ? (
+                <span className="text-3xl font-bold text-muted-foreground md:text-4xl">Hidden</span>
+              ) : isPaid ? (
                 <div className="flex items-center gap-3">
                   <span className="text-3xl font-bold text-muted-foreground line-through md:text-4xl">
-                    ${bounty.totalFunded.toLocaleString()}
+                    ${Number(bounty.totalFunded).toLocaleString()}
                   </span>
                   <span className="rounded bg-muted-foreground/20 px-2 py-1 text-sm font-medium text-muted-foreground">
                     PAID
@@ -305,7 +307,7 @@ export function BountyDetail({
               ) : (
                 <>
                   <span className="text-3xl font-bold md:text-4xl">
-                    ${bounty.totalFunded.toLocaleString()}
+                    ${Number(bounty.totalFunded).toLocaleString()}
                   </span>
                   <span className="ml-2 text-lg text-muted-foreground">USDC</span>
                 </>
@@ -621,7 +623,11 @@ export function BountyDetail({
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="font-medium">${bounty.totalFunded.toLocaleString()}</span>
+                    <span className="font-medium">
+                      {bounty.totalFunded === null
+                        ? 'Hidden'
+                        : `$${Number(bounty.totalFunded).toLocaleString()}`}
+                    </span>
                   </div>
                 </div>
               </div>

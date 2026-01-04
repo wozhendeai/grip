@@ -34,7 +34,9 @@ export function DashboardBountyCard({
   payout,
 }: DashboardBountyCardProps) {
   // Format amount from micro-units (6 decimals) to display
-  const amountInUsdc = Number(BigInt(bounty.totalFunded) / BigInt(1_000_000));
+  const amountInUsdc = bounty.totalFunded
+    ? Number(BigInt(bounty.totalFunded) / BigInt(1_000_000))
+    : null;
   const bountyUrl = `/${bounty.githubOwner}/${bounty.githubRepo}/bounty/${bounty.id}`;
 
   // Get display labels (max 2)
@@ -43,28 +45,26 @@ export function DashboardBountyCard({
   const remainingCount = labels.length > 2 ? labels.length - 2 : 0;
 
   return (
-    <article className="space-y-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-slate-300">
+    <article className="space-y-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-muted-foreground/50">
       {/* Header: Repo + Status */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold uppercase text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold uppercase text-muted-foreground">
             {bounty.githubOwner.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-muted-foreground">
               {bounty.project.githubFullName} · #{bounty.githubIssueNumber}
             </div>
           </div>
         </div>
-        <div className="shrink-0 text-lg font-semibold text-emerald-600">
-          ${amountInUsdc.toLocaleString()}
+        <div className="shrink-0 text-lg font-semibold text-success">
+          {amountInUsdc !== null ? `$${amountInUsdc.toLocaleString()}` : 'Hidden'}
         </div>
       </div>
 
       {/* Title */}
-      <h3 className="line-clamp-2 font-semibold text-slate-900 dark:text-slate-100">
-        {bounty.title}
-      </h3>
+      <h3 className="line-clamp-2 font-semibold text-foreground">{bounty.title}</h3>
 
       {/* Labels */}
       {displayLabels.length > 0 && (
@@ -82,7 +82,7 @@ export function DashboardBountyCard({
             </span>
           ))}
           {remainingCount > 0 && (
-            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
               +{remainingCount}
             </span>
           )}
@@ -161,7 +161,7 @@ function ClaimedVariantSection({ submission }: { submission: SerializedSubmissio
           PR #{submission.githubPrNumber} · {submittedAt}
         </div>
         {submission.funderApprovedAt && (
-          <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+          <div className="mt-1 flex items-center gap-1 text-xs text-success">
             <CheckCircle className="h-3 w-3" />
             Approved
           </div>
@@ -202,7 +202,7 @@ function CompletedVariantSection({
   return (
     <div className="border-t border-border pt-3">
       <div className="mb-2">
-        <div className="flex items-center gap-1 text-xs text-emerald-600">
+        <div className="flex items-center gap-1 text-xs text-success">
           <CheckCircle className="h-3 w-3" />
           Paid on {paidAt}
         </div>

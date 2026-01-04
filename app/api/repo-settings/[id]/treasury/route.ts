@@ -1,4 +1,5 @@
 import { db, passkey } from '@/db';
+import { getCommittedBalanceByRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { tempoClient } from '@/lib/tempo/client';
@@ -52,6 +53,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         id: passkey.id,
         name: passkey.name,
         tempoAddress: passkey.tempoAddress,
+        credentialID: passkey.credentialID,
       })
       .from(passkey)
       .where(eq(passkey.userId, session.user.id));
@@ -70,7 +72,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const tokenAddress = TEMPO_TOKENS.USDC;
 
     try {
-      const [balance, metadata] = await Promise.all([
+      const [balance, metadata, committedBalance] = await Promise.all([
         tempoClient.token.getBalance({
           account: treasuryPasskey.tempoAddress as `0x${string}`,
           token: tokenAddress,
@@ -78,26 +80,38 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         tempoClient.token.getMetadata({
           token: tokenAddress,
         }),
+        getCommittedBalanceByRepoId(BigInt(githubRepoId)),
       ]);
 
       return NextResponse.json({
         configured: true,
         address: treasuryPasskey.tempoAddress,
+        credentialId: treasuryPasskey.credentialID,
         balance: {
           raw: balance.toString(),
           formatted: formatUnits(balance, metadata.decimals),
           decimals: metadata.decimals,
           symbol: metadata.symbol,
         },
+        committed: {
+          raw: committedBalance.toString(),
+          formatted: formatUnits(committedBalance, 6),
+        },
         tokenAddress,
       });
     } catch (error) {
       console.error('Error fetching treasury balance:', error);
       // Return structure even if balance fetch fails
+      const committedBalance = await getCommittedBalanceByRepoId(BigInt(githubRepoId));
       return NextResponse.json({
         configured: true,
         address: treasuryPasskey.tempoAddress,
+        credentialId: treasuryPasskey.credentialID,
         balance: null,
+        committed: {
+          raw: committedBalance.toString(),
+          formatted: formatUnits(committedBalance, 6),
+        },
         error: 'Failed to fetch balance from Tempo RPC',
       });
     }

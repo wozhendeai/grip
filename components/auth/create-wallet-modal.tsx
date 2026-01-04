@@ -8,7 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
 import { passkey } from '@/lib/auth/auth-client';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
 import { useState } from 'react';
 
 interface CreateWalletModalProps {
@@ -30,73 +36,124 @@ export function CreateWalletModal({
   allowSkip,
   onSkip,
 }: CreateWalletModalProps) {
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<PasskeyPhase>('ready');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
 
   async function handleCreate() {
-    try {
-      setCreating(true);
-      setError(null);
+    setError(null);
+    setPhase('processing');
 
-      // better-auth passkey creation
+    try {
+      // Check if user already has a wallet
+      const checkRes = await fetch('/api/auth/tempo/passkeys');
+      const { passkeys } = await checkRes.json();
+      const existingWallet = passkeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
+
+      if (existingWallet) {
+        setError({
+          type: 'operation_failed',
+          message:
+            'You already have a wallet. Delete your existing wallet from Settings to create a new one.',
+          phase: 'process',
+        });
+        setPhase('error');
+        return;
+      }
+
+      // Proceed with wallet creation
+      setPhase('registering');
       await passkey.addPasskey({ name: 'GRIP Wallet' });
 
       // Fetch created wallet (has tempoAddress field from tempo plugin)
+      setPhase('processing');
       const res = await fetch('/api/auth/tempo/passkeys');
-      const { passkeys } = await res.json();
-      const wallet = passkeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
+      const { passkeys: updatedPasskeys } = await res.json();
+      const wallet = updatedPasskeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
 
       if (!wallet) {
-        throw new Error('Wallet not found after creation');
+        setError({
+          type: 'operation_failed',
+          message: 'Wallet not found after creation',
+          phase: 'process',
+        });
+        setPhase('error');
+        return;
       }
 
+      setPhase('success');
       onSuccess?.(wallet);
-      onOpenChange(false);
-    } catch (err: unknown) {
-      // WebAuthn error handling
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Passkey creation cancelled. Try again.');
-        } else if (err.name === 'NotSupportedError') {
-          setError("Your device doesn't support passkeys.");
-        } else {
-          setError('Failed to create wallet. Please try again.');
-        }
-      } else {
-        setError('Failed to create wallet. Please try again.');
-      }
-    } finally {
-      setCreating(false);
+
+      setTimeout(() => {
+        onOpenChange(false);
+        setPhase('ready');
+        setError(null);
+      }, 2000);
+    } catch (err) {
+      const classified = classifyWebAuthnError(err, 'register', 'registration');
+      setError(classified);
+      setPhase('error');
     }
   }
 
+  function handleClose(newOpen: boolean) {
+    // Prevent closing during active operations
+    const canClose = !['connecting', 'signing', 'registering', 'processing'].includes(phase);
+
+    if (!newOpen && !canClose) {
+      return;
+    }
+
+    onOpenChange(newOpen);
+
+    // Reset state after close
+    if (!newOpen) {
+      setTimeout(() => {
+        setPhase('ready');
+        setError(null);
+      }, 300);
+    }
+  }
+
+  function handleRetry() {
+    setError(null);
+    setPhase('ready');
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title ?? 'Create Wallet'}</DialogTitle>
-          <DialogDescription>
-            {description ?? 'Create a secure wallet using your device biometrics.'}
-          </DialogDescription>
+          <DialogTitle>
+            {getPasskeyTitle(phase, error, 'registration', title || 'Wallet')}
+          </DialogTitle>
         </DialogHeader>
 
-        {error && (
-          <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+        <PasskeyOperationContent
+          phase={phase}
+          error={error}
+          operationType="registration"
+          operationLabel={title || 'Wallet'}
+          onRetry={handleRetry}
+          successMessage="Wallet created successfully!"
+        >
+          {phase === 'ready' && (
+            <div className="space-y-4">
+              <DialogDescription>
+                {description ?? 'Create a secure wallet using your device biometrics.'}
+              </DialogDescription>
 
-        <div className="flex flex-col gap-2">
-          <Button onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating...' : 'Create Wallet'}
-          </Button>
+              <Button onClick={handleCreate} className="w-full">
+                Create Wallet
+              </Button>
 
-          {allowSkip && (
-            <Button variant="ghost" onClick={onSkip}>
-              Skip for Now
-            </Button>
+              {allowSkip && (
+                <Button variant="ghost" onClick={onSkip} className="w-full">
+                  Skip for Now
+                </Button>
+              )}
+            </div>
           )}
-        </div>
+        </PasskeyOperationContent>
       </DialogContent>
     </Dialog>
   );
