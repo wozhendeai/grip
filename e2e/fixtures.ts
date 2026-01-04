@@ -2,7 +2,7 @@ import { test as base, type BrowserContext, type CDPSession, type Page } from '@
 import { eq, and } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
-import { db, repoSettings } from './db';
+import { db, repoSettings, passkey, accessKeys } from './db';
 
 /**
  * E2E Test Fixtures
@@ -11,13 +11,23 @@ import { db, repoSettings } from './db';
  * Uses global.setup.ts for test user/session seeding.
  */
 
-// Test user constants - matches what global.setup.ts creates
-export const TEST_USER = {
-  id: 'test-user-e2e',
-  name: 'Test User',
-  email: 'test-e2e@example.com',
-  githubUserId: '999999999',
-  sessionToken: '00000000000000000000000000000000',
+// Test user constants - browser-specific to allow parallel execution
+// Each browser gets its own user to prevent database conflicts
+export const TEST_USERS = {
+  chromium: {
+    id: 'test-user-e2e-chromium',
+    name: 'Test User',
+    email: 'test-e2e-chromium@example.com',
+    githubUserId: '999999991',
+    sessionToken: '00000000000000000000000000000001',
+  },
+  firefox: {
+    id: 'test-user-e2e-firefox',
+    name: 'Test User',
+    email: 'test-e2e-firefox@example.com',
+    githubUserId: '999999992',
+    sessionToken: '00000000000000000000000000000002',
+  },
 } as const;
 
 // Sign a session token using BETTER_AUTH_SECRET
@@ -60,24 +70,26 @@ export interface TestFixtures {
     onboardingCompleted?: boolean;
   }) => Promise<SeededRepo>;
   virtualAuthenticator: VirtualAuthenticator | null;
+  cleanUserWallet: () => Promise<void>;
 }
 
 export const test = base.extend<TestFixtures>({
-  // Static test user from global.setup.ts
-  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires object destructuring
-  testUser: async ({}, use) => {
+  // Browser-specific test user from global.setup.ts
+  testUser: async ({ browserName }, use) => {
+    const userData = TEST_USERS[browserName as keyof typeof TEST_USERS] || TEST_USERS.chromium;
     await use({
-      id: TEST_USER.id,
-      name: TEST_USER.name,
-      email: TEST_USER.email,
-      githubUserId: TEST_USER.githubUserId,
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      githubUserId: userData.githubUserId,
     });
   },
 
-  // Browser context with auth cookie (from storageState set in playwright.config.ts)
-  authenticatedContext: async ({ browser }, use) => {
+  // Browser context with auth cookie - uses browser-specific auth file
+  authenticatedContext: async ({ browser, browserName }, use) => {
+    const authFile = browserName === 'firefox' ? '.auth/auth-firefox.json' : '.auth/auth.json';
     const context = await browser.newContext({
-      storageState: '.auth/auth.json',
+      storageState: authFile,
     });
     await use(context);
     await context.close();
@@ -89,8 +101,7 @@ export const test = base.extend<TestFixtures>({
   },
 
   // Seed a claimed repo directly in DB (use real GitHub repos)
-  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires object destructuring
-  seedClaimedRepo: async ({}, use) => {
+  seedClaimedRepo: async ({ browserName: _browserName }, use) => {
     const seededRepos: SeededRepo[] = [];
 
     const seedFn = async (params: {
@@ -140,6 +151,16 @@ export const test = base.extend<TestFixtures>({
         console.warn(`Failed to cleanup repo ${repo.githubRepoId}:`, err);
       }
     }
+  },
+
+  // Clean up test user's wallet/passkey data for tests that need fresh state
+  cleanUserWallet: async ({ browserName }, use) => {
+    const userData = TEST_USERS[browserName as keyof typeof TEST_USERS] || TEST_USERS.chromium;
+    const cleanFn = async () => {
+      await db.delete(accessKeys).where(eq(accessKeys.userId, userData.id));
+      await db.delete(passkey).where(eq(passkey.userId, userData.id));
+    };
+    await use(cleanFn);
   },
 
   // WebAuthn virtual authenticator (Chromium only)

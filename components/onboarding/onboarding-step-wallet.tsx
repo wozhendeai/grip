@@ -1,10 +1,16 @@
 'use client';
 
+import { PasskeyOperationContent } from '@/components/passkey/passkey-operation-content';
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { passkey } from '@/lib/auth/auth-client';
-import { ArrowLeft, ArrowRight, CheckCircle2, Fingerprint, Loader2, Wallet } from 'lucide-react';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
+import { ArrowLeft, ArrowRight, Fingerprint, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -24,48 +30,57 @@ export function OnboardingStepWallet({
   onNext,
 }: OnboardingStepWalletProps) {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [justCreated, setJustCreated] = useState(false);
+  const [phase, setPhase] = useState<PasskeyPhase>('ready');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
 
-  const handleCreateWallet = async () => {
-    setIsCreating(true);
+  async function handleCreateWallet() {
     setError(null);
+    setPhase('registering');
+
     try {
       await passkey.addPasskey({ name: 'GRIP Wallet' });
-      setJustCreated(true);
+      setPhase('success');
       router.refresh();
       onWalletCreated();
     } catch (err) {
-      setError('Failed to create wallet. Make sure your device supports passkeys.');
-      console.error(err);
-    } finally {
-      setIsCreating(false);
+      const classified = classifyWebAuthnError(err, 'register', 'registration');
+      setError(classified);
+      setPhase('error');
     }
-  };
+  }
 
-  // Just created wallet - show success state
-  if (justCreated) {
+  function handleRetry() {
+    setError(null);
+    setPhase('ready');
+  }
+
+  // Success state - wallet just created
+  if (phase === 'success') {
     return (
       <>
         <DialogHeader>
-          <DialogTitle className="text-lg flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            Wallet Created!
-          </DialogTitle>
+          <DialogTitle className="text-lg">Wallet Created!</DialogTitle>
           <DialogDescription>
             Your wallet is ready. You can fund it anytime from your settings.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <PasskeyOperationContent
+          phase={phase}
+          error={error}
+          operationType="registration"
+          operationLabel="Wallet"
+          successMessage="Your wallet is ready!"
+        />
+
+        {walletAddress && (
           <div className="p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Your Address</span>
-              {walletAddress && <AddressDisplay address={walletAddress} truncate={false} />}
+              <AddressDisplay address={walletAddress} truncate={false} />
             </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-between pt-2">
           <Button variant="ghost" onClick={onBack}>
@@ -121,7 +136,7 @@ export function OnboardingStepWallet({
     );
   }
 
-  // No wallet - show creation UI
+  // No wallet - show creation UI with PasskeyOperationContent
   return (
     <>
       <DialogHeader>
@@ -135,33 +150,32 @@ export function OnboardingStepWallet({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="py-4 space-y-4">
-        {error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>
-        )}
+      <div className="py-4">
+        <PasskeyOperationContent
+          phase={phase}
+          error={error}
+          operationType="registration"
+          operationLabel="Wallet"
+          onRetry={handleRetry}
+        >
+          {phase === 'ready' && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+              <div className="flex items-center gap-3">
+                <Fingerprint className="h-8 w-8 text-primary" />
+                <div className="text-sm">
+                  <p className="font-medium">Passkey-secured wallet</p>
+                  <p className="text-muted-foreground">
+                    Uses TouchID, FaceID, or your device&apos;s authentication
+                  </p>
+                </div>
+              </div>
 
-        <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-          <div className="flex items-center gap-3">
-            <Fingerprint className="h-8 w-8 text-primary" />
-            <div className="text-sm">
-              <p className="font-medium">Passkey-secured wallet</p>
-              <p className="text-muted-foreground">
-                Uses TouchID, FaceID, or your device&apos;s authentication
-              </p>
+              <Button onClick={handleCreateWallet} className="w-full">
+                Create Wallet
+              </Button>
             </div>
-          </div>
-
-          <Button onClick={handleCreateWallet} disabled={isCreating} className="w-full">
-            {isCreating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Wallet...
-              </>
-            ) : (
-              'Create Wallet'
-            )}
-          </Button>
-        </div>
+          )}
+        </PasskeyOperationContent>
       </div>
 
       <div className="flex justify-between pt-2">

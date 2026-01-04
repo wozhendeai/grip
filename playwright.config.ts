@@ -45,20 +45,23 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        // See: https://playwright.dev/docs/auth#core-concepts
+        // authentication routine will store the browser state here, so tests start authenticated.
         storageState: '.auth/auth.json',
       },
       dependencies: ['setup'],
       teardown: 'teardown',
     },
 
-    // Firefox
+    // Firefox - runs after Chromium since they share the same test repos
+    // (repoSettings is keyed by owner/repo, not by user)
     {
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
-        storageState: '.auth/auth.json',
+        storageState: '.auth/auth-firefox.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'chromium'],
       teardown: 'teardown',
     },
   ],

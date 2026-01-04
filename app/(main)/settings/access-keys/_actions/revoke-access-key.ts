@@ -2,6 +2,7 @@
 
 import { getSession } from '@/lib/auth/auth-server';
 import { getAccessKeyByIdForUser } from '@/db/queries/access-keys';
+import { revokeAccessKey } from '@/lib/tempo/access-keys';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -25,17 +26,7 @@ export async function revokeAccessKeyAction(keyId: string) {
     return { error: 'Access key is not active' };
   }
 
-  // Call the existing API endpoint to revoke
-  const res = await fetch(`/api/auth/tempo/access-keys/${keyId}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reason: 'User revoked from settings' }),
-  });
-
-  if (!res.ok) {
-    const data = await res.json();
-    return { error: data.error || 'Failed to revoke access key' };
-  }
+  await revokeAccessKey(keyId, 'User revoked from settings');
 
   revalidatePath('/settings/access-keys');
   redirect('/settings/access-keys');

@@ -1,16 +1,22 @@
 'use client';
 
+import { PasskeyOperationContent } from '@/components/passkey/passkey-operation-content';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getCurrentNetwork } from '@/db/network';
-import { cn } from '@/lib/utils';
 import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
-import { ArrowLeft, ArrowRight, CheckCircle2, Hand, Loader2, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  classifyWebAuthnError,
+  type PasskeyOperationError,
+  type PasskeyPhase,
+} from '@/lib/webauthn';
+import { ArrowLeft, ArrowRight, CheckCircle2, Hand, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { KeyAuthorization } from 'tempo.ts/ox';
-import { useAccount, useConnect, useSignMessage } from 'wagmi';
+import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
 
 type PayoutMode = 'auto' | 'manual';
 
@@ -29,22 +35,41 @@ export function OnboardingStepAutopay({
 }: OnboardingStepAutopayProps) {
   const [mode, setMode] = useState<PayoutMode>(hasAccessKey ? 'auto' : 'manual');
   const [spendingLimit, setSpendingLimit] = useState('1000');
-  const [status, setStatus] = useState<'ready' | 'signing' | 'creating' | 'success' | 'error'>(
-    hasAccessKey ? 'success' : 'ready'
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<PasskeyPhase>(hasAccessKey ? 'success' : 'ready');
+  const [error, setError] = useState<PasskeyOperationError | null>(null);
 
-  const { signMessageAsync } = useSignMessage();
+  const connectors = useConnectors();
+  const connections = useConnections();
+  const connect = useConnect();
+  const signMessage = useSignMessage();
 
   async function handleEnableAutoPay() {
     if (!hasWallet) {
-      setError('You need to create a wallet first');
+      setError({
+        type: 'wallet_not_found',
+        message: 'You need to create a wallet first',
+        phase: 'connect',
+      });
+      setPhase('error');
       return;
     }
 
     try {
-      setStatus('signing');
       setError(null);
+      setPhase('connecting');
+
+      // Connect wagmi if not already connected
+      if (connections.length === 0) {
+        const webAuthnConnector = connectors.find(
+          (c) => c.id === 'webAuthn' || c.type === 'webAuthn'
+        );
+        if (!webAuthnConnector) {
+          throw new Error('WebAuthn connector not available');
+        }
+        await connect.mutateAsync({ connector: webAuthnConnector });
+      }
+
+      setPhase('signing');
 
       const network = getCurrentNetwork();
       const backendWalletAddress = BACKEND_WALLET_ADDRESSES[network];
@@ -63,11 +88,11 @@ export function OnboardingStepAutopay({
 
       const hash = KeyAuthorization.getSignPayload(authorization);
 
-      const signature = await signMessageAsync({
+      const signature = await signMessage.mutateAsync({
         message: { raw: hash },
       });
 
-      setStatus('creating');
+      setPhase('processing');
 
       const createRes = await fetch('/api/auth/tempo/access-keys', {
         method: 'POST',
@@ -89,31 +114,25 @@ export function OnboardingStepAutopay({
         throw new Error(data.error || 'Failed to create Access Key');
       }
 
-      setStatus('success');
+      setPhase('success');
     } catch (err) {
-      console.error('Create Access Key error:', err);
-      setStatus('error');
-
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Passkey signature cancelled. Please try again.');
-        } else if (err.name === 'NotSupportedError') {
-          setError("Your device doesn't support passkeys.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError('Failed to enable auto-pay. Please try again.');
-      }
+      const classified = classifyWebAuthnError(err, 'sign', 'signing');
+      setError(classified);
+      setPhase('error');
     }
   }
 
+  function handleRetry() {
+    setError(null);
+    setPhase('ready');
+  }
+
   function handleNext() {
-    onNext({ autoPayEnabled: mode === 'auto' && status === 'success' });
+    onNext({ autoPayEnabled: mode === 'auto' && phase === 'success' });
   }
 
   // Already has access key - simplified view
-  if (hasAccessKey && status === 'success') {
+  if (hasAccessKey && phase === 'success') {
     return (
       <>
         <DialogHeader>
@@ -149,64 +168,8 @@ export function OnboardingStepAutopay({
     );
   }
 
-  // Error state
-  if (status === 'error') {
-    return (
-      <>
-        <DialogHeader>
-          <DialogTitle className="text-lg">Auto-Pay Setup Failed</DialogTitle>
-          <DialogDescription>Something went wrong. You can try again or skip.</DialogDescription>
-        </DialogHeader>
-
-        <div className="py-4">
-          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-between pt-2">
-          <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStatus('ready')}>
-              Try Again
-            </Button>
-            <Button variant="ghost" onClick={() => onNext({ autoPayEnabled: false })}>
-              Skip
-            </Button>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // Signing/Creating state
-  if (status === 'signing' || status === 'creating') {
-    return (
-      <>
-        <DialogHeader>
-          <DialogTitle className="text-lg">Enabling Auto-Pay</DialogTitle>
-          <DialogDescription>
-            {status === 'signing'
-              ? 'Check your device for the passkey prompt'
-              : 'Creating your access key...'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="py-12 text-center">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-          <p className="mt-4 text-sm font-medium">
-            {status === 'signing' ? 'Waiting for passkey signature...' : 'Almost done...'}
-          </p>
-        </div>
-      </>
-    );
-  }
-
   // Success state (just created)
-  if (status === 'success') {
+  if (phase === 'success') {
     return (
       <>
         <DialogHeader>
@@ -234,6 +197,47 @@ export function OnboardingStepAutopay({
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
+      </>
+    );
+  }
+
+  // Active operation states (connecting, signing, processing, error)
+  if (phase !== 'ready') {
+    return (
+      <>
+        <DialogHeader>
+          <DialogTitle className="text-lg">
+            {phase === 'error' ? 'Auto-Pay Setup Failed' : 'Enabling Auto-Pay'}
+          </DialogTitle>
+          <DialogDescription>
+            {phase === 'error'
+              ? 'Something went wrong. You can try again or skip.'
+              : 'Check your device for the passkey prompt'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          <PasskeyOperationContent
+            phase={phase}
+            error={error}
+            operationType="signing"
+            operationLabel="Auto-Pay"
+            onRetry={handleRetry}
+            onCreateWallet={onBack}
+          />
+        </div>
+
+        {phase === 'error' && (
+          <div className="flex justify-between pt-2">
+            <Button variant="ghost" onClick={onBack}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <Button variant="ghost" onClick={() => onNext({ autoPayEnabled: false })}>
+              Skip
+            </Button>
+          </div>
+        )}
       </>
     );
   }

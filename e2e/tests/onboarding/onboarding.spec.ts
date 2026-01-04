@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures';
 
-// Use a real public GitHub repo for tests
-const TEST_REPO = { owner: 'wozhendeai', repo: 'grip' };
+// Use GitHub's official demo repo - guaranteed to exist and won't conflict with real users
+const TEST_REPO = { owner: 'octocat', repo: 'Hello-World' };
 
 const locators = (page: Page) => {
   const modal = page.locator('[data-slot="dialog-content"]');
@@ -47,8 +47,12 @@ test.describe
         testUser,
         seedClaimedRepo,
         virtualAuthenticator,
+        cleanUserWallet,
       }) => {
         test.skip(!virtualAuthenticator, 'WebAuthn requires Chromium');
+
+        // Clean up any wallet from previous tests
+        await cleanUserWallet();
 
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
@@ -116,7 +120,11 @@ test.describe
         authenticatedPage,
         testUser,
         seedClaimedRepo,
+        cleanUserWallet,
       }) => {
+        // This test expects user to NOT have a wallet
+        await cleanUserWallet();
+
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
           userId: testUser.id,
@@ -149,8 +157,12 @@ test.describe
         testUser,
         seedClaimedRepo,
         virtualAuthenticator,
+        cleanUserWallet,
       }) => {
         test.skip(!virtualAuthenticator, 'WebAuthn requires Chromium');
+
+        // Clean up any wallet from previous tests
+        await cleanUserWallet();
 
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
@@ -184,7 +196,11 @@ test.describe
         authenticatedPage,
         testUser,
         seedClaimedRepo,
+        cleanUserWallet,
       }) => {
+        // Clean wallet state for consistent UI
+        await cleanUserWallet();
+
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
           userId: testUser.id,
@@ -210,7 +226,11 @@ test.describe
         authenticatedPage,
         testUser,
         seedClaimedRepo,
+        cleanUserWallet,
       }) => {
+        // Clean wallet state for consistent UI
+        await cleanUserWallet();
+
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
           userId: testUser.id,
@@ -234,7 +254,11 @@ test.describe
         authenticatedPage,
         testUser,
         seedClaimedRepo,
+        cleanUserWallet,
       }) => {
+        // This test uses skip wallet flow, needs no wallet
+        await cleanUserWallet();
+
         const repo = await seedClaimedRepo({
           ...TEST_REPO,
           userId: testUser.id,

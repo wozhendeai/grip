@@ -59,10 +59,22 @@ export function RepoOnboardingModal({ repo, user }: RepoOnboardingModalProps) {
     }
   }
 
-  function handleWalletCreated() {
-    // Wallet was just created - update local state
-    // The actual address comes from router.refresh() in the wallet step
+  async function handleWalletCreated() {
+    // Wallet was just created - fetch updated user data to get the address
     setHasWallet(true);
+    try {
+      const res = await fetch('/api/auth/tempo/passkeys');
+      if (res.ok) {
+        const { passkeys } = await res.json();
+        // Get the first passkey with a tempoAddress (the one we just created)
+        const walletPasskey = passkeys?.find((p: { tempoAddress?: string }) => p.tempoAddress);
+        if (walletPasskey?.tempoAddress) {
+          setWalletAddress(walletPasskey.tempoAddress);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch wallet address:', error);
+    }
   }
 
   function handleAutopayNext(settings: { autoPayEnabled: boolean }) {

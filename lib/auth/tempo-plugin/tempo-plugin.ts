@@ -39,11 +39,19 @@ import type {
 // Reference: https://docs.tempo.xyz/protocol/transactions/spec-tempo-transaction
 
 /**
- * Extract raw P-256 coordinates from a base64url-encoded COSE public key.
+ * Convert standard base64 to base64url encoding.
+ * better-auth stores publicKey in standard base64, but isoBase64URL expects base64url.
+ */
+function base64ToBase64url(base64: string): string {
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Extract raw P-256 coordinates from a base64-encoded COSE public key.
  * Returns 64-byte hex string (x || y) for Tempo SDK consumption.
  */
-function coseKeyToHex(publicKeyBase64url: string): `0x${string}` {
-  const coseBytes = isoBase64URL.toBuffer(publicKeyBase64url, 'base64url');
+function coseKeyToHex(publicKeyBase64: string): `0x${string}` {
+  const coseBytes = isoBase64URL.toBuffer(base64ToBase64url(publicKeyBase64), 'base64url');
   const coseKey = decodeCredentialPublicKey(coseBytes);
 
   if (!cose.isCOSEPublicKeyEC2(coseKey)) {
@@ -67,11 +75,11 @@ function coseKeyToHex(publicKeyBase64url: string): `0x${string}` {
 }
 
 /**
- * Derive Tempo address from a base64url-encoded COSE public key.
+ * Derive Tempo address from a base64-encoded COSE public key.
  * Uses Tempo's address derivation: keccak256(x || y)[12:32]
  */
-export function deriveTempoAddress(publicKeyBase64url: string): `0x${string}` {
-  const publicKeyHex = coseKeyToHex(publicKeyBase64url);
+export function deriveTempoAddress(publicKeyBase64: string): `0x${string}` {
+  const publicKeyHex = coseKeyToHex(publicKeyBase64);
   const publicKey = PublicKey.fromHex(publicKeyHex);
   return Address.fromPublicKey(publicKey);
 }

@@ -5,20 +5,28 @@ import { eq } from 'drizzle-orm';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.development.local' });
 
-import { db, user, session } from './db';
-import { TEST_USER } from './fixtures';
+import { db, user, session, passkey, accessKeys, activityLog } from './db';
+import { TEST_USERS } from './fixtures';
 
 /**
  * Global teardown for E2E tests
  *
- * Cleans up test user and session from the database.
+ * Cleans up all browser-specific test users and related data.
+ * Order matters due to foreign key constraints.
  */
 teardown('cleanup auth and db', async () => {
-  // Delete sessions first (foreign key constraint)
-  await db.delete(session).where(eq(session.userId, TEST_USER.id));
+  const userIds = Object.values(TEST_USERS).map((u) => u.id);
 
-  // Delete test user
-  await db.delete(user).where(eq(user.id, TEST_USER.id));
+  for (const userId of userIds) {
+    // Delete in order of FK dependencies (children first)
+    await db.delete(accessKeys).where(eq(accessKeys.userId, userId));
+    await db.delete(activityLog).where(eq(activityLog.userId, userId));
+    await db.delete(passkey).where(eq(passkey.userId, userId));
+    await db.delete(session).where(eq(session.userId, userId));
+
+    // Delete test user last
+    await db.delete(user).where(eq(user.id, userId));
+  }
 
   console.log('E2E teardown complete: test user and session deleted');
 });
