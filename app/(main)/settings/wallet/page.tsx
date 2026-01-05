@@ -19,5 +19,5 @@ export default async function WalletSettingsPage() {
       }
     : null;
 
-  return <WalletContent wallet={wallet} />;
+  return <WalletContent wallet={wallet} isModal={false} />;
 }

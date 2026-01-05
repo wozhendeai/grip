@@ -1,14 +1,14 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { RouteModal } from '@/components/modal/route-modal';
-import { SettingsModalShell } from '../../settings/_components/settings-modal-shell';
+import { SettingsSidebar } from '../../settings/_components/settings-sidebar';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { getSettingsLayoutData } from '../../settings/_lib/get-settings-layout-data';
 
 /**
  * Modal layout for settings (intercepting route)
  *
- * Uses a modal-specific nav component with relative positioning
- * instead of the full-page sidebar which uses fixed viewport positioning.
+ * Uses the same SettingsSidebar with collapsible="none" for relative positioning.
  * Mobile users are redirected to the full page settings.
  */
 export default async function SettingsModalLayout({
@@ -32,11 +32,17 @@ export default async function SettingsModalLayout({
 
   return (
     <RouteModal title="Settings">
-      <div className="h-[70vh]">
-        <SettingsModalShell user={data.user} organizations={data.organizations}>
-          {children}
-        </SettingsModalShell>
-      </div>
+      <SidebarProvider className="min-h-0 h-[70vh]">
+        <SettingsSidebar
+          user={data.user}
+          organizations={data.organizations}
+          collapsible="none"
+          variant="inset"
+        />
+        <SidebarInset>
+          <div className="flex flex-1 flex-col gap-4 p-4 overflow-auto">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
     </RouteModal>
   );
 }

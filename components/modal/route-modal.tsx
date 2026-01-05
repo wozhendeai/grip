@@ -20,8 +20,8 @@ interface RouteModalProps {
  * - Pressing Escape
  * - Calling router.back()
  *
- * Note: DialogContent internally renders DialogOverlay, so we don't need
- * to render it separately here.
+ * Navigation: Use `replace` for modal-to-modal transitions to avoid
+ * stacking history entries. This ensures a single back() closes the modal.
  */
 export function RouteModal({ children, title = 'Modal' }: RouteModalProps) {
   const router = useRouter();

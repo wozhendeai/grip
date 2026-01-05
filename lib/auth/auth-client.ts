@@ -15,7 +15,13 @@ import type { auth } from './auth';
  * - organization methods for multi-user orgs
  */
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  // Important: keep auth requests on the same origin as the current page.
+  // If NEXT_PUBLIC_APP_URL differs from the actual browser origin (e.g. 127.0.0.1 vs localhost),
+  // cookies get set on the wrong host and passkey sign-in appears to "work" but leaves you unauthenticated.
+  baseURL:
+    typeof window === 'undefined'
+      ? process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      : window.location.origin,
   plugins: [
     passkeyClient(),
     tempoClient(),

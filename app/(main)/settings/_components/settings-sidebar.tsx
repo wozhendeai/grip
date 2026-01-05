@@ -8,12 +8,11 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   SidebarSeparator,
-  SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Building2, LogOut } from 'lucide-react';
@@ -38,9 +37,17 @@ type SettingsSidebarProps = {
     image: string | null;
   };
   organizations: Organization[];
+  /** Use "none" for modal context (relative positioning) */
+  collapsible?: 'offExamples' | 'icon' | 'none';
+  variant?: 'sidebar' | 'floating' | 'inset';
 };
 
-export function SettingsSidebar({ user, organizations }: SettingsSidebarProps) {
+export function SettingsSidebar({
+  user,
+  organizations,
+  collapsible,
+  variant = 'inset',
+}: SettingsSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -57,16 +64,7 @@ export function SettingsSidebar({ user, organizations }: SettingsSidebarProps) {
   };
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b">
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <SidebarTrigger className="-ml-1" />
-          <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">
-            Settings
-          </span>
-        </div>
-      </SidebarHeader>
-
+    <Sidebar variant={variant} collapsible={collapsible}>
       <SidebarContent>
         {/* Nav Groups from shared config */}
         {settingsNavGroups.map((group) => (
@@ -162,6 +160,7 @@ export function SettingsSidebar({ user, organizations }: SettingsSidebarProps) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

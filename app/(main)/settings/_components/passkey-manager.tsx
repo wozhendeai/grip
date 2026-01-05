@@ -1,8 +1,10 @@
 'use client';
 
 import { AddressDisplay } from '@/components/tempo/address-display';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item';
 import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
 import { passkey } from '@/lib/auth/auth-client';
 import {
@@ -10,6 +12,7 @@ import {
   type PasskeyOperationError,
   type PasskeyPhase,
 } from '@/lib/webauthn';
+import { AlertTriangle, ExternalLink, Key } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -112,14 +115,17 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
     return (
       <>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            You don&apos;t have a wallet yet. Create one to receive bounty payments.
-          </p>
-          <Button onClick={() => setShowCreateModal(true)}>Create Wallet</Button>
-          <p className="text-sm text-muted-foreground">
-            This will prompt you to create a passkey using TouchID, FaceID, or your device&apos;s
-            authentication method.
-          </p>
+          <div className="flex flex-col items-center py-4 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Key className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Create a wallet secured by your device&apos;s biometrics.
+            </p>
+          </div>
+          <Button onClick={() => setShowCreateModal(true)} className="w-full">
+            Create Wallet
+          </Button>
         </div>
 
         <Dialog open={showCreateModal} onOpenChange={handleCloseCreateModal}>
@@ -153,57 +159,60 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
     );
   }
 
-  // Has wallet - show wallet details and delete option
+  // Has wallet - show wallet details and management options
   return (
     <div className="space-y-4">
-      <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Address</span>
-          <AddressDisplay address={wallet.tempoAddress} truncate={false} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Name</span>
-          <span className="text-sm text-muted-foreground">{wallet.name || 'GRIP Wallet'}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Created</span>
-          <span className="text-sm text-muted-foreground">
-            {new Date(wallet.createdAt).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
+      {/* Wallet Details */}
+      <ItemGroup>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Address</ItemTitle>
+            <AddressDisplay address={wallet.tempoAddress} truncate={false} />
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Name</ItemTitle>
+            <span className="text-xs text-muted-foreground">{wallet.name || 'Wallet'}</span>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Created</ItemTitle>
+            <span className="text-xs text-muted-foreground">
+              {new Date(wallet.createdAt).toLocaleDateString()}
+            </span>
+          </ItemContent>
+        </Item>
+      </ItemGroup>
 
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          render={
-            <a
-              href={`https://explore.tempo.xyz/address/${wallet.tempoAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View on Explorer
-            </a>
-          }
-        />
-      </div>
+      {/* Actions */}
+      <a
+        href={`https://explore.tempo.xyz/address/${wallet.tempoAddress}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={buttonVariants({ variant: 'outline', size: 'sm', className: 'w-full gap-2' })}
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        View on Explorer
+      </a>
 
       {/* Delete confirmation */}
       {showDeleteConfirm ? (
-        <div className="p-4 border border-destructive/50 rounded-lg space-y-4">
-          <p className="text-sm">
-            Are you sure you want to delete this wallet? Any funds at this address will become
-            inaccessible unless you have a backup of your passkey.
-          </p>
-          <div className="flex gap-2">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Delete wallet?</AlertTitle>
+          <AlertDescription>
+            Funds at this address will be inaccessible without a passkey backup.
+          </AlertDescription>
+          <div className="mt-3 flex gap-2">
             <Button
               variant="destructive"
               size="sm"
               onClick={handleDeleteWallet}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Yes, Delete Wallet'}
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
             <Button
               variant="outline"
@@ -214,12 +223,12 @@ export function PasskeyManager({ wallet }: PasskeyManagerProps) {
               Cancel
             </Button>
           </div>
-        </div>
+        </Alert>
       ) : (
         <Button
           variant="ghost"
           size="sm"
-          className="text-destructive hover:text-destructive"
+          className="w-full text-destructive hover:text-destructive"
           onClick={() => setShowDeleteConfirm(true)}
         >
           Delete Wallet

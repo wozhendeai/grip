@@ -69,7 +69,7 @@ export function ClaimPayment({ pendingPayment, userWallet }: ClaimPaymentProps) 
 
       // Refresh to show success state
       setTimeout(() => {
-        router.push('/wallet');
+        router.push('/settings/wallet');
       }, 5000);
     } catch (err) {
       console.error('[claim-payment] Failed to claim:', err);

@@ -1,5 +1,6 @@
 import { RouteModal } from '@/components/modal/route-modal';
 import { LoginForm } from '../../login/_components/login-form';
+import { Suspense } from 'react';
 
 /**
  * Login modal (intercepting route)
@@ -11,7 +12,9 @@ export default function LoginModal() {
   return (
     <RouteModal title="Sign In">
       <div className="flex items-center justify-center p-8">
-        <LoginForm />
+        <Suspense fallback={<div className="h-32 animate-pulse" />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </RouteModal>
   );

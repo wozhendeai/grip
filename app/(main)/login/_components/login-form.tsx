@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { signIn, useSession } from '@/lib/auth/auth-client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 /**
@@ -17,6 +17,7 @@ import { useState } from 'react';
  */
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isPending } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,13 +42,25 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await signIn.passkey();
+      const redirectTo =
+        searchParams.get('callbackUrl') || searchParams.get('redirect') || '/explore';
+
+      // Protect against the WebAuthn flow getting stuck (some browsers/devices can leave
+      // the promise pending if the prompt never appears). We can't cancel WebAuthn, but
+      // we can unblock the UI and let the user retry.
+      // TODO: is this necesary?
+      const result = await Promise.race([
+        signIn.passkey(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Passkey sign-in timed out')), 60_000)
+        ),
+      ]);
       if (result.error) {
         throw new Error(result.error.message);
       }
-      router.push('/explore');
+      router.push(redirectTo);
     } catch (err) {
-      setError('Failed to sign in with passkey');
+      setError(err instanceof Error ? err.message : 'Failed to sign in with passkey');
       console.error(err);
     } finally {
       setIsLoading(false);
