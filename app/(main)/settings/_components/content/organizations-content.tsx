@@ -216,7 +216,7 @@ function MyOrganizationsTab({ memberships, onLeaveSuccess }: MyOrganizationsTabP
 
   if (memberships.length === 0) {
     return (
-      <Card className="py-0 gap-0">
+      <Card>
         <CardContent className="py-12">
           <Empty>
             <EmptyMedia variant="icon">
@@ -241,10 +241,7 @@ function MyOrganizationsTab({ memberships, onLeaveSuccess }: MyOrganizationsTabP
           const canManage = ADMIN_ROLES.includes(membership.role);
 
           return (
-            <Card
-              key={org.id}
-              className="hover:border-muted-foreground/50 transition-colors py-0 gap-0"
-            >
+            <Card key={org.id} className="hover:border-muted-foreground/50 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-4">
                   <Link
@@ -396,7 +393,7 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
 
   if (invitations.length === 0) {
     return (
-      <Card className="py-0 gap-0">
+      <Card>
         <CardContent className="py-12">
           <Empty>
             <EmptyMedia variant="icon">
@@ -420,10 +417,7 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
         const isProcessing = processingId === invitation.id;
 
         return (
-          <Card
-            key={invitation.id}
-            className="hover:border-muted-foreground/50 transition-colors py-0 gap-0"
-          >
+          <Card key={invitation.id} className="hover:border-muted-foreground/50 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
