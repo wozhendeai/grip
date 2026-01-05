@@ -1,3 +1,5 @@
+import { tempo } from 'tempo.ts/chains';
+
 /**
  * Tempo blockchain configuration
  *
@@ -14,7 +16,7 @@
 
 export const TEMPO_CHAIN_ID = 42429;
 
-export const TEMPO_RPC_URL = process.env.TEMPO_RPC_URL ?? 'https://rpc.testnet.tempo.xyz';
+export const TEMPO_RPC_URL = process.env.TEMPO_RPC_URL ?? tempo().rpcUrls.default.http[0];
 
 export const TEMPO_EXPLORER_URL = 'https://explore.tempo.xyz';
 
@@ -40,15 +42,15 @@ export const TEMPO_CONTRACTS = {
 /**
  * Well-known token addresses on Tempo
  *
- * PathUSD is the native fee token (always available for gas)
- * USDC is for bounty payments
+ * USDC is used for bounty payments and balance display.
+ * Fee tokens are handled by user preference with protocol fallback to pathUSD.
  */
+const TEMPO_USDC_ADDRESS =
+  process.env.TEMPO_USDC_ADDRESS ?? '0x20c0000000000000000000000000000000000001';
+
 export const TEMPO_TOKENS = {
-  /** PathUSD - Native fee token, always available for gas */
-  PATH_USD: TEMPO_CONTRACTS.PATH_USD,
-  /** USDC on Tempo - use this for bounty payments */
-  USDC: (process.env.TEMPO_USDC_ADDRESS ??
-    '0x0000000000000000000000000000000000000002') as `0x${string}`,
+  /** USDC on Tempo - use this for bounty payments and balance display */
+  USDC: TEMPO_USDC_ADDRESS as `0x${string}`,
 } as const;
 
 /**

@@ -7,7 +7,6 @@ import {
 } from '@/db/queries/payouts';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { notifyPaymentReceived } from '@/lib/notifications';
-import { tempoClient } from '@/lib/tempo/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
@@ -22,11 +21,12 @@ type RouteContext = {
  *
  * Body:
  * - txHash: The transaction hash from broadcasting
- * - waitForConfirmation: Whether to wait for blockchain confirmation (optional, default false)
+ * - status: Optional client-side receipt status ('success' | 'reverted')
+ * - blockNumber: Optional confirmed block number (required with status='success')
  *
  * Returns:
  * - payout: Updated payout record
- * - confirmation: Confirmation details (if waitForConfirmation=true)
+ * - confirmation: Confirmation details (if provided by client)
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -34,7 +34,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { id: payoutId } = await context.params;
 
     const body = await request.json();
-    const { txHash, waitForConfirmation: shouldWait = false } = body;
+    const { txHash, blockNumber, status } = body as {
+      txHash?: string;
+      blockNumber?: string | number;
+      status?: 'success' | 'reverted';
+    };
 
     if (!txHash || typeof txHash !== 'string') {
       return NextResponse.json({ error: 'txHash is required' }, { status: 400 });
@@ -96,80 +100,59 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Mark as pending with txHash (status stays 'pending' until confirmed)
     let updatedPayout = await updatePayoutStatus(payoutId, 'pending', { txHash });
 
-    // Wait for confirmation if requested
-    if (shouldWait) {
+    if (status === 'success' && blockNumber !== undefined) {
+      updatedPayout = await markPayoutConfirmed(
+        payoutId,
+        txHash,
+        typeof blockNumber === 'string' ? BigInt(blockNumber) : BigInt(blockNumber)
+      );
+
+      // Notify recipient that payment was received
+      // Wrapped in try-catch to not block payout flow if notification fails
       try {
-        const confirmation = await tempoClient.waitForTransactionReceipt({
-          hash: txHash as `0x${string}`,
-          timeout: 60000,
+        await notifyPaymentReceived({
+          recipientId: payout.recipientUserId,
+          txHash,
+          amount: payout.amount.toString(),
+          tokenAddress: payout.tokenAddress,
+          bountyTitle: bounty.title,
+          repoFullName: bounty.githubFullName,
         });
-
-        if (confirmation.status === 'success') {
-          updatedPayout = await markPayoutConfirmed(
-            payoutId,
-            txHash,
-            BigInt(confirmation.blockNumber)
-          );
-
-          // Notify recipient that payment was received
-          // Wrapped in try-catch to not block payout flow if notification fails
-          try {
-            await notifyPaymentReceived({
-              recipientId: payout.recipientUserId,
-              txHash,
-              amount: payout.amount.toString(),
-              tokenAddress: payout.tokenAddress,
-              bountyTitle: bounty.title,
-              repoFullName: bounty.githubFullName,
-            });
-          } catch (error) {
-            console.error('[confirm] Failed to create payment received notification:', error);
-          }
-
-          return NextResponse.json({
-            message: 'Payment confirmed on-chain',
-            payout: {
-              id: updatedPayout?.id,
-              status: updatedPayout?.status,
-              txHash: updatedPayout?.txHash,
-              blockNumber: updatedPayout?.blockNumber,
-              confirmedAt: updatedPayout?.confirmedAt,
-            },
-            confirmation: {
-              blockNumber: confirmation.blockNumber,
-              status: confirmation.status,
-            },
-          });
-        }
-        // Transaction reverted
-        updatedPayout = await markPayoutFailed(payoutId, 'Transaction reverted on-chain');
-        return NextResponse.json({
-          message: 'Transaction reverted',
-          payout: {
-            id: updatedPayout?.id,
-            status: updatedPayout?.status,
-            txHash: updatedPayout?.txHash,
-            errorMessage: updatedPayout?.errorMessage,
-          },
-          confirmation: {
-            blockNumber: confirmation.blockNumber,
-            status: confirmation.status,
-          },
-        });
-      } catch (confirmError) {
-        // Confirmation timed out or failed - payout stays in 'submitted' status
-        // It can be confirmed later via a background job or retry
-        console.error('Confirmation error:', confirmError);
-        return NextResponse.json({
-          message: 'Transaction submitted, confirmation pending',
-          payout: {
-            id: updatedPayout?.id,
-            status: updatedPayout?.status,
-            txHash: updatedPayout?.txHash,
-          },
-          warning: 'Confirmation timed out. The transaction may still confirm.',
-        });
+      } catch (error) {
+        console.error('[confirm] Failed to create payment received notification:', error);
       }
+
+      return NextResponse.json({
+        message: 'Payment confirmed on-chain',
+        payout: {
+          id: updatedPayout?.id,
+          status: updatedPayout?.status,
+          txHash: updatedPayout?.txHash,
+          blockNumber: updatedPayout?.blockNumber,
+          confirmedAt: updatedPayout?.confirmedAt,
+        },
+        confirmation: {
+          blockNumber,
+          status: 'success',
+        },
+      });
+    }
+
+    if (status === 'reverted') {
+      updatedPayout = await markPayoutFailed(payoutId, 'Transaction reverted on-chain');
+      return NextResponse.json({
+        message: 'Transaction reverted',
+        payout: {
+          id: updatedPayout?.id,
+          status: updatedPayout?.status,
+          txHash: updatedPayout?.txHash,
+          errorMessage: updatedPayout?.errorMessage,
+        },
+        confirmation: {
+          blockNumber,
+          status: 'reverted',
+        },
+      });
     }
 
     return NextResponse.json({
@@ -226,70 +209,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         { error: 'You do not have permission to view this payout' },
         { status: 403 }
       );
-    }
-
-    // If pending with txHash but not confirmed, try to get confirmation
-    if (payout.status === 'pending' && payout.txHash) {
-      try {
-        const confirmation = await tempoClient.waitForTransactionReceipt({
-          hash: payout.txHash as `0x${string}`,
-          timeout: 5000,
-        });
-
-        if (confirmation.status === 'success') {
-          const updatedPayout = await markPayoutConfirmed(
-            payoutId,
-            payout.txHash,
-            BigInt(confirmation.blockNumber)
-          );
-
-          // Notify recipient that payment was received
-          // Wrapped in try-catch to not block status check if notification fails
-          try {
-            await notifyPaymentReceived({
-              recipientId: payout.recipientUserId,
-              txHash: payout.txHash,
-              amount: payout.amount.toString(),
-              tokenAddress: payout.tokenAddress,
-              bountyTitle: bounty.title,
-              repoFullName: bounty.githubFullName,
-            });
-          } catch (error) {
-            console.error('[confirm-get] Failed to create payment received notification:', error);
-          }
-
-          return NextResponse.json({
-            payout: {
-              id: updatedPayout?.id,
-              status: updatedPayout?.status,
-              txHash: updatedPayout?.txHash,
-              blockNumber: updatedPayout?.blockNumber,
-              confirmedAt: updatedPayout?.confirmedAt,
-            },
-            confirmation: {
-              blockNumber: confirmation.blockNumber,
-              status: confirmation.status,
-            },
-          });
-        }
-        if (confirmation.status === 'reverted') {
-          const updatedPayout = await markPayoutFailed(payoutId, 'Transaction reverted');
-          return NextResponse.json({
-            payout: {
-              id: updatedPayout?.id,
-              status: updatedPayout?.status,
-              txHash: updatedPayout?.txHash,
-              errorMessage: updatedPayout?.errorMessage,
-            },
-            confirmation: {
-              blockNumber: confirmation.blockNumber,
-              status: confirmation.status,
-            },
-          });
-        }
-      } catch {
-        // Still pending, return current status
-      }
     }
 
     return NextResponse.json({

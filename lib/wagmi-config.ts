@@ -16,7 +16,7 @@
 import { tempo } from 'tempo.ts/chains';
 import { KeyManager, webAuthn } from 'tempo.ts/wagmi';
 import { http, createConfig } from 'wagmi';
-import { TEMPO_RPC_URL, TEMPO_TOKENS } from './tempo/constants';
+import { TEMPO_RPC_URL } from './tempo/constants';
 
 /**
  * Wagmi configuration with Tempo's webAuthn connector
@@ -32,11 +32,9 @@ import { TEMPO_RPC_URL, TEMPO_TOKENS } from './tempo/constants';
  */
 export const config = createConfig({
   chains: [
-    tempo({
-      // Use PathUSD as default fee token
-      // This is Tempo's native fee token, always available
-      feeToken: TEMPO_TOKENS.PATH_USD,
-    }),
+    // Fee token not specified - protocol handles fallback chain:
+    // Transaction → Account preference → Contract → pathUSD
+    tempo(),
   ],
   connectors: [
     webAuthn({

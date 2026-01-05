@@ -3,7 +3,6 @@ import { getNetworkForInsert } from '@/db/network';
 import { getPayoutById } from '@/db/queries/payouts';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { buildPayoutTransaction } from '@/lib/tempo';
-import { tempoClient } from '@/lib/tempo/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 type RouteContext = {
@@ -110,16 +109,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       username,
     });
 
-    // Get nonce
-    const nonce = BigInt(
-      await tempoClient.getTransactionCount({
-        address: orgWalletAddress,
-        blockTag: 'pending',
-      })
-    );
-
     // Return transaction params for client-side signing
-    // Frontend will use team member's org Access Key to sign
+    // Frontend should fetch a Tempo nonce lane (Actions.nonce.getNonce) before signing
     return NextResponse.json({
       message: 'Ready to release payment',
       payout: {
@@ -133,7 +124,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         to: txParams.to,
         data: txParams.data,
         value: txParams.value.toString(),
-        nonce: nonce.toString(),
       },
       signingAddress: orgWalletAddress,
     });
