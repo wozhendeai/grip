@@ -1,23 +1,32 @@
 import { getBountyWithAuthor, getBountyWithFunders } from '@/db/queries/bounties';
 import { getSubmissionsByBounty } from '@/db/queries/submissions';
-import { type NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/auth-server';
+import { handleRouteError, validateBody } from '@/app/api/_lib';
+import { bountyPatchActionSchema } from '@/app/api/_lib/schemas';
+import { handleApprove, handleReject, handlePublish } from './_handlers';
+import type { NextRequest } from 'next/server';
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
-export async function GET(request: NextRequest, context: RouteContext) {
+/**
+ * GET /api/bounties/[id]
+ *
+ * Fetch a single bounty by ID with full details including author, funders, and submissions.
+ * Public endpoint - no authentication required.
+ */
+export async function GET(_request: NextRequest, ctx: RouteContext<'/api/bounties/[id]'>) {
   try {
-    const { id } = await context.params;
+    const { id } = await ctx.params;
     const result = await getBountyWithAuthor(id);
-
     if (!result) {
-      return NextResponse.json({ error: 'Bounty not found' }, { status: 404 });
+      return Response.json({ error: 'Bounty not found' }, { status: 404 });
     }
 
-    const { bounty, repoSettings, author } = result;
-    const submissionsData = await getSubmissionsByBounty(id);
-    const bountyWithFunders = await getBountyWithFunders(id);
+    const { bounty, author } = result;
+
+    // Fetch submissions and funders in parallel
+    const [submissionsData, bountyWithFunders] = await Promise.all([
+      getSubmissionsByBounty(id),
+      getBountyWithFunders(id),
+    ]);
 
     // Transform to API response format
     const response = {
@@ -64,13 +73,56 @@ export async function GET(request: NextRequest, context: RouteContext) {
           id: submitter.id,
           name: submitter.name,
           image: submitter.image,
+          hasWallet: submitter.hasWallet,
         },
       })),
     };
 
-    return NextResponse.json(response);
+    return Response.json(response);
   } catch (error) {
-    console.error('Error fetching bounty:', error);
-    return NextResponse.json({ error: 'Failed to fetch bounty' }, { status: 500 });
+    return handleRouteError(error, 'fetching bounty');
+  }
+}
+
+/**
+ * PATCH /api/bounties/[id]
+ *
+ * Perform actions on a bounty: approve, reject, or publish.
+ * Uses discriminated union for type-safe action handling.
+ *
+ * Actions:
+ * - approve: Approve submission and initiate payout
+ * - reject: Reject submission with note
+ * - publish: Add GitHub label and comment to issue
+ */
+export async function PATCH(request: NextRequest, ctx: RouteContext<'/api/bounties/[id]'>) {
+  try {
+    const session = await requireAuth();
+    const { id } = await ctx.params;
+    const body = await validateBody(request, bountyPatchActionSchema);
+
+    switch (body.action) {
+      case 'approve':
+        return handleApprove(session, id, {
+          submissionId: body.submissionId,
+          useAccessKey: body.useAccessKey,
+        });
+
+      case 'reject':
+        return handleReject(session, id, {
+          submissionId: body.submissionId,
+          note: body.note,
+        });
+
+      case 'publish':
+        return handlePublish(session, id);
+
+      default: {
+        const _exhaustiveCheck: never = body;
+        return Response.json({ error: 'Invalid action' }, { status: 400 });
+      }
+    }
+  } catch (error) {
+    return handleRouteError(error, 'bounty action');
   }
 }

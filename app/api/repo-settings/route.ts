@@ -4,39 +4,43 @@ import {
   getRepoSettingsByUser,
 } from '@/db/queries/repo-settings';
 import { requireAuth } from '@/lib/auth/auth-server';
-import { type NextRequest, NextResponse } from 'next/server';
+import { handleRouteError, validateBody } from '@/app/api/_lib';
+import { createRepoSettingsSchema } from '@/app/api/_lib/schemas';
+import type { NextRequest } from 'next/server';
 
+/**
+ * GET /api/repo-settings
+ *
+ * List all repositories the authenticated user has claimed/configured.
+ * Returns repo settings with GitHub metadata.
+ */
 export async function GET() {
   try {
     const session = await requireAuth();
     const repoSettings = await getRepoSettingsByUser(session.user.id);
 
-    return NextResponse.json({ repoSettings });
+    return Response.json({ repoSettings });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('Error fetching repo settings:', error);
-    return NextResponse.json({ error: 'Failed to fetch repo settings' }, { status: 500 });
+    return handleRouteError(error, 'fetching repo settings');
   }
 }
 
+/**
+ * POST /api/repo-settings
+ *
+ * Claim/configure a repository for bounty management.
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
-    const body = await request.json();
+    const body = await validateBody(request, createRepoSettingsSchema);
 
-    const { githubRepoId, githubOwner, githubRepo } = body;
-
-    // Validate required fields
-    if (!githubRepoId || !githubOwner || !githubRepo) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    const repoId = BigInt(body.githubRepoId);
 
     // Check if repo settings already exist
-    const existing = await getRepoSettingsByGithubRepoId(githubRepoId);
+    const existing = await getRepoSettingsByGithubRepoId(repoId);
     if (existing) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Repo settings already exist', repoSettings: existing },
         { status: 409 }
       );
@@ -44,17 +48,13 @@ export async function POST(request: NextRequest) {
 
     const repoSettings = await createRepoSettings({
       verifiedOwnerUserId: session.user.id,
-      githubRepoId,
-      githubOwner,
-      githubRepo,
+      githubRepoId: repoId,
+      githubOwner: body.githubOwner,
+      githubRepo: body.githubRepo,
     });
 
-    return NextResponse.json({ repoSettings }, { status: 201 });
+    return Response.json({ repoSettings }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('Error creating repo settings:', error);
-    return NextResponse.json({ error: 'Failed to create repo settings' }, { status: 500 });
+    return handleRouteError(error, 'creating repo settings');
   }
 }

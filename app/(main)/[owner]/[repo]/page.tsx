@@ -96,7 +96,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
       submittedAt: s.submittedAt,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
-      submitter: { id: s.userId, name: null, image: null }, // Placeholder as we didn't join user
+      submitter: { id: s.userId, name: null, image: null, hasWallet: false }, // Placeholder as we didn't join user
     })),
     approvedAt: b.approvedAt,
     ownerApprovedAt: b.ownerApprovedAt,

@@ -148,6 +148,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.emailOnPaymentFailure = body.emailOnPaymentFailure;
       // TODO: sendEmail(...) - Wire up to email service when implemented
     }
+    if (typeof body.onboardingCompleted === 'boolean') {
+      updates.onboardingCompleted = body.onboardingCompleted;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });

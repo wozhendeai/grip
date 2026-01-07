@@ -1,3 +1,7 @@
+/**
+ * better-auth catch-all handler for authentication endpoints.
+ * Handles login, logout, session, passkey registration/verification, and organization APIs.
+ */
 import { auth } from '@/lib/auth/auth';
 import { toNextJsHandler } from 'better-auth/next-js';
 import { type NextRequest, NextResponse } from 'next/server';

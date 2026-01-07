@@ -36,8 +36,10 @@ export function RepoOnboardingModal({ repo, user }: RepoOnboardingModalProps) {
   async function handleComplete() {
     // Mark onboarding as complete via API
     try {
-      await fetch(`/api/repo-settings/${repo.githubRepoId}/onboarding`, {
-        method: 'POST',
+      await fetch(`/api/repo-settings/${repo.githubRepoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingCompleted: true }),
       });
     } catch (error) {
       console.error('Failed to mark onboarding complete:', error);

@@ -3,20 +3,21 @@ import {
   type SortOption,
   createBounty,
   getAllBounties,
-  updateBountyStatus,
 } from '@/db/queries/bounties';
-import { doesRepoRequireOwnerApproval, getRepoSettingsByName } from '@/db/queries/repo-settings';
+import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import { requireAuth } from '@/lib/auth/auth-server';
 import {
   addLabelToIssue,
   commentOnIssue,
+  fetchGitHubRepo,
   generateBountyComment,
   getGitHubToken,
   getIssue,
 } from '@/lib/github';
-import { fetchGitHubRepo } from '@/lib/github';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
-import { type NextRequest, NextResponse } from 'next/server';
+import { handleRouteError, validateBody } from '@/app/api/_lib';
+import { createBountySchema } from '@/app/api/_lib/schemas';
+import type { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,10 +54,9 @@ export async function GET(request: NextRequest) {
       },
     }));
 
-    return NextResponse.json({ bounties });
+    return Response.json({ bounties });
   } catch (error) {
-    console.error('Error fetching bounties:', error);
-    return NextResponse.json({ error: 'Failed to fetch bounties' }, { status: 500 });
+    return handleRouteError(error, 'fetching bounties');
   }
 }
 
@@ -80,32 +80,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
+    const body = await validateBody(request, createBountySchema);
 
-    // Parse request body
-    const body = await request.json();
     const { owner, repo, githubIssueNumber, amount, tokenAddress, publish } = body;
-
-    // Validate required fields
-    if (!owner || !repo) {
-      return NextResponse.json({ error: 'owner and repo are required' }, { status: 400 });
-    }
-
-    if (typeof githubIssueNumber !== 'number' || githubIssueNumber <= 0) {
-      return NextResponse.json({ error: 'Valid githubIssueNumber is required' }, { status: 400 });
-    }
-
-    if (typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json({ error: 'Valid amount is required' }, { status: 400 });
-    }
 
     // Fetch GitHub repo info
     const githubRepo = await fetchGitHubRepo(owner, repo);
     if (!githubRepo) {
-      return NextResponse.json({ error: 'Repository not found on GitHub' }, { status: 404 });
+      return Response.json({ error: 'Repository not found on GitHub' }, { status: 404 });
     }
 
     if (githubRepo.private) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Cannot create bounties on private repositories' },
         { status: 400 }
       );
@@ -117,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Get GitHub token
     const token = await getGitHubToken(session.user.id);
     if (!token) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'GitHub account not connected. Please sign in with GitHub.' },
         { status: 400 }
       );
@@ -127,14 +113,14 @@ export async function POST(request: NextRequest) {
     const githubIssue = await getIssue(token, owner, repo, githubIssueNumber);
 
     if (!githubIssue) {
-      return NextResponse.json(
+      return Response.json(
         { error: `Issue #${githubIssueNumber} not found in ${owner}/${repo}` },
         { status: 404 }
       );
     }
 
     if (githubIssue.state !== 'open') {
-      return NextResponse.json(
+      return Response.json(
         {
           error: `Issue #${githubIssueNumber} is closed. Can only create bounties for open issues.`,
         },
@@ -184,8 +170,7 @@ export async function POST(request: NextRequest) {
         });
         await commentOnIssue(token, owner, repo, githubIssueNumber, commentBody);
 
-        // Bounty is already 'open' status from creation
-        return NextResponse.json(
+        return Response.json(
           {
             bounty,
             published: true,
@@ -196,7 +181,7 @@ export async function POST(request: NextRequest) {
       } catch (publishError) {
         // Bounty was created but publishing failed
         console.error('Failed to publish bounty:', publishError);
-        return NextResponse.json(
+        return Response.json(
           {
             bounty,
             published: false,
@@ -208,7 +193,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(
+    return Response.json(
       {
         bounty,
         published: false,
@@ -217,10 +202,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('Error creating bounty:', error);
-    return NextResponse.json({ error: 'Failed to create bounty' }, { status: 500 });
+    return handleRouteError(error, 'creating bounty');
   }
 }

@@ -87,10 +87,11 @@ export function PaymentModal({
       setConfirming(true);
 
       // Confirm payout in database
-      fetch(`/api/payouts/${payout.id}/confirm`, {
+      fetch(`/api/payments/payouts/${payout.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'confirm',
           txHash,
           status: receipt?.status ?? 'success',
           blockNumber: receipt?.blockNumber?.toString(),

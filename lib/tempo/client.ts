@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { tempo } from 'tempo.ts/chains';
 import { tempoActions } from 'tempo.ts/viem';
 import { http, createClient, publicActions } from 'viem';

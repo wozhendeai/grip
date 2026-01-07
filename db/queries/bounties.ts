@@ -86,88 +86,6 @@ export async function createBounty(input: CreateBountyInput) {
 }
 
 /**
- * Add funding commitment to existing bounty (pooled funding)
- *
- * Multiple users can promise funds for same bounty.
- * Updates bounty.totalFunded with new promise amount.
- */
-export async function addBountyFunding(
-  bountyId: string,
-  funderId: string,
-  amount: bigint | string,
-  tokenAddress: string
-) {
-  const amountBigInt = typeof amount === 'string' ? BigInt(amount) : amount;
-
-  // Add funder commitment
-  await db.insert(bountyFunders).values({
-    bountyId,
-    funderId,
-    amount: amountBigInt,
-    tokenAddress,
-    network: getNetworkForInsert(),
-  });
-
-  // Update bounty total_funded
-  const bounty = await getBountyById(bountyId);
-  if (!bounty) return null;
-
-  const [updated] = await db
-    .update(bounties)
-    .set({
-      totalFunded: bounty.totalFunded + amountBigInt,
-    })
-    .where(and(networkFilter(bounties), eq(bounties.id, bountyId)))
-    .returning();
-
-  return updated;
-}
-
-/**
- * Withdraw funding commitment from bounty
- *
- * Funder can withdraw BEFORE work is submitted/approved.
- * Updates bounty.totalFunded and sets withdrawnAt timestamp.
- *
- * If primary funder withdraws, next funder becomes primary.
- * If all funders withdraw, bounty status → 'cancelled'.
- */
-export async function withdrawBountyFunding(bountyId: string, funderId: string) {
-  // Mark funder as withdrawn
-  const [withdrawn] = await db
-    .update(bountyFunders)
-    .set({ withdrawnAt: new Date().toISOString() })
-    .where(and(eq(bountyFunders.bountyId, bountyId), eq(bountyFunders.funderId, funderId)))
-    .returning();
-
-  if (!withdrawn) return null;
-
-  // Recalculate totalFunded from active commitments
-  const activeFunders = await db
-    .select()
-    .from(bountyFunders)
-    .where(and(eq(bountyFunders.bountyId, bountyId), sql`${bountyFunders.withdrawnAt} IS NULL`));
-
-  const totalFunded = activeFunders.reduce((sum, f) => sum + f.amount, BigInt(0));
-  const newPrimaryFunder = activeFunders.length > 0 ? activeFunders[0].funderId : null;
-  const newStatus = activeFunders.length === 0 ? 'cancelled' : 'open';
-
-  // Update bounty
-  const [updated] = await db
-    .update(bounties)
-    .set({
-      totalFunded,
-      primaryFunderId: newPrimaryFunder,
-      status: newStatus as BountyStatus,
-      cancelledAt: newStatus === 'cancelled' ? new Date().toISOString() : null,
-    })
-    .where(and(networkFilter(bounties), eq(bounties.id, bountyId)))
-    .returning();
-
-  return updated;
-}
-
-/**
  * Get bounty with funders (pooled funding)
  */
 export async function getBountyWithFunders(id: string) {
@@ -307,45 +225,6 @@ export async function updateBountyStatus(
   return updated;
 }
 
-/**
- * Get bounty by GitHub issue ID (canonical reference)
- *
- * Works for any repository (permissionless).
- * Uses githubIssueId (immutable) instead of issueNumber.
- */
-export async function getBountyByGitHubIssueId(githubIssueId: bigint | string) {
-  const issueIdBigInt = typeof githubIssueId === 'string' ? BigInt(githubIssueId) : githubIssueId;
-
-  const [bounty] = await db
-    .select()
-    .from(bounties)
-    .where(and(networkFilter(bounties), eq(bounties.githubIssueId, issueIdBigInt)))
-    .limit(1);
-
-  return bounty ?? null;
-}
-
-/**
- * Get bounties with submissions (race condition model)
- */
-export async function getBountiesWithSubmissions(userId: string | null) {
-  if (!userId) {
-    return [];
-  }
-
-  return db
-    .select({
-      bounty: bounties,
-      repoSettings: repoSettings,
-      submission: submissions,
-    })
-    .from(submissions)
-    .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-    .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
-    .where(and(networkFilter(bounties), eq(submissions.userId, userId)))
-    .orderBy(desc(submissions.createdAt));
-}
-
 export async function getBountyWithAuthor(id: string) {
   const [result] = await db
     .select({
@@ -364,33 +243,6 @@ export async function getBountyWithAuthor(id: string) {
     .limit(1);
 
   return result ?? null;
-}
-
-/**
- * Aggregate queries for bounty stats
- */
-export async function getBountyStats() {
-  const [stats] = await db
-    .select({
-      totalBounties: sql<number>`count(*)::int`,
-      openBounties: sql<number>`count(*) filter (where ${bounties.status} = 'open')::int`,
-      completedBounties: sql<number>`count(*) filter (where ${bounties.status} = 'completed')::int`,
-      amountOpen: sql<bigint>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
-      amountPaid: sql<bigint>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'completed'), 0)::bigint`,
-      reposWithBounties: sql<number>`count(distinct ${bounties.githubRepoId})::int`,
-    })
-    .from(bounties)
-    .where(networkFilter(bounties));
-
-  return {
-    totalBounties: stats?.totalBounties ?? 0,
-    openBounties: stats?.openBounties ?? 0,
-    completedBounties: stats?.completedBounties ?? 0,
-    // Convert BigInt to string for JSON serialization
-    amountOpen: (stats?.amountOpen ?? BigInt(0)).toString(),
-    amountPaid: (stats?.amountPaid ?? BigInt(0)).toString(),
-    reposWithBounties: stats?.reposWithBounties ?? 0,
-  };
 }
 
 export type SortOption = 'amount' | 'newest' | 'oldest';

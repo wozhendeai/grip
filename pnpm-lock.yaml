@@ -28,10 +28,10 @@ dependencies:
     version: 3.16.0
   '@turnkey/sdk-server':
     specifier: ^4.12.1
-    version: 4.12.2(typescript@5.9.3)(zod@3.25.76)
+    version: 4.12.2(typescript@5.9.3)(zod@4.3.5)
   '@turnkey/viem':
     specifier: ^0.14.20
-    version: 0.14.20(typescript@5.9.3)(viem@2.43.4)(zod@3.25.76)
+    version: 0.14.20(typescript@5.9.3)(viem@2.43.4)(zod@4.3.5)
   better-auth:
     specifier: ^1.2.7
     version: 1.4.10(drizzle-kit@0.30.6)(drizzle-orm@0.38.4)(next@15.5.9)(react-dom@19.2.3)(react@19.2.3)
@@ -61,7 +61,7 @@ dependencies:
     version: 0.4.6(react-dom@19.2.3)(react@19.2.3)
   ox:
     specifier: ^0.11.1
-    version: 0.11.1(typescript@5.9.3)(zod@3.25.76)
+    version: 0.11.1(typescript@5.9.3)(zod@4.3.5)
   postgres:
     specifier: ^3.4.5
     version: 3.4.7
@@ -85,7 +85,7 @@ dependencies:
     version: 2.6.0
   tempo.ts:
     specifier: ^0.10.5
-    version: 0.10.5(@remix-run/headers@0.17.2)(@remix-run/route-pattern@0.15.3)(@remix-run/session@0.4.1)(@tanstack/react-query@5.90.16)(@wagmi/core@3.0.2)(typescript@5.9.3)(viem@2.43.4)(wagmi@3.1.4)(zod@3.25.76)
+    version: 0.10.5(@remix-run/headers@0.17.2)(@remix-run/route-pattern@0.15.3)(@remix-run/session@0.4.1)(@tanstack/react-query@5.90.16)(@wagmi/core@3.0.2)(typescript@5.9.3)(viem@2.43.4)(wagmi@3.1.4)(zod@4.3.5)
   tw-animate-css:
     specifier: ^1.4.0
     version: 1.4.0
@@ -94,10 +94,13 @@ dependencies:
     version: 1.1.2(@types/react-dom@19.2.3)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3)
   viem:
     specifier: ^2.22.12
-    version: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+    version: 2.43.4(typescript@5.9.3)(zod@4.3.5)
   wagmi:
     specifier: ^3.1.0
     version: 3.1.4(@tanstack/react-query@5.90.16)(@types/react@19.2.7)(react@19.2.3)(typescript@5.9.3)(viem@2.43.4)
+  zod:
+    specifier: ^4.3.5
+    version: 4.3.5
 
 devDependencies:
   '@biomejs/biome':
@@ -512,11 +515,11 @@ packages:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
       '@standard-schema/spec': 1.1.0
-      better-call: 1.1.7(zod@3.25.76)
+      better-call: 1.1.7(zod@4.3.5)
       jose: 6.1.3
       kysely: 0.28.9
       nanostores: 1.1.0
-      zod: 4.3.4
+      zod: 4.3.5
     dev: false
 
   /@better-auth/passkey@1.4.10(@better-auth/core@1.4.10)(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-auth@1.4.10)(better-call@1.1.7)(nanostores@1.1.0):
@@ -535,9 +538,9 @@ packages:
       '@simplewebauthn/browser': 13.2.2
       '@simplewebauthn/server': 13.2.2
       better-auth: 1.4.10(drizzle-kit@0.30.6)(drizzle-orm@0.38.4)(next@15.5.9)(react-dom@19.2.3)(react@19.2.3)
-      better-call: 1.1.7(zod@3.25.76)
+      better-call: 1.1.7(zod@4.3.5)
       nanostores: 1.1.0
-      zod: 4.3.4
+      zod: 4.3.5
     dev: false
 
   /@better-auth/telemetry@1.4.10(@better-auth/core@1.4.10):
@@ -2673,7 +2676,7 @@ packages:
       sha256-uint8array: 0.10.7
     dev: false
 
-  /@turnkey/core@1.10.0(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/core@1.10.0(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-cqr1uRv+JhUx+g88E0m7mVeLGzkEDOLfGGL6D0DRbqxTACSHVJs0a3hFmklyQDQF9uj9YwWaJel5mgT8Mcb4gw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
@@ -2696,13 +2699,13 @@ packages:
       '@turnkey/webauthn-stamper': 0.6.0
       '@wallet-standard/app': 1.1.0
       '@wallet-standard/base': 1.1.0
-      '@walletconnect/sign-client': 2.23.1(typescript@5.9.3)(zod@3.25.76)
+      '@walletconnect/sign-client': 2.23.1(typescript@5.9.3)(zod@4.3.5)
       '@walletconnect/types': 2.23.1
       cross-fetch: 3.2.0
       ethers: 6.16.0
       jwt-decode: 4.0.0
       uuid: 11.1.0
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -2802,7 +2805,7 @@ packages:
       '@turnkey/encoding': 0.6.0
     dev: false
 
-  /@turnkey/sdk-browser@5.14.0(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/sdk-browser@5.14.0(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-/joHyIELUpGl6VGZYoxfOl3yHgDmm+ICXFc0ZjhujQ7KxmATilt7TgCPMnjsU7Qh4dPViDkfVIY2HKBvJoyYSg==}
     engines: {node: '>=18.0.0'}
     dependencies:
@@ -2813,7 +2816,7 @@ packages:
       '@turnkey/iframe-stamper': 2.9.0
       '@turnkey/indexed-db-stamper': 1.2.0
       '@turnkey/sdk-types': 0.11.0
-      '@turnkey/wallet-stamper': 1.1.10(typescript@5.9.3)(zod@3.25.76)
+      '@turnkey/wallet-stamper': 1.1.10(typescript@5.9.3)(zod@4.3.5)
       '@turnkey/webauthn-stamper': 0.6.0
       buffer: 6.0.3
       cross-fetch: 3.2.0
@@ -2826,13 +2829,13 @@ packages:
       - zod
     dev: false
 
-  /@turnkey/sdk-server@4.12.2(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/sdk-server@4.12.2(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-LrxUM4F702xl+xIzgZXPR9styjgHqgVUBpbi/C6tXlAr5e/SxlnBaA1kxxhzRUb/vPm+I6UCp5wi1jJSNgCP0w==}
     engines: {node: '>=18.0.0'}
     dependencies:
       '@turnkey/api-key-stamper': 0.5.0
       '@turnkey/http': 3.15.0
-      '@turnkey/wallet-stamper': 1.1.9(typescript@5.9.3)(zod@3.25.76)
+      '@turnkey/wallet-stamper': 1.1.9(typescript@5.9.3)(zod@4.3.5)
       buffer: 6.0.3
       cross-fetch: 3.2.0
     transitivePeerDependencies:
@@ -2843,13 +2846,13 @@ packages:
       - zod
     dev: false
 
-  /@turnkey/sdk-server@5.0.0(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/sdk-server@5.0.0(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-GT7NC6F/EN7NPY9W+3EIrp9ems/RSBvBWTcETvNUWYvlzMgS8oXmNZmJ4KDA2becLZn+SYod/gwaRL5YPktGrw==}
     engines: {node: '>=18.0.0'}
     dependencies:
       '@turnkey/api-key-stamper': 0.5.0
       '@turnkey/http': 3.16.0
-      '@turnkey/wallet-stamper': 1.1.10(typescript@5.9.3)(zod@3.25.76)
+      '@turnkey/wallet-stamper': 1.1.10(typescript@5.9.3)(zod@4.3.5)
       buffer: 6.0.3
       cross-fetch: 3.2.0
     transitivePeerDependencies:
@@ -2870,7 +2873,7 @@ packages:
     engines: {node: '>=18.0.0'}
     dev: false
 
-  /@turnkey/viem@0.14.20(typescript@5.9.3)(viem@2.43.4)(zod@3.25.76):
+  /@turnkey/viem@0.14.20(typescript@5.9.3)(viem@2.43.4)(zod@4.3.5):
     resolution: {integrity: sha512-NhM32aS0/MYUFcZR5aPxlWixO4pxDzbiBNtenClwEEmgetp5eJci04PT2RR/00m5tfqNng0LU+LPQk6M4jR1Iw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
@@ -2879,12 +2882,12 @@ packages:
       '@noble/curves': 1.8.0
       '@openzeppelin/contracts': 5.4.0
       '@turnkey/api-key-stamper': 0.5.0
-      '@turnkey/core': 1.10.0(typescript@5.9.3)(zod@3.25.76)
+      '@turnkey/core': 1.10.0(typescript@5.9.3)(zod@4.3.5)
       '@turnkey/http': 3.16.0
-      '@turnkey/sdk-browser': 5.14.0(typescript@5.9.3)(zod@3.25.76)
-      '@turnkey/sdk-server': 5.0.0(typescript@5.9.3)(zod@3.25.76)
+      '@turnkey/sdk-browser': 5.14.0(typescript@5.9.3)(zod@4.3.5)
+      '@turnkey/sdk-server': 5.0.0(typescript@5.9.3)(zod@4.3.5)
       cross-fetch: 4.1.0
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -2914,13 +2917,13 @@ packages:
       - zod
     dev: false
 
-  /@turnkey/wallet-stamper@1.1.10(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/wallet-stamper@1.1.10(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-U9NM3gem+ubxqdwvShQeB7GWI22Ozu80xbBWB3jhsPkD9SIFtJ7r39nNnmy3/6QgAjDwqwb5wd7S4XmAenwnew==}
     dependencies:
       '@turnkey/crypto': 2.8.8
       '@turnkey/encoding': 0.6.0
     optionalDependencies:
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -2928,13 +2931,13 @@ packages:
       - zod
     dev: false
 
-  /@turnkey/wallet-stamper@1.1.9(typescript@5.9.3)(zod@3.25.76):
+  /@turnkey/wallet-stamper@1.1.9(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-4CrbTGj3+HvH8F+ISxJgq7b4oki5M1N8Q8aHrP5xgC+rZMMUWdkRFhPjdK6O5kIhW0EupbF8lrtiDy2UHJjO/Q==}
     dependencies:
       '@turnkey/crypto': 2.8.7
       '@turnkey/encoding': 0.6.0
     optionalDependencies:
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -3058,7 +3061,7 @@ packages:
     dependencies:
       '@wagmi/core': 3.0.2(@types/react@19.2.7)(react@19.2.3)(typescript@5.9.3)(use-sync-external-store@1.4.0)(viem@2.43.4)
       typescript: 5.9.3
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     dev: false
 
   /@wagmi/core@3.0.2(@types/react@19.2.7)(react@19.2.3)(typescript@5.9.3)(use-sync-external-store@1.4.0)(viem@2.43.4):
@@ -3076,7 +3079,7 @@ packages:
       eventemitter3: 5.0.1
       mipd: 0.0.7(typescript@5.9.3)
       typescript: 5.9.3
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
       zustand: 5.0.0(@types/react@19.2.7)(react@19.2.3)(use-sync-external-store@1.4.0)
     transitivePeerDependencies:
       - '@types/react'
@@ -3097,7 +3100,7 @@ packages:
     engines: {node: '>=16'}
     dev: false
 
-  /@walletconnect/core@2.23.1(typescript@5.9.3)(zod@3.25.76):
+  /@walletconnect/core@2.23.1(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-fW48PIw41Q/LJW+q0msFogD/OcelkrrDONQMcpGw4C4Y6w+IvFKGEg+7dxGLKWx1g8QuHk/p6C9VEIV/tDsm5A==}
     engines: {node: '>=18.20.8'}
     dependencies:
@@ -3113,7 +3116,7 @@ packages:
       '@walletconnect/safe-json': 1.0.2
       '@walletconnect/time': 1.0.2
       '@walletconnect/types': 2.23.1
-      '@walletconnect/utils': 2.23.1(typescript@5.9.3)(zod@3.25.76)
+      '@walletconnect/utils': 2.23.1(typescript@5.9.3)(zod@4.3.5)
       '@walletconnect/window-getters': 1.0.1
       es-toolkit: 1.39.3
       events: 3.3.0
@@ -3261,17 +3264,17 @@ packages:
       tslib: 1.14.1
     dev: false
 
-  /@walletconnect/sign-client@2.23.1(typescript@5.9.3)(zod@3.25.76):
+  /@walletconnect/sign-client@2.23.1(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-x0sG8ZuuaOi3G/gYWLppf7nmNItWlV8Yga9Bltb46/Ve6G20nCBis6gcTVVeJOpnmqQ85FISwExqOYPmJ0FQlw==}
     dependencies:
-      '@walletconnect/core': 2.23.1(typescript@5.9.3)(zod@3.25.76)
+      '@walletconnect/core': 2.23.1(typescript@5.9.3)(zod@4.3.5)
       '@walletconnect/events': 1.0.1
       '@walletconnect/heartbeat': 1.2.2
       '@walletconnect/jsonrpc-utils': 1.0.8
       '@walletconnect/logger': 3.0.1
       '@walletconnect/time': 1.0.2
       '@walletconnect/types': 2.23.1
-      '@walletconnect/utils': 2.23.1(typescript@5.9.3)(zod@3.25.76)
+      '@walletconnect/utils': 2.23.1(typescript@5.9.3)(zod@4.3.5)
       events: 3.3.0
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -3336,7 +3339,7 @@ packages:
       - uploadthing
     dev: false
 
-  /@walletconnect/utils@2.23.1(typescript@5.9.3)(zod@3.25.76):
+  /@walletconnect/utils@2.23.1(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-J12DadZHIL0KvsUoQuK0rag9jDUy8qu1zwz47xEHl03LrMcgrotQiXvdTQ3uHwAVA4yKLTQB/LEI2JiTIt7X8Q==}
     dependencies:
       '@msgpack/msgpack': 3.1.2
@@ -3357,7 +3360,7 @@ packages:
       blakejs: 1.2.1
       bs58: 6.0.0
       detect-browser: 5.3.0
-      ox: 0.9.3(typescript@5.9.3)(zod@3.25.76)
+      ox: 0.9.3(typescript@5.9.3)(zod@4.3.5)
       uint8arrays: 3.1.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -3396,7 +3399,7 @@ packages:
       tslib: 1.14.1
     dev: false
 
-  /abitype@1.2.3(typescript@5.9.3)(zod@3.25.76):
+  /abitype@1.2.3(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
     peerDependencies:
       typescript: '>=5.0.4'
@@ -3408,7 +3411,7 @@ packages:
         optional: true
     dependencies:
       typescript: 5.9.3
-      zod: 3.25.76
+      zod: 4.3.5
     dev: false
 
   /accepts@2.0.0:
@@ -3588,7 +3591,7 @@ packages:
       '@better-fetch/fetch': 1.1.21
       '@noble/ciphers': 2.1.1
       '@noble/hashes': 2.0.1
-      better-call: 1.1.7(zod@4.3.4)
+      better-call: 1.1.7(zod@4.3.5)
       defu: 6.1.4
       drizzle-kit: 0.30.6
       drizzle-orm: 0.38.4(@types/react@19.2.7)(kysely@0.28.9)(postgres@3.4.7)(react@19.2.3)
@@ -3598,10 +3601,10 @@ packages:
       next: 15.5.9(@babel/core@7.28.5)(@playwright/test@1.57.0)(react-dom@19.2.3)(react@19.2.3)
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
-      zod: 4.3.4
+      zod: 4.3.5
     dev: false
 
-  /better-call@1.1.7(zod@3.25.76):
+  /better-call@1.1.7(zod@4.3.5):
     resolution: {integrity: sha512-6gaJe1bBIEgVebQu/7q9saahVzvBsGaByEnE8aDVncZEDiJO7sdNB28ot9I6iXSbR25egGmmZ6aIURXyQHRraQ==}
     peerDependencies:
       zod: ^4.0.0
@@ -3613,22 +3616,7 @@ packages:
       '@better-fetch/fetch': 1.1.21
       rou3: 0.7.12
       set-cookie-parser: 2.7.2
-      zod: 3.25.76
-    dev: false
-
-  /better-call@1.1.7(zod@4.3.4):
-    resolution: {integrity: sha512-6gaJe1bBIEgVebQu/7q9saahVzvBsGaByEnE8aDVncZEDiJO7sdNB28ot9I6iXSbR25egGmmZ6aIURXyQHRraQ==}
-    peerDependencies:
-      zod: ^4.0.0
-    peerDependenciesMeta:
-      zod:
-        optional: true
-    dependencies:
-      '@better-auth/utils': 0.3.0
-      '@better-fetch/fetch': 1.1.21
-      rou3: 0.7.12
-      set-cookie-parser: 2.7.2
-      zod: 4.3.4
+      zod: 4.3.5
     dev: false
 
   /blakejs@1.2.1:
@@ -5661,7 +5649,7 @@ packages:
     resolution: {integrity: sha512-+Sl2UErvtsoajRDKCE5/dBz4DIvHXQQnAxtQTF04OJxY0+DyZXSo5P5Bb7XYWOh81syohlYL24hbDwxedPUJCA==}
     dev: false
 
-  /ox@0.11.1(typescript@5.9.3)(zod@3.25.76):
+  /ox@0.11.1(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-1l1gOLAqg0S0xiN1dH5nkPna8PucrZgrIJOfS49MLNiMevxu07Iz4ZjuJS9N+xifvT+PsZyIptS7WHM8nC+0+A==}
     peerDependencies:
       typescript: '>=5.4.0'
@@ -5675,14 +5663,14 @@ packages:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.3.5)
       eventemitter3: 5.0.1
       typescript: 5.9.3
     transitivePeerDependencies:
       - zod
     dev: false
 
-  /ox@0.9.17(typescript@5.9.3)(zod@3.25.76):
+  /ox@0.9.17(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-rKAnhzhRU3Xh3hiko+i1ZxywZ55eWQzeS/Q4HRKLx2PqfHOolisZHErSsJVipGlmQKHW5qwOED/GighEw9dbLg==}
     peerDependencies:
       typescript: '>=5.4.0'
@@ -5696,14 +5684,14 @@ packages:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.3.5)
       eventemitter3: 5.0.1
       typescript: 5.9.3
     transitivePeerDependencies:
       - zod
     dev: false
 
-  /ox@0.9.3(typescript@5.9.3)(zod@3.25.76):
+  /ox@0.9.3(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-KzyJP+fPV4uhuuqrTZyok4DC7vFzi7HLUFiUNEmpbyh59htKWkOC98IONC1zgXJPbHAhQgqs6B0Z6StCGhmQvg==}
     peerDependencies:
       typescript: '>=5.4.0'
@@ -5717,7 +5705,7 @@ packages:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.3.5)
       eventemitter3: 5.0.1
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -6525,7 +6513,7 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
-  /tempo.ts@0.10.5(@remix-run/headers@0.17.2)(@remix-run/route-pattern@0.15.3)(@remix-run/session@0.4.1)(@tanstack/react-query@5.90.16)(@wagmi/core@3.0.2)(typescript@5.9.3)(viem@2.43.4)(wagmi@3.1.4)(zod@3.25.76):
+  /tempo.ts@0.10.5(@remix-run/headers@0.17.2)(@remix-run/route-pattern@0.15.3)(@remix-run/session@0.4.1)(@tanstack/react-query@5.90.16)(@wagmi/core@3.0.2)(typescript@5.9.3)(viem@2.43.4)(wagmi@3.1.4)(zod@4.3.5):
     resolution: {integrity: sha512-pG4m82cEocuPuLAhJ3s992Nx+POvAyP+CUAaXtdcnp+e9/X8lbbbMAHFkxSfrx7xwifYxRS6DxloLpc4CeFOlg==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
@@ -6552,8 +6540,8 @@ packages:
       '@tanstack/react-query': 5.90.16(react@19.2.3)
       '@wagmi/core': 3.0.2(@types/react@19.2.7)(react@19.2.3)(typescript@5.9.3)(use-sync-external-store@1.4.0)(viem@2.43.4)
       idb-keyval: 6.2.2
-      ox: 0.9.17(typescript@5.9.3)(zod@3.25.76)
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      ox: 0.9.17(typescript@5.9.3)(zod@4.3.5)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
       wagmi: 3.1.4(@tanstack/react-query@5.90.16)(@types/react@19.2.7)(react@19.2.3)(typescript@5.9.3)(viem@2.43.4)
     transitivePeerDependencies:
       - '@remix-run/headers'
@@ -6901,7 +6889,7 @@ packages:
       d3-timer: 3.0.1
     dev: false
 
-  /viem@2.43.4(typescript@5.9.3)(zod@3.25.76):
+  /viem@2.43.4(typescript@5.9.3)(zod@4.3.5):
     resolution: {integrity: sha512-PSoML7uG5es/SA1v2988grfcHdMDIogqC0LftdX74q8ZUHj3E7uiAXypNQiUxRZBuyoD5LO1nGEgTU9AGRvuHA==}
     peerDependencies:
       typescript: '>=5.0.4'
@@ -6913,9 +6901,9 @@ packages:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.3.5)
       isows: 1.0.7(ws@8.18.3)
-      ox: 0.11.1(typescript@5.9.3)(zod@3.25.76)
+      ox: 0.11.1(typescript@5.9.3)(zod@4.3.5)
       typescript: 5.9.3
       ws: 8.18.3
     transitivePeerDependencies:
@@ -6941,7 +6929,7 @@ packages:
       react: 19.2.3
       typescript: 5.9.3
       use-sync-external-store: 1.4.0(react@19.2.3)
-      viem: 2.43.4(typescript@5.9.3)(zod@3.25.76)
+      viem: 2.43.4(typescript@5.9.3)(zod@4.3.5)
     transitivePeerDependencies:
       - '@base-org/account'
       - '@coinbase/wallet-sdk'
@@ -7105,8 +7093,8 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
     dev: false
 
-  /zod@4.3.4:
-    resolution: {integrity: sha512-Zw/uYiiyF6pUT1qmKbZziChgNPRu+ZRneAsMUDU6IwmXdWt5JwcUfy2bvLOCUtz5UniaN/Zx5aFttZYbYc7O/A==}
+  /zod@4.3.5:
+    resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
     dev: false
 
   /zustand@5.0.0(@types/react@19.2.7)(react@19.2.3)(use-sync-external-store@1.4.0):

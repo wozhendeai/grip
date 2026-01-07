@@ -35,7 +35,7 @@ function formatTimeAgo(dateString: string): string {
  * Notification Bell Dropdown
  *
  * Shows in navbar with unread count badge.
- * Polls /api/notifications/recent every 15 seconds.
+ * Polls /api/notifications every 15 seconds.
  *
  * Design decisions:
  * - 15s polling over WebSocket: Simpler, adequate for bounty workflow
@@ -52,7 +52,7 @@ export function NotificationDropdown() {
   // Fetch recent notifications
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications/recent');
+      const res = await fetch('/api/notifications');
       if (!res.ok) return;
 
       const data = await res.json();
@@ -77,8 +77,10 @@ export function NotificationDropdown() {
   // Mark as read when clicked
   const handleNotificationClick = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notificationId] }),
       });
       // Optimistic update
       setNotifications((prev) =>
@@ -93,8 +95,10 @@ export function NotificationDropdown() {
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/read-all', {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
       setUnreadCount(0);

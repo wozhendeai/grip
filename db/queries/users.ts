@@ -197,26 +197,6 @@ export async function findUserByGitHubUsername(githubUsername: string): Promise<
 }
 
 /**
- * Find GRIP user by canonical GitHub user ID
- *
- * Preferred over username lookup (usernames can change).
- * Uses user.github_user_id added in schema redesign.
- */
-export async function findUserByGitHubUserId(
-  githubUserId: bigint | string
-): Promise<string | null> {
-  const userIdBigInt = typeof githubUserId === 'string' ? BigInt(githubUserId) : githubUserId;
-
-  const [result] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.githubUserId, userIdBigInt))
-    .limit(1);
-
-  return result?.id ?? null;
-}
-
-/**
  * Get organizations a user belongs to
  *
  * Returns organization memberships with essential display data.

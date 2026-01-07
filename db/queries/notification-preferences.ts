@@ -65,38 +65,6 @@ export async function updateNotificationPreferences(
 }
 
 /**
- * Check if a notification should be sent based on user preferences.
- * Used at send-time to respect user opt-outs.
- */
-export async function shouldSendNotification(
-  userId: string,
-  notificationType: keyof typeof DEFAULT_PREFERENCES,
-  channel: 'email' | 'inApp'
-): Promise<boolean> {
-  const prefs = await getOrCreateNotificationPreferences(userId);
-
-  // Check channel-specific preference
-  if (channel === 'email') {
-    const key = notificationType as keyof NotificationPreferencesRow;
-    const value = prefs[key];
-    if (typeof value === 'boolean' && !value) return false;
-  }
-
-  if (channel === 'inApp' && !prefs.inAppEnabled) {
-    return false;
-  }
-
-  // Check quiet hours if configured
-  if (prefs.quietHoursStart && prefs.quietHoursEnd) {
-    if (isInQuietHours(prefs.quietHoursStart, prefs.quietHoursEnd, prefs.quietHoursTimezone)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
  * Check if current time is within quiet hours.
  * Handles overnight ranges (e.g., 22:00 - 08:00).
  */

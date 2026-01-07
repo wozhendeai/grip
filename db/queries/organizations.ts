@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { networkFilter } from '../network';
-import { accessKeys, pendingPayments } from '@/db/schema/business';
+import { accessKeys } from '@/db/schema/business';
 import { member, passkey } from '@/db/schema/auth';
 import { and, eq, sql } from 'drizzle-orm';
 
@@ -49,17 +49,6 @@ export async function isOrgMember(orgId: string, userId: string): Promise<boolea
 export async function getOrgMembership(orgId: string, userId: string) {
   return db.query.member.findFirst({
     where: and(eq(member.organizationId, orgId), eq(member.userId, userId)),
-  });
-}
-
-export async function getOrgOwner(orgId: string) {
-  return db.query.member.findFirst({
-    where: and(eq(member.organizationId, orgId), eq(member.role, 'owner')),
-    with: {
-      user: {
-        with: { passkeys: true },
-      },
-    },
   });
 }
 
@@ -155,58 +144,8 @@ export async function validateOrgSpending(params: {
 }
 
 // ============================================================================
-// ORG PENDING LIABILITIES
-// ============================================================================
-
-/**
- * Get org's total pending liabilities by token
- */
-export async function getOrgPendingLiabilities(orgId: string) {
-  const pending = await db.query.pendingPayments.findMany({
-    where: and(
-      eq(pendingPayments.organizationId, orgId),
-      eq(pendingPayments.status, 'pending'),
-      networkFilter(pendingPayments)
-    ),
-  });
-
-  const liabilitiesByToken = pending.reduce(
-    (acc, p) => {
-      const token = p.tokenAddress.toLowerCase();
-      if (!acc[token]) {
-        acc[token] = { tokenAddress: p.tokenAddress, total: BigInt(0) };
-      }
-      acc[token].total += BigInt(p.amount);
-      return acc;
-    },
-    {} as Record<string, { tokenAddress: string; total: bigint }>
-  );
-
-  return Object.values(liabilitiesByToken);
-}
-
-// ============================================================================
 // ORGANIZATION PROFILES
 // ============================================================================
-
-/**
- * Get GRIP organization by GitHub login
- * Returns null if org hasn't linked GitHub account
- */
-export async function getOrgByGithubLogin(githubLogin: string) {
-  const { organization } = await import('@/db/schema/auth');
-
-  return db.query.organization.findFirst({
-    where: eq(organization.githubOrgLogin, githubLogin),
-    with: {
-      members: {
-        with: {
-          user: true,
-        },
-      },
-    },
-  });
-}
 
 /**
  * Get GRIP organization by slug

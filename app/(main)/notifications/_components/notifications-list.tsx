@@ -62,8 +62,10 @@ export function NotificationsList({
   // Mark as read on click
   const handleNotificationClick = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notificationId] }),
       });
       // Optimistic update
       setNotifications((prev) =>
@@ -77,8 +79,10 @@ export function NotificationsList({
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/read-all', {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
     } catch (error) {

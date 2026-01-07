@@ -97,10 +97,11 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
     }
 
     setBatchConfirmed(true);
-    fetch('/api/payouts/batch/mark-confirmed', {
+    fetch('/api/payments/payouts/batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        action: 'mark-confirmed',
         payoutIds: pendingPayoutIds,
         txHash,
         blockNumber: receipt.blockNumber.toString(),
@@ -166,10 +167,11 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
       setBatchConfirmed(false);
 
       // Confirm all payouts in database
-      await fetch('/api/payouts/batch/confirm', {
+      await fetch('/api/payments/payouts/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'confirm',
           payoutIds: Array.from(selectedIds),
           txHash: batchTxHash,
         }),

@@ -115,24 +115,6 @@ export async function getPayoutWithDetails(id: string) {
   return result ?? null;
 }
 
-export async function getPayoutsByUser(userId: string | null) {
-  if (!userId) {
-    return [];
-  }
-
-  return db
-    .select({
-      payout: payouts,
-      bounty: bounties,
-      repoSettings: repoSettings,
-    })
-    .from(payouts)
-    .innerJoin(bounties, eq(payouts.bountyId, bounties.id))
-    .leftJoin(repoSettings, eq(payouts.repoSettingsId, repoSettings.githubRepoId))
-    .where(and(networkFilter(payouts), eq(payouts.recipientUserId, userId)))
-    .orderBy(desc(payouts.createdAt));
-}
-
 export async function getPayoutsByRepoSettings(repoSettingsId: number | bigint | string) {
   const repoIdValue =
     typeof repoSettingsId === 'string'
@@ -156,16 +138,6 @@ export async function getPayoutsByRepoSettings(repoSettingsId: number | bigint |
     .innerJoin(user, eq(payouts.recipientUserId, user.id))
     .where(and(networkFilter(payouts), eq(payouts.repoSettingsId, repoIdValue)))
     .orderBy(desc(payouts.createdAt));
-}
-
-export async function getPayoutBySubmission(submissionId: string) {
-  const [payout] = await db
-    .select()
-    .from(payouts)
-    .where(and(networkFilter(payouts), eq(payouts.submissionId, submissionId)))
-    .limit(1);
-
-  return payout ?? null;
 }
 
 export async function updatePayoutStatus(
@@ -240,30 +212,6 @@ export async function markPayoutConfirmed(
 
 export async function markPayoutFailed(id: string, errorMessage: string) {
   return updatePayoutStatus(id, 'failed', { errorMessage });
-}
-
-export async function getPendingPayouts() {
-  return db
-    .select()
-    .from(payouts)
-    .where(and(networkFilter(payouts), eq(payouts.status, 'pending')))
-    .orderBy(payouts.createdAt);
-}
-
-export async function getPayoutsByBounty(bountyId: string) {
-  return db
-    .select({
-      payout: payouts,
-      recipient: {
-        id: user.id,
-        name: user.name,
-        image: user.image,
-      },
-    })
-    .from(payouts)
-    .innerJoin(user, eq(payouts.recipientUserId, user.id))
-    .where(and(networkFilter(payouts), eq(payouts.bountyId, bountyId)))
-    .orderBy(desc(payouts.createdAt));
 }
 
 /**
@@ -351,50 +299,6 @@ export async function getUserEarningsOverTime(userId: string | null, period: Tim
 }
 
 /**
- * Get total earnings for user (computed from payouts)
- *
- * Replaces cached user_stats.totalEarned.
- */
-export async function getUserTotalEarnings(userId: string): Promise<number> {
-  const [result] = await db
-    .select({
-      total: sql<number>`coalesce(sum(${payouts.amount}), 0)::bigint`,
-    })
-    .from(payouts)
-    .where(
-      and(
-        networkFilter(payouts),
-        eq(payouts.recipientUserId, userId),
-        eq(payouts.status, 'confirmed')
-      )
-    );
-
-  return result?.total ?? 0;
-}
-
-/**
- * Get count of completed bounties for user (computed from payouts)
- *
- * Replaces cached user_stats.bountiesCompleted.
- */
-export async function getUserCompletedBountiesCount(userId: string): Promise<number> {
-  const [result] = await db
-    .select({
-      count: sql<number>`count(distinct ${payouts.bountyId})::int`,
-    })
-    .from(payouts)
-    .where(
-      and(
-        networkFilter(payouts),
-        eq(payouts.recipientUserId, userId),
-        eq(payouts.status, 'confirmed')
-      )
-    );
-
-  return result?.count ?? 0;
-}
-
-/**
  * Create direct payment payout record
  *
  * Direct payments are person-to-person payments (not tied to bounties).
@@ -447,60 +351,4 @@ export async function createDirectPayment(input: CreateDirectPaymentInput) {
     .returning();
 
   return payout;
-}
-
-/**
- * Get direct payments sent by user
- *
- * Used for wallet activity feed "Sent" tab.
- * Returns direct payments (paymentType = 'direct') sent by the user.
- */
-export async function getSentDirectPayments(userId: string) {
-  return db
-    .select({
-      payout: payouts,
-      recipient: {
-        id: user.id,
-        name: user.name,
-        image: user.image,
-      },
-    })
-    .from(payouts)
-    .leftJoin(user, eq(payouts.recipientUserId, user.id))
-    .where(
-      and(
-        networkFilter(payouts),
-        eq(payouts.payerUserId, userId),
-        eq(payouts.paymentType, 'direct')
-      )
-    )
-    .orderBy(desc(payouts.createdAt));
-}
-
-/**
- * Get direct payments received by user
- *
- * Used for user profile to show received direct payments.
- * Returns direct payments (paymentType = 'direct') received by the user.
- */
-export async function getReceivedDirectPayments(userId: string) {
-  return db
-    .select({
-      payout: payouts,
-      sender: {
-        id: user.id,
-        name: user.name,
-        image: user.image,
-      },
-    })
-    .from(payouts)
-    .leftJoin(user, eq(payouts.payerUserId, user.id))
-    .where(
-      and(
-        networkFilter(payouts),
-        eq(payouts.recipientUserId, userId),
-        eq(payouts.paymentType, 'direct')
-      )
-    )
-    .orderBy(desc(payouts.createdAt));
 }
