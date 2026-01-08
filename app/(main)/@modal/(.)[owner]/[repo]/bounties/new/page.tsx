@@ -1,4 +1,4 @@
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';

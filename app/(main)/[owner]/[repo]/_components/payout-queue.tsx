@@ -12,23 +12,24 @@ import {
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Abis } from 'tempo.ts/viem';
-import { useWriteContract } from 'wagmi';
+import { Actions, Hooks } from 'wagmi/tempo';
+import { formatUnits } from 'viem';
+import { useConnection, useWaitForTransactionReceipt } from 'wagmi';
+import { config } from '@/lib/wagmi-config';
 
 /**
  * Payout Queue - SDK Version
  *
  * Migration from custom signing to SDK:
  * - BEFORE: Manual loop with signTempoTransaction + broadcastTransaction
- * - AFTER: Sequential writeContractAsync calls with SDK
+ * - AFTER: Tempo Actions with explicit nonce lanes for parallel submission
  *
- * Note: Wagmi doesn't have built-in batch transaction support, so we sign
- * transactions sequentially. Each transaction waits for the previous one to
- * complete before starting. SDK handles nonce incrementing automatically.
+ * Note: We fetch nonces for each nonceKey and submit transfers without
+ * waiting for confirmations, enabling parallel execution on-chain.
  */
 
 interface PayoutQueueProps {
-  projectId: string;
+  githubRepoId: number;
 }
 
 interface PayoutItem {
@@ -49,24 +50,35 @@ interface PayoutItem {
   };
 }
 
-export function PayoutQueue({ projectId }: PayoutQueueProps) {
+export function PayoutQueue({ githubRepoId }: PayoutQueueProps) {
   const [loading, setLoading] = useState(false);
   const [signing, setSigning] = useState(false);
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingPayoutIds, setPendingPayoutIds] = useState<string[]>([]);
+  const [batchConfirmed, setBatchConfirmed] = useState(false);
 
-  // SDK hook for contract writes (signs + broadcasts automatically)
-  const { writeContractAsync } = useWriteContract();
+  const { address } = useConnection();
+  const { data: receipt, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash as `0x${string}` | undefined,
+  });
 
-  // Fetch approved payouts
+  // Get user's fee token preference (protocol handles fallback if not set)
+  const { data: userFeeToken } = Hooks.fee.useUserToken({
+    account: address!,
+    query: { enabled: Boolean(address) },
+  });
+  const feeToken = userFeeToken?.address; // undefined lets protocol handle fallback
+
+  // Fetch pending payouts
   // Using useCallback because fetchPayouts is used in useEffect dependency array
-  // Depends on projectId from props - when projectId changes, fetchPayouts is recreated
+  // Depends on githubRepoId from props - when githubRepoId changes, fetchPayouts is recreated
   const fetchPayouts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/payouts/batch`);
+      const res = await fetch(`/api/repo-settings/${githubRepoId}/payouts/batch`);
       const data = await res.json();
       setPayouts(data.payouts || []);
       setSelectedIds(new Set((data.payouts || []).map((p: PayoutItem) => p.id)));
@@ -75,7 +87,33 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [githubRepoId]);
+
+  useEffect(() => {
+    if (!isConfirmed || !txHash || batchConfirmed || pendingPayoutIds.length === 0) {
+      return;
+    }
+    if (!receipt?.blockNumber) {
+      return;
+    }
+
+    setBatchConfirmed(true);
+    fetch('/api/payments/payouts/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'mark-confirmed',
+        payoutIds: pendingPayoutIds,
+        txHash,
+        blockNumber: receipt.blockNumber.toString(),
+      }),
+    })
+      .then(() => fetchPayouts())
+      .catch((err) => {
+        console.error('Failed to mark batch confirmed:', err);
+        setBatchConfirmed(false);
+      });
+  }, [isConfirmed, txHash, pendingPayoutIds, receipt?.blockNumber, batchConfirmed, fetchPayouts]);
 
   // Fetch on mount and when fetchPayouts changes (which happens when projectId changes)
   useEffect(() => {
@@ -96,34 +134,45 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
       if (selectedPayouts.length === 0) {
         throw new Error('No payouts selected');
       }
-
-      const results = [];
-
-      // Sign each transaction sequentially
-      // SDK handles: WebAuthn prompt, nonce management, gas estimation, broadcasting
-      for (const payout of selectedPayouts) {
-        const hash = await writeContractAsync({
-          address: payout.tokenAddress as `0x${string}`,
-          abi: Abis.tip20,
-          functionName: 'transferWithMemo',
-          args: [
-            payout.recipientAddress as `0x${string}`,
-            BigInt(payout.amount),
-            payout.memo as `0x${string}`,
-          ],
-        });
-        results.push({ payoutId: payout.id, txHash: hash });
+      if (!address) {
+        throw new Error('Wallet not connected');
       }
+
+      const nonceKeys = selectedPayouts.map((_, index) => BigInt(index + 1));
+      const nonces = await Promise.all(
+        nonceKeys.map((nonceKey) => Actions.nonce.getNonce(config, { account: address, nonceKey }))
+      );
+
+      const results = await Promise.all(
+        selectedPayouts.map(async (payout, index) => {
+          const nonceKey = nonceKeys[index];
+          const nonce = nonces[index];
+          const hash = await Actions.token.transfer(config, {
+            amount: BigInt(payout.amount),
+            to: payout.recipientAddress as `0x${string}`,
+            token: payout.tokenAddress as `0x${string}`,
+            memo: payout.memo as `0x${string}`,
+            feeToken, // Use user's fee token preference
+            nonceKey,
+            nonce: Number(nonce),
+          });
+
+          return { payoutId: payout.id, txHash: hash };
+        })
+      );
 
       // Use first tx hash as batch identifier
       const batchTxHash = results[0].txHash;
       setTxHash(batchTxHash);
+      setPendingPayoutIds(selectedPayouts.map((payout) => payout.id));
+      setBatchConfirmed(false);
 
       // Confirm all payouts in database
-      await fetch('/api/payouts/batch/confirm', {
+      await fetch('/api/payments/payouts/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'confirm',
           payoutIds: Array.from(selectedIds),
           txHash: batchTxHash,
         }),
@@ -196,7 +245,7 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
                 {payout.bounty.title} (#{payout.bounty.issueNumber})
               </p>
               <p className="text-sm text-muted-foreground">
-                {payout.recipient.name} • ${(payout.amount / 1_000_000).toFixed(2)} USDC
+                {payout.recipient.name} • ${formatUnits(BigInt(payout.amount), 6)} USDC
               </p>
             </div>
           </div>
@@ -229,7 +278,7 @@ export function PayoutQueue({ projectId }: PayoutQueueProps) {
       <CardFooter className="flex justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{selectedCount} selected</p>
-          <p className="font-medium">Total: ${(totalAmount / 1_000_000).toFixed(2)} USDC</p>
+          <p className="font-medium">Total: ${formatUnits(BigInt(totalAmount), 6)} USDC</p>
         </div>
 
         <Button onClick={handleBatchSign} disabled={signing || selectedCount === 0}>

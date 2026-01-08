@@ -5,16 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Notification icon mapping
-export const NOTIFICATION_ICONS: Record<string, string> = {
-  pr_submitted: '📝',
-  submission_expiring: '⏰',
-  payment_received: '💰',
-  bounty_created_on_repo: '🎯',
-  pr_approved: '✅',
-  pr_rejected: '❌',
-};
-
 // Format time ago
 export function formatTimeAgo(date: Date | string): string {
   const now = new Date();

@@ -75,77 +75,6 @@ export async function getRepoSettingsByUser(userId: string) {
   return db.select().from(repoSettings).where(eq(repoSettings.verifiedOwnerUserId, userId));
 }
 
-/**
- * Update webhook config for repo
- */
-export async function updateRepoWebhook(
-  githubRepoId: bigint | string,
-  webhookId: bigint | string,
-  webhookSecret: string
-) {
-  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
-  const webhookIdBigInt = typeof webhookId === 'string' ? BigInt(webhookId) : webhookId;
-
-  const [updated] = await db
-    .update(repoSettings)
-    .set({
-      webhookId: webhookIdBigInt,
-      webhookSecret,
-    })
-    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
-    .returning();
-
-  return updated;
-}
-
-/**
- * Toggle require_owner_approval flag for repo
- *
- * When enabled, bounty submissions require both:
- * 1. Primary funder approval
- * 2. Repo owner approval (via repo settings)
- */
-export async function updateRepoOwnerApproval(
-  githubRepoId: bigint | string,
-  requireOwnerApproval: boolean
-) {
-  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
-
-  const [updated] = await db
-    .update(repoSettings)
-    .set({
-      requireOwnerApproval,
-    })
-    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
-    .returning();
-
-  return updated;
-}
-
-/**
- * Toggle auto_pay_enabled flag for repo
- *
- * When enabled AND user has active Access Key:
- * - Bounties are automatically paid when linked PR merges
- * - Skips manual approval flow
- *
- * When disabled OR no Access Key:
- * - Manual approval required for each payout
- */
-export async function updateAutoPayEnabled(githubRepoId: bigint | string, autoPayEnabled: boolean) {
-  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
-
-  const [updated] = await db
-    .update(repoSettings)
-    .set({
-      autoPayEnabled,
-    })
-    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
-    .returning();
-
-  return updated;
-}
-
 export type RepoSettingsUpdate = Partial<{
   autoPayEnabled: boolean;
   requireOwnerApproval: boolean;
@@ -155,6 +84,7 @@ export type RepoSettingsUpdate = Partial<{
   emailOnSubmission: boolean;
   emailOnMerge: boolean;
   emailOnPaymentFailure: boolean;
+  onboardingCompleted: boolean;
 }>;
 
 /**
@@ -214,52 +144,6 @@ export async function getUserReposWithStats(userId: string | null) {
     .orderBy(desc(sql`count(*) filter (where ${bounties.status} = 'open')`));
 
   return results;
-}
-
-/**
- * Get top repos ranked by total open bounty value
- *
- * Shows repos with most active bounty funding (promise layer).
- * Includes both verified and permissionless repos.
- */
-export async function getTopReposByBountyValue(limit = 6) {
-  const results = await db
-    .select({
-      githubRepoId: bounties.githubRepoId,
-      githubOwner: bounties.githubOwner,
-      githubRepo: bounties.githubRepo,
-      githubFullName: bounties.githubFullName,
-      totalBountyValue: sql<number>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
-      openBountyCount: sql<number>`count(*) filter (where ${bounties.status} = 'open')::int`,
-    })
-    .from(bounties)
-    .groupBy(
-      bounties.githubRepoId,
-      bounties.githubOwner,
-      bounties.githubRepo,
-      bounties.githubFullName
-    )
-    .having(sql`count(*) filter (where ${bounties.status} = 'open') > 0`)
-    .orderBy(desc(sql`sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open')`))
-    .limit(limit);
-
-  return results;
-}
-
-/**
- * Check if repo requires owner approval for payouts
- *
- * Returns true if:
- * - Repo has settings (verified owner)
- * - AND require_owner_approval flag is enabled
- *
- * Returns false for permissionless repos (no settings).
- */
-export async function doesRepoRequireOwnerApproval(
-  githubRepoId: bigint | string
-): Promise<boolean> {
-  const settings = await getRepoSettingsByGithubRepoId(githubRepoId);
-  return settings?.requireOwnerApproval ?? false;
 }
 
 /**

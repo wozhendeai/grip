@@ -1,5 +1,6 @@
 'use client';
 
+import { TokenSelect, type Token } from '@/components/tempo/token-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import type { GitHubRepo } from '@/lib/github';
 import { cn } from '@/lib/utils';
 import { ExternalLink, Search } from 'lucide-react';
@@ -75,6 +77,7 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
   const [searchInput, setSearchInput] = useState(''); // User types here
   const [debouncedSearch, setDebouncedSearch] = useState(''); // API searches this
   const [amount, setAmount] = useState('');
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [claimDeadlineDays, setClaimDeadlineDays] = useState('14');
   const [payoutMode, setPayoutMode] = useState<'manual' | 'auto'>('manual');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -225,6 +228,7 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
           repo,
           githubIssueNumber: selectedIssue.number,
           amount: amountNum,
+          tokenAddress: selectedToken?.address ?? TEMPO_TOKENS.USDC,
           claimDeadlineDays: Number.parseInt(claimDeadlineDays, 10),
           payoutMode,
           publish,
@@ -458,29 +462,41 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
 
       {/* Amount + Terms Section (grouped for better visual hierarchy) */}
       <div className="space-y-6">
-        {/* Amount */}
-        <Field>
-          <FieldLabel htmlFor="amount">Bounty Amount (USD)</FieldLabel>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-              $
-            </span>
-            <Input
-              id="amount"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="100"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="pl-8"
+        {/* Token + Amount */}
+        <div className="grid gap-6 md:grid-cols-[1fr_200px]">
+          <Field>
+            <FieldLabel htmlFor="amount">Bounty Amount</FieldLabel>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="amount"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="100"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <FieldDescription>
+              Amount paid to the contributor when their PR is approved.
+            </FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel>Payment Token</FieldLabel>
+            <TokenSelect
+              value={selectedToken?.address}
+              onChange={setSelectedToken}
+              placeholder="Select token"
+              className="w-full"
             />
-          </div>
-          <FieldDescription>
-            This is the amount in USDC that will be paid to the contributor when their PR is
-            approved.
-          </FieldDescription>
-        </Field>
+            <FieldDescription>{selectedToken?.symbol ?? 'USDC'} on Tempo</FieldDescription>
+          </Field>
+        </div>
 
         {/* Deadline + Payment Approval (side-by-side on larger screens) */}
         <div className="grid gap-6 md:grid-cols-2">

@@ -12,7 +12,7 @@ import {
   fetchGitHubOrgRepositories,
   fetchGitHubUserRepositories,
 } from '@/lib/github/api';
-import { getOrganization } from '@/lib/github/organizations';
+import { getOrganization } from '@/lib/github';
 import { notFound } from 'next/navigation';
 import { UserProfile } from './_components/user-profile';
 import { OrgProfile } from './_components/org-profile';
@@ -109,17 +109,19 @@ export default async function OwnerPage({ params }: OwnerPageProps) {
   ]);
 
   if (githubUser) {
-    const bountyLaneUser = await getUserByName(owner);
-    const bountyData = await getBountyDataByGitHubId(BigInt(githubUser.id));
+    const [bountyLaneUser, bountyData, repos] = await Promise.all([
+      getUserByName(owner),
+      getBountyDataByGitHubId(BigInt(githubUser.id)),
+      fetchGitHubUserRepositories(owner, { sort: 'updated', perPage: 100 }),
+    ]);
 
-    // Get org memberships only if user is signed up
-    const organizations = bountyLaneUser ? await getUserOrganizations(bountyLaneUser.id) : [];
-
-    // Get submissions if user is signed up
-    const userSubmissions = bountyLaneUser ? await getSubmissionsByUser(bountyLaneUser.id) : [];
-
-    // Fetch repos for all users (needed for RepoList metadata)
-    const repos = await fetchGitHubUserRepositories(owner, { sort: 'updated', perPage: 100 });
+    // Second batch: depends on bountyLaneUser.id
+    const [organizations, userSubmissions] = bountyLaneUser
+      ? await Promise.all([
+          getUserOrganizations(bountyLaneUser.id),
+          getSubmissionsByUser(bountyLaneUser.id),
+        ])
+      : [[], []];
 
     const isOwnProfile = session?.user?.name === owner;
     const isLoggedIn = !!session?.user;

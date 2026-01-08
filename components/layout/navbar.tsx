@@ -1,11 +1,11 @@
 'use client';
 
 import { Suspense } from 'react';
-import { MainNav } from '@/components/layout/main-nav';
-import { MobileNav } from '@/components/layout/mobile-nav';
-import { NotificationDropdown } from '@/components/notifications/notification-dropdown';
-import { UserNav } from '@/components/layout/user-nav';
-import { SearchTrigger } from '@/components/layout/search-trigger';
+import { MainNav } from './main-nav';
+import { MobileNav } from './mobile-nav';
+import { NotificationDropdown } from './notification-dropdown';
+import { UserNav } from './user-nav';
+import { SearchTrigger } from './search-trigger';
 
 export function Navbar() {
   return (

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { UserAvatar } from '@/components/user/user-avatar';
+import { UserAvatar } from '@/components/ui/avatar';
 import type { BountySubmission } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';

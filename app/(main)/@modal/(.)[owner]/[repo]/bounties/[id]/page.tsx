@@ -1,4 +1,4 @@
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { getBountyWithAuthor } from '@/db/queries/bounties';
 import { getSubmissionsByBounty } from '@/db/queries/submissions';
 import type { Bounty, SubmissionStatus } from '@/lib/types';

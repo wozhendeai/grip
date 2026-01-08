@@ -2,11 +2,15 @@
 
 import { AccessKeyManager } from '@/app/(main)/settings/_components/access-key-manager';
 import { CreateAccessKeyInline } from '@/app/(main)/settings/_components/create-access-key-inline';
+import { PayoutQueue } from '@/app/(main)/[owner]/[repo]/_components/payout-queue';
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ExternalLink, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { formatUnits } from 'viem';
+import { Hooks } from 'wagmi/tempo';
 import { useCallback, useEffect, useState } from 'react';
 
 interface TreasurySettingsProps {
@@ -17,13 +21,12 @@ interface TreasuryInfo {
   configured: boolean;
   address?: string;
   credentialId?: string;
-  balance?: {
-    formatted: string;
-    symbol: string;
-  } | null;
   committed?: {
     formatted: string;
   } | null;
+  tokenAddress?: string;
+  tokenDecimals?: number;
+  tokenSymbol?: string;
   message?: string;
   error?: string;
 }
@@ -53,6 +56,37 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
   const [accessKeys, setAccessKeys] = useState<AccessKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [accessKeyView, setAccessKeyView] = useState<AccessKeyView>('main');
+
+  const balanceAccount = (treasuryInfo?.address ??
+    '0x0000000000000000000000000000000000000000') as `0x${string}`;
+  const tokenAddress = (treasuryInfo?.tokenAddress ?? TEMPO_TOKENS.USDC) as `0x${string}`;
+  const tokenDecimals = treasuryInfo?.tokenDecimals ?? 6;
+  const tokenSymbol = treasuryInfo?.tokenSymbol ?? 'USDC';
+
+  const { data: balance, isLoading: isBalanceLoading } = Hooks.token.useGetBalance({
+    account: balanceAccount,
+    token: tokenAddress,
+    query: {
+      enabled: Boolean(treasuryInfo?.address),
+      refetchInterval: 10_000,
+      staleTime: 10_000,
+    },
+  });
+  const { data: metadata, isLoading: isMetadataLoading } = Hooks.token.useGetMetadata({
+    token: tokenAddress,
+    query: {
+      enabled: Boolean(treasuryInfo?.address),
+      staleTime: 86_400_000,
+    },
+  });
+
+  const decimals = metadata?.decimals ?? tokenDecimals;
+  const displaySymbol = metadata?.symbol ?? tokenSymbol;
+  const formattedBalance = balance ? formatUnits(balance, decimals) : null;
+  const isBalanceLoadingCombined = isBalanceLoading || isMetadataLoading;
+  const balanceNumber = formattedBalance ? Number.parseFloat(formattedBalance) : 0;
+  const committedNumber = Number.parseFloat(treasuryInfo?.committed?.formatted ?? '0');
+  const availableNumber = balanceNumber - committedNumber;
 
   const fetchData = useCallback(async () => {
     try {
@@ -115,17 +149,19 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Balance Display */}
-            {treasuryInfo.balance ? (
+            {treasuryInfo.error ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+                <p className="text-sm text-destructive">{treasuryInfo.error}</p>
+              </div>
+            ) : (
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <p className="text-sm text-muted-foreground mb-1">Balance</p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-2xl font-bold">
-                      ${treasuryInfo.balance.formatted ?? '0.00'}
+                      {isBalanceLoadingCombined ? '$---.--' : `$${balanceNumber.toFixed(2)}`}
                     </span>
-                    <span className="text-sm text-muted-foreground">
-                      {treasuryInfo.balance.symbol ?? 'USDC'}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{displaySymbol}</span>
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-card/50 p-4">
@@ -142,22 +178,14 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
                   <p className="text-sm text-muted-foreground mb-1">Available</p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-2xl font-bold">
-                      $
-                      {(
-                        Number(treasuryInfo.balance.formatted ?? 0) -
-                        Number(treasuryInfo.committed?.formatted ?? 0)
-                      ).toFixed(2)}
+                      {isBalanceLoadingCombined ? '$---.--' : `$${availableNumber.toFixed(2)}`}
                     </span>
                     <span className="text-sm text-muted-foreground">USDC</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">For new bounties</p>
                 </div>
               </div>
-            ) : treasuryInfo.error ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-                <p className="text-sm text-destructive">{treasuryInfo.error}</p>
-              </div>
-            ) : null}
+            )}
 
             {/* Address Display */}
             <div>
@@ -180,6 +208,11 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
             </a>
           </CardContent>
         </Card>
+
+        {/* Pending Payouts Section */}
+        <div className="mt-6">
+          <PayoutQueue githubRepoId={githubRepoId} />
+        </div>
 
         {/* Access Keys Section */}
         {treasuryInfo.credentialId && (

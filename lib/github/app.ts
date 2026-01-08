@@ -1,17 +1,12 @@
 /**
- * GitHub App Authentication
+ * GitHub App Utilities
  *
- * Utilities for GitHub App JWT generation, installation tokens, and claim state signing.
- * Used for the repository claiming flow.
+ * Claim state signing and GitHub App URL builders.
+ * JWT generation and token caching are handled by Octokit internally.
  */
 
-import { createHmac, createPrivateKey, timingSafeEqual } from 'node:crypto';
-import { importPKCS8, SignJWT } from 'jose';
-
-const GITHUB_API_BASE = 'https://api.github.com';
-
-// Installation token cache (in-memory, 55 min TTL to account for clock skew)
-const tokenCache = new Map<string, { token: string; expiresAt: Date }>();
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { installationOctokit } from './index';
 
 // ============ Types ============
 
@@ -20,7 +15,7 @@ export interface ClaimState {
   owner: string;
   repo: string;
   timestamp: number;
-  callbackUrl?: string; // Origin callback URL for dev proxy
+  callbackUrl?: string;
 }
 
 export interface InstallationRepo {
@@ -35,130 +30,23 @@ export interface InstallationRepo {
   };
 }
 
-// ============ App JWT ============
-
-/**
- * Generate a JWT for GitHub App authentication
- *
- * Used to authenticate as the GitHub App itself (not as an installation).
- * JWT is signed with RS256 using the App's private key.
- * Valid for 10 minutes (GitHub's maximum).
- */
-export async function generateAppJWT(): Promise<string> {
-  const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
-
-  if (!appId || !privateKey) {
-    throw new Error('Missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY environment variables');
-  }
-
-  // Handle escaped newlines in env var
-  const formattedKey = privateKey.replace(/\\n/g, '\n');
-
-  // Convert to PKCS#8 format - GitHub generates PKCS#1 keys by default,
-  // but jose's importPKCS8 requires PKCS#8 format
-  const keyObject = createPrivateKey(formattedKey);
-  const pkcs8Key = keyObject.export({ type: 'pkcs8', format: 'pem' }) as string;
-
-  const key = await importPKCS8(pkcs8Key, 'RS256');
-  const now = Math.floor(Date.now() / 1000);
-
-  return new SignJWT({})
-    .setProtectedHeader({ alg: 'RS256' })
-    .setIssuedAt(now - 60) // Allow 60s clock skew
-    .setExpirationTime(now + 10 * 60) // 10 min max
-    .setIssuer(appId)
-    .sign(key);
-}
-
-// ============ Installation Tokens ============
-
-/**
- * Get an installation access token for a GitHub App installation
- *
- * Tokens are cached for 55 minutes (they expire after 1 hour).
- * Used to make API calls on behalf of a specific installation.
- */
-export async function getInstallationToken(installationId: string | bigint): Promise<string> {
-  const id = installationId.toString();
-  const cached = tokenCache.get(id);
-
-  // Return cached token if still valid (5 min buffer)
-  if (cached && cached.expiresAt > new Date(Date.now() + 5 * 60 * 1000)) {
-    return cached.token;
-  }
-
-  // Get new token from GitHub
-  const appJwt = await generateAppJWT();
-
-  const response = await fetch(`${GITHUB_API_BASE}/app/installations/${id}/access_tokens`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${appJwt}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error(`[github-app] Failed to get installation token: ${error}`);
-    throw new Error(`Failed to get installation token: ${response.status}`);
-  }
-
-  const data = (await response.json()) as { token: string; expires_at: string };
-
-  // Cache with 55 min TTL (tokens last 1 hour)
-  tokenCache.set(id, {
-    token: data.token,
-    expiresAt: new Date(data.expires_at),
-  });
-
-  return data.token;
-}
+// ============ Installation Repos ============
 
 /**
  * Get all repositories accessible to a GitHub App installation
+ *
+ * Octokit handles JWT generation and token caching internally.
  */
 export async function getInstallationRepos(
   installationId: string | bigint
 ): Promise<InstallationRepo[]> {
-  const token = await getInstallationToken(installationId);
+  const octokit = installationOctokit(installationId);
 
-  const repos: InstallationRepo[] = [];
-  let page = 1;
-  const perPage = 100;
+  const repos = await octokit.paginate(octokit.apps.listReposAccessibleToInstallation, {
+    per_page: 100,
+  });
 
-  // Paginate through all repos
-  while (true) {
-    const response = await fetch(
-      `${GITHUB_API_BASE}/installation/repositories?per_page=${perPage}&page=${page}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[github-app] Failed to get installation repos: ${error}`);
-      throw new Error(`Failed to get installation repos: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      repositories: InstallationRepo[];
-      total_count: number;
-    };
-    repos.push(...data.repositories);
-
-    if (repos.length >= data.total_count) {
-      break;
-    }
-    page++;
-  }
-
-  return repos;
+  return repos as InstallationRepo[];
 }
 
 // ============ Claim State Signing ============
@@ -237,7 +125,7 @@ export function verifyClaimState(signedState: string): ClaimState | null {
   }
 }
 
-// ============ Utility ============
+// ============ URL Builders ============
 
 function getAppSlug(): string {
   const appSlug = process.env.GITHUB_APP_SLUG;
@@ -252,8 +140,6 @@ function getAppSlug(): string {
  */
 export function getInstallUrl(owner: string, _repo: string, state: string): string {
   const encodedState = encodeURIComponent(state);
-
-  // Suggest installing on specific repo
   return `https://github.com/apps/${getAppSlug()}/installations/new/permissions?suggested_target_id=${owner}&repository_ids=&state=${encodedState}`;
 }
 

@@ -15,11 +15,11 @@ export default async function WalletSettingsModal() {
   ]);
 
   const walletPasskey = passkeys.find((p) => p.tempoAddress) ?? null;
-  const wallet = walletPasskey
+  const wallet = walletPasskey?.tempoAddress
     ? {
         id: walletPasskey.id,
         name: walletPasskey.name,
-        tempoAddress: walletPasskey.tempoAddress,
+        tempoAddress: walletPasskey.tempoAddress as `0x${string}`,
         createdAt: walletPasskey.createdAt?.toISOString() ?? new Date().toISOString(),
       }
     : null;

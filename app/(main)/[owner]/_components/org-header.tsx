@@ -10,11 +10,11 @@ import { Github, Info, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { organization } from '@/db/schema/auth';
-import type { GitHubOrganization } from '@/lib/github/organizations';
+import type { GitHubOrganizationMinimal } from '@/lib/github';
 
 interface OrgHeaderProps {
   org: typeof organization.$inferSelect;
-  github: GitHubOrganization;
+  github: GitHubOrganizationMinimal;
   stats: {
     totalFunded: bigint;
     openBounties: number;

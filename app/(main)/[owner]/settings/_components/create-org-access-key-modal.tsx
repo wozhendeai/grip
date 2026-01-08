@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/tempo';
 import { HelpCircle } from 'lucide-react';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import {
@@ -21,7 +21,7 @@ import {
   type PasskeyPhase,
 } from '@/lib/webauthn';
 import { useCallback, useMemo, useState } from 'react';
-import { KeyAuthorization } from 'tempo.ts/ox';
+import { KeyAuthorization } from 'ox/tempo';
 import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
 import type { OrgAccessKey, OrgMember } from '../_lib/types';
 

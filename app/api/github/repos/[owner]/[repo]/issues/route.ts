@@ -108,10 +108,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         title: issue.title,
         body: issue.body,
         htmlUrl: issue.html_url,
-        labels: issue.labels.map((l) => ({ name: l.name, color: l.color })),
+        labels: issue.labels.map((l) => ({
+          name: typeof l === 'string' ? l : l.name,
+          color: typeof l === 'string' ? '' : (l.color ?? ''),
+        })),
         user: {
-          login: issue.user.login,
-          avatarUrl: issue.user.avatar_url,
+          login: issue.user?.login ?? 'unknown',
+          avatarUrl: issue.user?.avatar_url ?? '',
         },
         createdAt: issue.created_at,
         updatedAt: issue.updated_at,
@@ -127,10 +130,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         title: issue.title,
         body: issue.body,
         htmlUrl: issue.html_url,
-        labels: issue.labels.map((l) => ({ name: l.name, color: l.color })),
+        labels: issue.labels.map((l) => ({
+          name: typeof l === 'string' ? l : l.name,
+          color: typeof l === 'string' ? '' : (l.color ?? ''),
+        })),
         user: {
-          login: issue.user.login,
-          avatarUrl: issue.user.avatar_url,
+          login: issue.user?.login ?? 'unknown',
+          avatarUrl: issue.user?.avatar_url ?? '',
         },
         createdAt: issue.created_at,
         updatedAt: issue.updated_at,

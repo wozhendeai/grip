@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item';
-import { PasskeyOperationContent, getPasskeyTitle } from '@/components/passkey';
+import { PasskeyOperationContent, getPasskeyTitle } from '@/components/tempo';
 import { passkey } from '@/lib/auth/auth-client';
 import {
   classifyWebAuthnError,

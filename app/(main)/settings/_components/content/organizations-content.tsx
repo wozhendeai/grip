@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreateOrganizationFlow } from '@/components/organization/create-organization-flow';
-import { CreateOrganizationModal } from '@/components/organization/create-organization-modal';
+import { CreateOrganizationFlow } from '../organizations/create-organization-flow';
+import { CreateOrganizationModal } from '../organizations/create-organization-modal';
 import { authClient } from '@/lib/auth/auth-client';
 import {
   Building2,

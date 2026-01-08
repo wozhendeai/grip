@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserAvatar } from '@/components/user/user-avatar';
+import { UserAvatar } from '@/components/ui/avatar';
 import { ExternalLink } from 'lucide-react';
 
 export interface ProfileContentProps {

@@ -1,3 +1,6 @@
+'use client';
+
+import { TokenSymbol } from '@/components/tempo/token-symbol';
 import type { Bounty } from '@/lib/types';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
@@ -75,7 +78,7 @@ export function BountyCard({
               {bounty.title}
             </h3>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {statusBadge}
             <span
               className={cn(
@@ -172,7 +175,10 @@ export function BountyCard({
                 ${totalFunded.toLocaleString()}
               </span>
               {!isCompleted && (
-                <span className="text-xs font-medium text-muted-foreground">USDC</span>
+                <TokenSymbol
+                  tokenAddress={bounty.tokenAddress as `0x${string}`}
+                  className="text-xs font-medium text-muted-foreground"
+                />
               )}
             </div>
           </div>

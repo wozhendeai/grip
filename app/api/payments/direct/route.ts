@@ -1,402 +1,111 @@
-import { accessKeys, db, payouts } from '@/db';
+import { db } from '@/db';
 import { getNetworkForInsert } from '@/db/network';
+import { getOrgAccessKey, getOrgWalletAddress } from '@/db/queries/organizations';
 import { getUserWallet } from '@/db/queries/passkeys';
 import { createDirectPayment } from '@/db/queries/payouts';
 import { getUserByName } from '@/db/queries/users';
+import { accessKeys, payouts } from '@/db/schema/business';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { fetchGitHubUser } from '@/lib/github';
 import { notifyDirectPaymentReceived, notifyDirectPaymentSent } from '@/lib/notifications';
-import { buildDirectPaymentTransaction } from '@/lib/tempo';
 import { tempoClient } from '@/lib/tempo/client';
-import { TEMPO_CHAIN_ID } from '@/lib/tempo/constants';
 import { broadcastTransaction, signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
+import { buildDirectPaymentTransaction } from '@/lib/tempo/payments';
+import { handleRouteError, validateBody } from '@/app/api/_lib';
+import { directPaymentSchema } from '@/app/api/_lib/schemas';
 import { and, eq } from 'drizzle-orm';
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 /**
  * POST /api/payments/direct
  *
- * Send direct payment to GitHub user (with or without GRIP account)
- *
- * Request body:
- * - recipientUsername: GitHub username
- * - amount: Payment amount in token smallest units (e.g., 1000000 = $1 USDC)
- * - tokenAddress: TIP-20 token address
- * - message: User-provided memo (max 32 bytes UTF-8)
- * - useAccessKey: Auto-sign with Access Key (default true)
- *
- * Response:
- * - autoSigned: true if Access Key auto-signed
- * - txHash: Transaction hash (if auto-signed)
- * - txParams: Transaction params for manual signing (if not auto-signed)
- * - custodial: true if recipient has no account
- * - recipient: { username, address }
- *
- * KEY TEMPO FEATURES DEMONSTRATED:
- * 1. Permissionless payments - Works for ANY GitHub user
- * 2. Access Key auto-signing - Backend signs on user's behalf
- * 3. Fee sponsorship - Sender pays gas in the token being transferred
- * 4. Custodial wallets - Recipients without accounts can claim later
- * 5. User memos - Personal messages on-chain
+ * Send direct payment to GitHub user.
+ * Recipient must have a wallet (be signed up on the platform).
  */
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
-    const body = await request.json();
+    const body = await validateBody(request, directPaymentSchema);
 
     const { recipientUsername, amount, tokenAddress, message, useAccessKey = true } = body;
 
-    // 1. Validation
-    if (!recipientUsername || !amount || !tokenAddress || !message) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    if (typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
-    }
-
-    if (typeof message !== 'string' || message.length === 0) {
-      return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
-    }
-
-    // UTF-8 byte length check (not character length)
-    // A 32-character string with emojis can exceed 32 bytes
-    const messageBytes = new TextEncoder().encode(message);
-    if (messageBytes.length > 32) {
-      return NextResponse.json({ error: 'Message too long (max 32 bytes UTF-8)' }, { status: 400 });
-    }
-
     // Prevent self-payment
     if (session.user.name === recipientUsername) {
-      return NextResponse.json({ error: 'Cannot send payment to yourself' }, { status: 400 });
+      return Response.json({ error: 'Cannot send payment to yourself' }, { status: 400 });
     }
 
-    // Org context detection
     const isOrgPayment = !!session.session?.activeOrganizationId;
     const activeOrgId = session.session?.activeOrganizationId;
 
-    // 2. Lookup recipient by GitHub username
-    const recipient = await getUserByName(recipientUsername);
+    // Fetch sender wallet once
+    const senderWallet = isOrgPayment ? null : await getUserWallet(session.user.id);
+    if (!isOrgPayment && !senderWallet?.tempoAddress) {
+      return Response.json({ error: 'Sender wallet not found' }, { status: 400 });
+    }
 
-    // 3. Verify recipient exists on GitHub (even if no GRIP account)
+    // Verify recipient exists on GitHub
     const githubUser = await fetchGitHubUser(recipientUsername);
     if (!githubUser) {
-      return NextResponse.json({ error: 'GitHub user not found' }, { status: 404 });
+      return Response.json({ error: 'GitHub user not found' }, { status: 404 });
     }
 
-    // 4. Resolve recipient wallet or create custodial wallet
-    let recipientAddress: string;
-    let recipientPasskeyId: string | null = null;
-    let custodialWalletId: string | undefined;
-    const isCustodial = false;
-    let recipientUserId: string;
-
-    if (recipient?.tempoAddress) {
-      // Recipient has GRIP account + wallet
-      recipientAddress = recipient.tempoAddress;
-      recipientUserId = recipient.id;
-
-      // Get passkey ID for the wallet
-      const recipientWallet = await getUserWallet(recipient.id);
-      recipientPasskeyId = recipientWallet?.id ?? null;
-    } else {
-      // Recipient has NO account → pending payment flow
-      // Same pattern as bounty approvals: create dedicated Access Key + pending payment
-      console.log('[direct-payment] Recipient has no account - creating pending payment');
-
-      const githubUserId = githubUser.id; // GitHub API returns numeric ID
-      const githubUsername = recipientUsername;
-
-      // Check for Access Key signature in request body
-      const { accessKeySignature, accessKeyAuthHash } = body;
-
-      if (!accessKeySignature || !accessKeyAuthHash) {
-        // Return response indicating frontend needs to collect signature
-        return NextResponse.json(
-          {
-            requiresAccessKeySignature: true,
-            payment: {
-              amount: amount.toString(),
-              tokenAddress,
-              recipientGithubUsername: githubUsername,
-              recipientGithubUserId: githubUserId.toString(),
-            },
-          },
-          { status: 400 }
-        );
-      }
-
-      try {
-        // Check balance before creating pending payment
-        // Prevents bad UX: recipient claim fails on-chain if sender has insufficient balance
-        let balanceCheck: {
-          sufficient: boolean;
-          balance: bigint;
-          totalLiabilities: bigint;
-          newTotal: bigint;
-        };
-        if (isOrgPayment) {
-          const { checkOrgBalance } = await import('@/lib/tempo/balance');
-          balanceCheck = await checkOrgBalance({
-            orgId: activeOrgId!,
-            tokenAddress,
-            newAmount: BigInt(amount),
-          });
-        } else {
-          const senderWallet = await getUserWallet(session.user.id);
-          if (!senderWallet?.tempoAddress) {
-            return NextResponse.json({ error: 'Sender wallet not found' }, { status: 400 });
-          }
-
-          const { checkSufficientBalance } = await import('@/lib/tempo/balance');
-          balanceCheck = await checkSufficientBalance({
-            userId: session.user.id,
-            walletAddress: senderWallet.tempoAddress,
-            tokenAddress,
-            newAmount: BigInt(amount),
-          });
-        }
-
-        if (!balanceCheck.sufficient) {
-          // Format amounts for error message (assuming 6 decimals for USDC)
-          const balanceFormatted = (Number(balanceCheck.balance) / 1_000_000).toFixed(2);
-          const requiredFormatted = (Number(balanceCheck.totalLiabilities) / 1_000_000).toFixed(2);
-          const shortfallFormatted = (
-            Number(balanceCheck.totalLiabilities - balanceCheck.balance) / 1_000_000
-          ).toFixed(2);
-
-          return NextResponse.json(
-            {
-              error: 'Insufficient balance for pending payment',
-              details: {
-                message: `You have $${balanceFormatted} USDC but need $${requiredFormatted} USDC (including existing pending payments). Please fund your wallet with at least $${shortfallFormatted} USDC more.`,
-                balance: balanceCheck.balance.toString(),
-                required: balanceCheck.totalLiabilities.toString(),
-                shortfall: (balanceCheck.totalLiabilities - balanceCheck.balance).toString(),
-              },
-            },
-            { status: 400 }
-          );
-        }
-
-        // Create dedicated Access Key (only for personal payments)
-        // Org payments don't use dedicated keys - team member will sign release manually
-        let dedicatedKeyId: string | undefined;
-        if (!isOrgPayment) {
-          const { createDedicatedAccessKey } = await import('@/lib/tempo/access-keys');
-          const dedicatedKey = await createDedicatedAccessKey({
-            userId: session.user.id,
-            tokenAddress,
-            amount: BigInt(amount),
-            authorizationSignature: accessKeySignature,
-            authorizationHash: accessKeyAuthHash,
-            chainId: TEMPO_CHAIN_ID,
-          });
-          dedicatedKeyId = dedicatedKey.id;
-          console.log(`[direct-payment] Created dedicated Access Key: ${dedicatedKey.id}`);
-        } else {
-          console.log(
-            '[direct-payment] Skipping Access Key creation for org payment (manual release)'
-          );
-        }
-
-        // Create pending payment
-        const { createPendingPaymentForDirectPayment } = await import(
-          '@/db/queries/pending-payments'
-        );
-        const pendingPayment = await createPendingPaymentForDirectPayment({
-          funderId: isOrgPayment ? undefined : session.user.id,
-          organizationId: isOrgPayment ? (activeOrgId ?? undefined) : undefined,
-          approvedByUserId: session.user.id,
-          recipientGithubUserId: Number(githubUserId),
-          recipientGithubUsername: githubUsername,
-          amount: BigInt(amount),
-          tokenAddress,
-          dedicatedAccessKeyId: dedicatedKeyId,
-        });
-
-        console.log(`[direct-payment] Created pending payment: ${pendingPayment.id}`);
-
-        // Send pending payment notification (if recipient has account)
-        // Design Decision: Only notify if recipient already has GRIP account (but no wallet)
-        // - New users won't see notification anyway (not logged in)
-        // - Sender gets claim URL in response for manual sharing
-        try {
-          const { getUserByName } = await import('@/db/queries/users');
-          const recipientUser = await getUserByName(githubUsername);
-
-          if (recipientUser) {
-            // Recipient has account but no wallet - notify them
-            const { notifyPendingPaymentCreated } = await import('@/lib/notifications');
-            await notifyPendingPaymentCreated({
-              recipientId: recipientUser.id,
-              funderName: session.user.name ?? 'Someone',
-              amount: amount.toString(),
-              tokenAddress,
-              claimUrl: `${process.env.NEXT_PUBLIC_APP_URL}/claim/${pendingPayment.claimToken}`,
-              claimExpiresAt: pendingPayment.claimExpiresAt,
-              // No bountyId/bountyTitle for direct payments
-            });
-          }
-        } catch (error) {
-          console.error('[direct-payment] Failed to send pending payment notification:', error);
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: `Payment authorized. Share the claim link with @${githubUsername}`,
-          pendingPayment: {
-            id: pendingPayment.id,
-            amount: pendingPayment.amount.toString(),
-            tokenAddress: pendingPayment.tokenAddress,
-            claimUrl: `${process.env.NEXT_PUBLIC_APP_URL}/claim/${pendingPayment.claimToken}`,
-            claimExpiresAt: pendingPayment.claimExpiresAt,
-          },
-          recipient: {
-            githubUserId: githubUserId.toString(),
-            githubUsername,
-          },
-        });
-      } catch (error) {
-        console.error('[direct-payment] Failed to create pending payment:', error);
-        return NextResponse.json({ error: 'Failed to create pending payment' }, { status: 500 });
-      }
+    // Check if recipient has GRIP account + wallet (REQUIRED)
+    const recipient = await getUserByName(recipientUsername);
+    if (!recipient?.tempoAddress) {
+      return Response.json(
+        { error: 'Recipient must create a wallet before receiving payment' },
+        { status: 400 }
+      );
     }
 
-    // 5. Create payout record
+    // Recipient has wallet → proceed with payment
+    const recipientWallet = await getUserWallet(recipient.id);
+
     const payout = await createDirectPayment({
       payerUserId: isOrgPayment ? undefined : session.user.id,
       payerOrganizationId: isOrgPayment ? (activeOrgId ?? undefined) : undefined,
-      recipientUserId,
-      recipientPasskeyId,
-      recipientAddress,
+      recipientUserId: recipient.id,
+      recipientPasskeyId: recipientWallet?.id ?? null,
+      recipientAddress: recipient.tempoAddress,
       amount: BigInt(amount),
       tokenAddress,
       message,
-      custodialWalletId,
-      isCustodial,
+      isCustodial: false,
     });
 
-    // 6. Build transaction
     const txParams = buildDirectPaymentTransaction({
       tokenAddress: tokenAddress as `0x${string}`,
-      recipientAddress: recipientAddress as `0x${string}`,
-      amount: BigInt(amount.toString()),
+      recipientAddress: recipient.tempoAddress as `0x${string}`,
+      amount: BigInt(amount),
       message,
     });
 
-    // 7. Try Access Key auto-signing
+    // Try auto-signing
     if (useAccessKey) {
-      const network = getNetworkForInsert();
-
-      // Query for active Access Key (org or personal)
-      let activeKey: typeof accessKeys.$inferSelect | null | undefined;
-      if (isOrgPayment) {
-        const { getOrgAccessKey } = await import('@/db/queries/organizations');
-        activeKey = await getOrgAccessKey(activeOrgId!, session.user.id);
-      } else {
-        activeKey = await db.query.accessKeys.findFirst({
-          where: and(
-            eq(accessKeys.userId, session.user.id),
-            eq(accessKeys.network, network),
-            eq(accessKeys.status, 'active')
-          ),
-        });
-      }
-
-      if (activeKey) {
-        try {
-          // Get sender's wallet address (org or personal)
-          let senderWalletAddress: `0x${string}`;
-          if (isOrgPayment) {
-            const { getOrgWalletAddress } = await import('@/db/queries/organizations');
-            senderWalletAddress = await getOrgWalletAddress(activeOrgId!);
-          } else {
-            const senderWallet = await getUserWallet(session.user.id);
-            if (!senderWallet?.tempoAddress) {
-              throw new Error('Sender wallet not found');
-            }
-            senderWalletAddress = senderWallet.tempoAddress as `0x${string}`;
-          }
-
-          const nonce = BigInt(
-            await tempoClient.getTransactionCount({
-              address: senderWalletAddress,
-              blockTag: 'pending',
-            })
-          );
-
-          const { rawTransaction } = await signTransactionWithAccessKey({
-            tx: {
-              to: txParams.to,
-              data: txParams.data,
-              value: txParams.value,
-              nonce: BigInt(nonce),
-            },
-            funderAddress: senderWalletAddress,
-            network: network as 'testnet' | 'mainnet',
-          });
-
-          const txHash = await broadcastTransaction(rawTransaction);
-
-          // Update payout with transaction hash
-          await db
-            .update(payouts)
-            .set({ txHash, status: 'pending' })
-            .where(eq(payouts.id, payout.id));
-
-          // Send notifications
-          await notifyDirectPaymentSent({
-            senderId: session.user.id,
-            recipientUsername,
-            amount: amount.toString(),
-            message,
-            txHash,
-          });
-
-          // Only notify recipient if they have a GRIP account
-          if (!isCustodial && recipient) {
-            await notifyDirectPaymentReceived({
-              recipientId: recipient.id,
-              senderName: session.user.name ?? 'Someone',
-              amount: amount.toString(),
-              message,
-              txHash,
-            });
-          }
-
-          return NextResponse.json({
-            message: 'Payment sent successfully',
-            autoSigned: true,
-            payout: {
-              id: payout.id,
-              amount: payout.amount,
-              recipientAddress,
-              status: 'pending',
-              txHash,
-            },
-            recipient: {
-              username: recipientUsername,
-              address: recipientAddress,
-            },
-            custodial: isCustodial,
-          });
-        } catch (error) {
-          console.error('[direct-payment] Auto-signing failed:', error);
-          // Fall through to manual signing
-        }
-      }
+      const autoSignResult = await tryAutoSign({
+        session,
+        senderWalletAddress: senderWallet?.tempoAddress ?? undefined,
+        payout,
+        txParams,
+        recipientUsername,
+        recipientAddress: recipient.tempoAddress,
+        recipientId: recipient.id,
+        amount,
+        message,
+        isOrgPayment,
+        activeOrgId,
+      });
+      if (autoSignResult) return autoSignResult;
     }
 
-    // 8. Manual signing flow
-    // Return transaction parameters for client-side passkey signing
-    return NextResponse.json({
+    // Manual signing fallback
+    return Response.json({
       message: 'Ready to sign payment',
       autoSigned: false,
       payout: {
         id: payout.id,
         amount: payout.amount,
-        recipientAddress,
+        recipientAddress: recipient.tempoAddress,
         status: 'pending',
       },
       txParams: {
@@ -406,21 +115,116 @@ export async function POST(request: NextRequest) {
       },
       recipient: {
         username: recipientUsername,
-        address: recipientAddress,
+        address: recipient.tempoAddress,
       },
-      custodial: isCustodial,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    console.error('[direct-payment] Error:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to send payment',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
+    return handleRouteError(error, 'sending payment');
+  }
+}
+
+type AutoSignParams = {
+  session: Awaited<ReturnType<typeof requireAuth>>;
+  senderWalletAddress?: string;
+  payout: Awaited<ReturnType<typeof createDirectPayment>>;
+  txParams: ReturnType<typeof buildDirectPaymentTransaction>;
+  recipientUsername: string;
+  recipientAddress: string;
+  recipientId: string;
+  amount: number;
+  message: string;
+  isOrgPayment: boolean;
+  activeOrgId?: string | null;
+};
+
+async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
+  const {
+    session,
+    senderWalletAddress: personalWallet,
+    payout,
+    txParams,
+    recipientUsername,
+    recipientAddress,
+    recipientId,
+    amount,
+    message,
+    isOrgPayment,
+    activeOrgId,
+  } = params;
+  const network = getNetworkForInsert();
+
+  // Get active Access Key
+  let activeKey: typeof accessKeys.$inferSelect | null | undefined;
+  if (isOrgPayment && activeOrgId) {
+    activeKey = await getOrgAccessKey(activeOrgId, session.user.id);
+  } else {
+    activeKey = await db.query.accessKeys.findFirst({
+      where: and(
+        eq(accessKeys.userId, session.user.id),
+        eq(accessKeys.network, network),
+        eq(accessKeys.status, 'active')
+      ),
+    });
+  }
+
+  if (!activeKey) return null;
+
+  try {
+    const senderWalletAddress =
+      isOrgPayment && activeOrgId
+        ? await getOrgWalletAddress(activeOrgId)
+        : (personalWallet as `0x${string}`);
+
+    if (!senderWalletAddress) throw new Error('Sender wallet not found');
+
+    const nonce = BigInt(
+      await tempoClient.getTransactionCount({ address: senderWalletAddress, blockTag: 'pending' })
     );
+
+    const { rawTransaction } = await signTransactionWithAccessKey({
+      tx: { to: txParams.to, data: txParams.data, value: txParams.value, nonce },
+      funderAddress: senderWalletAddress,
+      network: network as 'testnet' | 'mainnet',
+    });
+
+    const txHash = await broadcastTransaction(rawTransaction);
+
+    await db.update(payouts).set({ txHash, status: 'pending' }).where(eq(payouts.id, payout.id));
+
+    // Send notifications (fire-and-forget)
+    notifyDirectPaymentSent({
+      senderId: session.user.id,
+      recipientUsername,
+      amount: amount.toString(),
+      message,
+      txHash,
+    }).catch((err) => console.error('[direct-payment] Send notification failed:', err));
+
+    notifyDirectPaymentReceived({
+      recipientId,
+      senderName: session.user.name ?? 'Someone',
+      amount: amount.toString(),
+      message,
+      txHash,
+    }).catch((err) => console.error('[direct-payment] Receive notification failed:', err));
+
+    return Response.json({
+      message: 'Payment sent successfully',
+      autoSigned: true,
+      payout: {
+        id: payout.id,
+        amount: payout.amount,
+        recipientAddress,
+        status: 'pending',
+        txHash,
+      },
+      recipient: {
+        username: recipientUsername,
+        address: recipientAddress,
+      },
+    });
+  } catch (error) {
+    console.error('[direct-payment] Auto-signing failed:', error);
+    return null;
   }
 }

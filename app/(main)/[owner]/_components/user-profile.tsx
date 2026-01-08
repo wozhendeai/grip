@@ -4,7 +4,7 @@ import type {
   getUserOrganizations,
 } from '@/db/queries/users';
 import type { getSubmissionsByUser } from '@/db/queries/submissions';
-import type { GitHubActivity, GitHubUser, GitHubRepo } from '@/lib/github';
+import type { GitHubActivity, GitHubUser, GitHubRepoMinimal } from '@/lib/github';
 import { ProfileHeader } from './profile-header';
 import { ActivityList, type ActivityItem } from './activity-list';
 
@@ -15,7 +15,7 @@ interface UserProfileProps {
   bountyData: Awaited<ReturnType<typeof getBountyDataByGitHubId>>;
   organizations: Awaited<ReturnType<typeof getUserOrganizations>>;
   userSubmissions?: Awaited<ReturnType<typeof getSubmissionsByUser>>;
-  repos?: GitHubRepo[];
+  repos?: GitHubRepoMinimal[];
   isOwnProfile?: boolean;
   isLoggedIn?: boolean;
 }

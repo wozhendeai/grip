@@ -2,8 +2,8 @@ import { db, passkey } from '@/db';
 import { getCommittedBalanceByRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
 import { requireAuth } from '@/lib/auth/auth-server';
-import { tempoClient } from '@/lib/tempo/client';
 import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { getTokenMetadata } from '@/lib/tempo/tokens';
 import { eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { formatUnits } from 'viem';
@@ -15,12 +15,12 @@ type RouteContext = {
 /**
  * GET /api/repo-settings/[id]/treasury
  *
- * Get treasury balance and address for a repo (owner's passkey).
+ * Get treasury address and committed balance for a repo (owner's passkey).
  * Requires authentication and repo ownership.
  *
  * Returns:
  * - address: Repo owner's tempo address
- * - balance: TIP-20 balance info
+ * - committed: DB-backed liabilities summary
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
@@ -68,53 +68,24 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     // Use first passkey as treasury
     const treasuryPasskey = ownerPasskeys[0];
 
-    // Get token balance
     const tokenAddress = TEMPO_TOKENS.USDC;
+    const [committedBalance, metadata] = await Promise.all([
+      getCommittedBalanceByRepoId(BigInt(githubRepoId)),
+      getTokenMetadata(tokenAddress),
+    ]);
 
-    try {
-      const [balance, metadata, committedBalance] = await Promise.all([
-        tempoClient.token.getBalance({
-          account: treasuryPasskey.tempoAddress as `0x${string}`,
-          token: tokenAddress,
-        }),
-        tempoClient.token.getMetadata({
-          token: tokenAddress,
-        }),
-        getCommittedBalanceByRepoId(BigInt(githubRepoId)),
-      ]);
-
-      return NextResponse.json({
-        configured: true,
-        address: treasuryPasskey.tempoAddress,
-        credentialId: treasuryPasskey.credentialID,
-        balance: {
-          raw: balance.toString(),
-          formatted: formatUnits(balance, metadata.decimals),
-          decimals: metadata.decimals,
-          symbol: metadata.symbol,
-        },
-        committed: {
-          raw: committedBalance.toString(),
-          formatted: formatUnits(committedBalance, 6),
-        },
-        tokenAddress,
-      });
-    } catch (error) {
-      console.error('Error fetching treasury balance:', error);
-      // Return structure even if balance fetch fails
-      const committedBalance = await getCommittedBalanceByRepoId(BigInt(githubRepoId));
-      return NextResponse.json({
-        configured: true,
-        address: treasuryPasskey.tempoAddress,
-        credentialId: treasuryPasskey.credentialID,
-        balance: null,
-        committed: {
-          raw: committedBalance.toString(),
-          formatted: formatUnits(committedBalance, 6),
-        },
-        error: 'Failed to fetch balance from Tempo RPC',
-      });
-    }
+    return NextResponse.json({
+      configured: true,
+      address: treasuryPasskey.tempoAddress,
+      credentialId: treasuryPasskey.credentialID,
+      committed: {
+        raw: committedBalance.toString(),
+        formatted: formatUnits(committedBalance, metadata.decimals),
+      },
+      tokenAddress,
+      tokenDecimals: metadata.decimals,
+      tokenSymbol: metadata.symbol,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

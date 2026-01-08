@@ -1,72 +1,57 @@
+import { Octokit } from '@octokit/rest';
+import { createAppAuth } from '@octokit/auth-app';
 import { account, db } from '@/db';
 import { and, eq } from 'drizzle-orm';
 
 /**
  * GitHub API Client
  *
- * Unified client for GitHub API operations with two auth contexts:
- * 1. Server token (GITHUB_TOKEN) - for public data
- * 2. User OAuth token - for authenticated operations
+ * Octokit clients for three auth contexts:
+ * 1. serverOctokit - Server token for public data (5000 req/hour)
+ * 2. userOctokit - User OAuth token for authenticated operations
+ * 3. installationOctokit - GitHub App installation token (auto-managed)
  */
 
-const GITHUB_API_BASE = 'https://api.github.com';
-
-// ============ Server Token Fetch (Public Data) ============
+// ============ Octokit Clients ============
 
 /**
- * Fetch GitHub API with server token (GITHUB_TOKEN)
+ * Server token client for public data
  *
  * Use for: Public repos, user profiles, public activity
  * Rate limit: 5000 requests/hour
- *
- * Returns null on 404, throws on other errors
  */
-export async function githubFetch<T>(
-  endpoint: string,
-  options?: RequestInit & { next?: { revalidate?: number } }
-): Promise<T | null> {
-  const res = await fetch(`${GITHUB_API_BASE}${endpoint}`, {
-    headers: {
-      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-    ...options,
-  });
-
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    console.error(`GitHub API error: ${res.status} ${res.statusText}`);
-    throw new Error(`GitHub API error: ${res.status}`);
-  }
-
-  return res.json();
-}
-
-// ============ User OAuth Token Fetch (Authenticated Actions) ============
+export const serverOctokit = new Octokit({
+  auth: process.env.GITHUB_TOKEN,
+});
 
 /**
- * Fetch GitHub API with user's OAuth token
+ * Create a client with user's OAuth token
  *
  * Use for: Creating issues, adding labels, commenting, private repos
  * Rate limit: Per-user (typically 5000 requests/hour)
- *
- * Returns Response object (caller must check .ok and parse JSON)
- * Handles full URLs or paths
  */
-export async function githubFetchWithToken(
-  token: string,
-  path: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const url = path.startsWith('http') ? path : `${GITHUB_API_BASE}${path}`;
+export function userOctokit(token: string): Octokit {
+  return new Octokit({ auth: token });
+}
 
-  return fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      ...options.headers,
+/**
+ * Create a client for a GitHub App installation
+ *
+ * Octokit handles JWT generation and installation token caching internally.
+ * Tokens are cached for ~55 minutes (they expire after 1 hour).
+ */
+export function installationOctokit(installationId: number | string | bigint): Octokit {
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Missing GITHUB_APP_PRIVATE_KEY environment variable');
+  }
+
+  return new Octokit({
+    authStrategy: createAppAuth,
+    auth: {
+      appId: process.env.GITHUB_APP_ID!,
+      privateKey: privateKey.replace(/\\n/g, '\n'),
+      installationId: Number(installationId),
     },
   });
 }

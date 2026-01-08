@@ -23,7 +23,7 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { UserAvatar } from '@/components/user/user-avatar';
+import { UserAvatar } from '@/components/ui/avatar';
 import { Building2, ChevronsUpDown, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';

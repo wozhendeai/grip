@@ -1,5 +1,5 @@
 import { getGitHubToken } from '@/lib/github';
-import { getUserOrgMembership, getUserOrganizations } from '@/lib/github/organizations';
+import { getUserOrgMembership, getUserOrganizations } from '@/lib/github';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { NextResponse } from 'next/server';
 

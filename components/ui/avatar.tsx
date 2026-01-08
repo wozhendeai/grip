@@ -10,14 +10,14 @@ function Avatar({
   size = 'default',
   ...props
 }: AvatarPrimitive.Root.Props & {
-  size?: 'default' | 'sm' | 'lg';
+  size?: 'default' | 'sm' | 'lg' | 'xl';
 }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       data-size={size}
       className={cn(
-        'size-8 rounded-full after:rounded-full data-[size=lg]:size-10 data-[size=sm]:size-6 after:border-border group/avatar relative flex shrink-0 select-none after:absolute after:inset-0 after:border after:mix-blend-darken dark:after:mix-blend-lighten',
+        'size-8 rounded-full after:rounded-full data-[size=lg]:size-12 data-[size=xl]:size-16 data-[size=sm]:size-6 after:border-border group/avatar relative flex shrink-0 select-none after:absolute after:inset-0 after:border after:mix-blend-darken dark:after:mix-blend-lighten',
         className
       )}
       {...props}
@@ -90,4 +90,42 @@ function AvatarGroupCount({ className, ...props }: React.ComponentProps<'div'>) 
   );
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarBadge };
+interface UserAvatarProps {
+  user: {
+    name?: string | null;
+    image?: string | null;
+  };
+  size?: 'sm' | 'default' | 'lg' | 'xl';
+  className?: string;
+}
+
+/**
+ * User avatar with fallback to initials
+ */
+function UserAvatar({ user, size = 'default', className }: UserAvatarProps) {
+  const initials = user.name
+    ? user.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'U';
+
+  return (
+    <Avatar size={size} className={className}>
+      <AvatarImage src={user.image ?? undefined} alt={user.name ?? 'User'} />
+      <AvatarFallback>{initials}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+export {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarBadge,
+  UserAvatar,
+};

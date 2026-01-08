@@ -14,8 +14,9 @@ import {
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import { Check, ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Abis } from 'tempo.ts/viem';
-import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { Hooks } from 'wagmi/tempo';
+import { formatUnits } from 'viem';
+import { useWaitForTransactionReceipt } from 'wagmi';
 
 /**
  * Payment signing modal - SDK Version
@@ -24,7 +25,7 @@ import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
  *
  * Migration from custom signing to SDK:
  * - BEFORE: Manual navigator.credentials.get(), RLP encoding, nonce management
- * - AFTER: SDK handles everything via useWriteContract hook
+ * - AFTER: Tempo Hooks handle signing + broadcast
  *
  * Flow:
  * 1. User clicks "Sign & Send"
@@ -70,12 +71,14 @@ export function PaymentModal({
   autoSign = false,
 }: PaymentModalProps) {
   const [confirming, setConfirming] = useState(false);
-
-  // SDK hook for writing contract (signs + broadcasts automatically)
-  const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
+  const { data: txHash, mutateAsync, isPending, error } = Hooks.token.useTransfer();
 
   // SDK hook for waiting for transaction confirmation
-  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({
+  const {
+    data: receipt,
+    isSuccess,
+    isLoading: isConfirming,
+  } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
@@ -85,10 +88,15 @@ export function PaymentModal({
       setConfirming(true);
 
       // Confirm payout in database
-      fetch(`/api/payouts/${payout.id}/confirm`, {
+      fetch(`/api/payments/payouts/${payout.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txHash, waitForConfirmation: false }),
+        body: JSON.stringify({
+          action: 'confirm',
+          txHash,
+          status: receipt?.status ?? 'success',
+          blockNumber: receipt?.blockNumber?.toString(),
+        }),
       })
         .then(() => {
           onSuccess?.(txHash);
@@ -100,16 +108,16 @@ export function PaymentModal({
           setConfirming(false);
         });
     }
-  }, [isSuccess, txHash, payout.id, onSuccess, confirming]);
+  }, [isSuccess, txHash, payout.id, onSuccess, confirming, receipt]);
 
   // Handle sign button click
-  const handleSign = () => {
-    writeContract({
-      address: payout.tokenAddress as `0x${string}`,
-      abi: Abis.tip20,
-      functionName: 'transferWithMemo',
-      args: [payout.recipientAddress as `0x${string}`, payout.amount, payout.memo as `0x${string}`],
-    });
+  const handleSign = async () => {
+    await mutateAsync({
+      amount: payout.amount,
+      to: payout.recipientAddress as `0x${string}`,
+      token: payout.tokenAddress as `0x${string}`,
+      memo: payout.memo as `0x${string}`,
+    } as unknown as Parameters<typeof mutateAsync>[0]);
   };
 
   const handleClose = () => {
@@ -122,8 +130,8 @@ export function PaymentModal({
 
   const isProcessing = isPending || isConfirming || confirming;
 
-  // Format amount for display (assuming 6 decimals for USDC)
-  const formattedAmount = (Number(payout.amount) / 1_000_000).toFixed(2);
+  // Format amount for display (6 decimals for USDC)
+  const formattedAmount = formatUnits(payout.amount, 6);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -180,7 +188,7 @@ export function PaymentModal({
                 </div>
               </div>
 
-              {/* Status indicators - SDK hook states */}
+              {/* Status indicators - signing + confirmation */}
               {isPending && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -202,12 +210,12 @@ export function PaymentModal({
                 </div>
               )}
 
-              {writeError && (
+              {error && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                   <p className="text-sm text-destructive">
-                    {writeError.message.includes('User rejected')
+                    {error.message.includes('User rejected')
                       ? 'Passkey signing was cancelled. Please try again.'
-                      : writeError.message}
+                      : error.message}
                   </p>
                 </div>
               )}

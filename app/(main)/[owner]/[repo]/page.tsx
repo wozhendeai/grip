@@ -1,4 +1,4 @@
-import { RepoOnboardingModal } from '@/components/onboarding';
+import { RepoOnboardingModal } from './_components/onboarding';
 import { getRepoBountiesWithSubmissions } from '@/db/queries/bounties';
 import { getUserOnboardingInfo } from '@/db/queries/passkeys';
 import { getRepoSettingsByName } from '@/db/queries/repo-settings';
@@ -96,7 +96,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
       submittedAt: s.submittedAt,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
-      submitter: { id: s.userId, name: null, image: null }, // Placeholder as we didn't join user
+      submitter: { id: s.userId, name: null, image: null, hasWallet: false }, // Placeholder as we didn't join user
     })),
     approvedAt: b.approvedAt,
     ownerApprovedAt: b.ownerApprovedAt,

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { PasskeyOperationContent } from '@/components/passkey';
+import { PasskeyOperationContent } from '@/components/tempo';
 import { getCurrentNetwork } from '@/db/network';
 import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
 import {
@@ -13,7 +13,7 @@ import {
   type PasskeyPhase,
 } from '@/lib/webauthn';
 import { useCallback, useState } from 'react';
-import { KeyAuthorization } from 'tempo.ts/ox';
+import { KeyAuthorization } from 'ox/tempo';
 import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
 
 type AccessKey = {

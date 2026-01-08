@@ -4,42 +4,31 @@ import { AddressDisplay } from '@/components/tempo/address-display';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ExternalLink, HelpCircle, Loader2, Wallet } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { formatUnits } from 'viem';
+import { Hooks } from 'wagmi/tempo';
 
 interface WalletContentProps {
   walletAddress: `0x${string}` | null;
 }
 
 export function WalletContent({ walletAddress }: WalletContentProps) {
-  const [balance, setBalance] = useState<number>(0);
-  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
-
   const isTestnet = process.env.NEXT_PUBLIC_TEMPO_NETWORK === 'testnet';
   const explorerUrl = isTestnet ? 'https://explore.testnet.tempo.xyz' : 'https://explore.tempo.xyz';
 
-  const fetchBalance = useCallback(async () => {
-    if (!walletAddress) return;
-    try {
-      const res = await fetch(`/api/wallet/balance?address=${walletAddress}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBalance(Number.parseFloat(data.formattedBalance ?? '0'));
-      }
-    } catch (err) {
-      console.error('Failed to fetch balance:', err);
-    } finally {
-      setIsLoadingBalance(false);
-    }
-  }, [walletAddress]);
+  // Use SDK hook for balance - auto-refreshes every 15s
+  const { data: rawBalance, isLoading: isLoadingBalance } = Hooks.token.useGetBalance({
+    account: walletAddress ?? '0x0000000000000000000000000000000000000000',
+    token: TEMPO_TOKENS.USDC as `0x${string}`,
+    query: {
+      enabled: Boolean(walletAddress),
+      refetchInterval: 15_000,
+      staleTime: 15_000,
+    },
+  });
 
-  useEffect(() => {
-    if (walletAddress) {
-      fetchBalance();
-      const interval = setInterval(fetchBalance, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [fetchBalance, walletAddress]);
+  const balance = rawBalance ? Number(formatUnits(rawBalance, 6)) : 0;
 
   // No wallet address available
   if (!walletAddress) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { GitHubOrganization } from '@/lib/github/organizations';
+import type { GitHubOrganizationMinimal } from '@/lib/github';
 import type { organization } from '@/db/schema/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -36,7 +36,7 @@ interface OrgBounty {
 }
 
 interface OrgProfileProps {
-  github: GitHubOrganization;
+  github: GitHubOrganizationMinimal;
   repos: OrgRepo[];
   gripOrg: typeof organization.$inferSelect | null;
   bountyData: {

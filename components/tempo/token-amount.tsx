@@ -6,6 +6,8 @@ interface TokenAmountProps {
   amount: string;
   /** Token symbol (e.g., 'USDC') */
   symbol: string;
+  /** Token decimals (defaults to 6 for USDC compatibility) */
+  decimals?: number;
   /** Whether to show the symbol */
   showSymbol?: boolean;
   /** Additional class names */
@@ -17,10 +19,16 @@ interface TokenAmountProps {
  *
  * Displays amounts as "$1.00 USDC" format.
  * Accepts BigInt amounts as strings (serialized from database).
- * Converts from smallest units (6 decimals) to display units.
+ * Converts from smallest units to display units using provided decimals.
  */
-export function TokenAmount({ amount, symbol, showSymbol = true, className }: TokenAmountProps) {
-  const formatted = formatUnits(BigInt(amount), 6);
+export function TokenAmount({
+  amount,
+  symbol,
+  decimals = 6,
+  showSymbol = true,
+  className,
+}: TokenAmountProps) {
+  const formatted = formatUnits(BigInt(amount), decimals);
 
   return (
     <span className={cn('font-medium tabular-nums', className)}>

@@ -96,14 +96,13 @@ export const tempoClient = () => {
       },
 
       loadKey: async (credentialId: string) => {
-        const searchParams = new URLSearchParams({ credentialId });
-        return $fetch<LoadKeyResponse>(`/tempo/keymanager?${searchParams.toString()}`, {
+        return $fetch<LoadKeyResponse>(`/tempo/keymanager/${credentialId}`, {
           method: 'GET',
         });
       },
 
-      saveKey: async (params: SaveKeyRequest) => {
-        return $fetch<SaveKeyResponse>('/tempo/keymanager', {
+      saveKey: async (credentialId: string, params: SaveKeyRequest) => {
+        return $fetch<SaveKeyResponse>(`/tempo/keymanager/${credentialId}`, {
           method: 'POST',
           body: params,
         });

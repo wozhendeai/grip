@@ -14,12 +14,12 @@
  * 5. Create SignatureEnvelope.Keychain with inner secp256k1 sig
  * 6. Serialize signed tx with SDK
  */
-
-import { turnkey } from '@/lib/turnkey/client';
-import { SignatureEnvelope } from 'tempo.ts/ox';
-import { Transaction } from 'tempo.ts/viem';
+'use server';
+import { turnkey } from '@/lib/turnkey';
+import { SignatureEnvelope } from 'ox/tempo';
+import { Transaction } from 'viem/tempo';
 import { keccak256 } from 'viem';
-import { TEMPO_CHAIN_ID } from './constants';
+import { tempoClient } from './client';
 
 /**
  * Tempo transaction parameters
@@ -83,10 +83,21 @@ export async function signTransactionWithAccessKey(params: {
   funderAddress: `0x${string}`;
   network: 'testnet' | 'mainnet';
 }): Promise<{ rawTransaction: `0x${string}`; hash: `0x${string}` }> {
+  // Get fee token: explicit param > user preference > protocol fallback
+  // Protocol fallback chain: Account → Contract → pathUSD
+  let feeToken = params.tx.feeToken;
+  if (!feeToken) {
+    // Fetch user's fee token preference from on-chain
+    const userFeeToken = await tempoClient.fee.getUserToken({
+      account: params.funderAddress,
+    });
+    feeToken = userFeeToken?.address; // undefined lets protocol handle fallback
+  }
+
   // Build transaction object for SDK (Tempo uses calls array)
   const tx = {
     type: 'tempo' as const,
-    chainId: TEMPO_CHAIN_ID,
+    chainId: tempoClient.chain.id,
     nonce: Number(params.tx.nonce),
     maxFeePerGas: params.tx.maxFeePerGas ?? 1_000_000_000n,
     maxPriorityFeePerGas: 1_000_000_000n,
@@ -98,7 +109,7 @@ export async function signTransactionWithAccessKey(params: {
         data: params.tx.data,
       },
     ],
-    feeToken: params.tx.feeToken,
+    feeToken,
   };
 
   // 1. Serialize unsigned transaction (SDK handles Type 0x76 RLP)
@@ -136,9 +147,9 @@ export async function signTransactionWithAccessKey(params: {
  * Broadcast signed transaction to Tempo RPC
  */
 export async function broadcastTransaction(signedTx: `0x${string}`): Promise<`0x${string}`> {
-  const TEMPO_RPC_URL = process.env.TEMPO_RPC_URL ?? 'https://rpc.testnet.tempo.xyz';
+  const rpcUrl = process.env.TEMPO_RPC_URL ?? tempoClient.chain.rpcUrls.default.http[0];
 
-  const response = await fetch(TEMPO_RPC_URL, {
+  const response = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

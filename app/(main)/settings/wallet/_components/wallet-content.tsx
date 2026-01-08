@@ -10,7 +10,7 @@ export interface WalletContentProps {
   wallet: {
     id: string;
     name: string | null;
-    tempoAddress: string | null;
+    tempoAddress: `0x${string}`;
     createdAt: string;
   } | null;
   stats: ActivityStats;

@@ -92,23 +92,3 @@ export async function getLastSuccessfulDeliveryByRepoId(githubRepoId: bigint | s
 
   return delivery ?? null;
 }
-
-/**
- * Get recent webhook deliveries for an installation
- *
- * Used for app-level events (installation added/removed, repos added/removed).
- */
-export async function getRecentDeliveriesByInstallationId(
-  githubInstallationId: bigint | string,
-  limit = 20
-) {
-  const installationIdBigInt =
-    typeof githubInstallationId === 'string' ? BigInt(githubInstallationId) : githubInstallationId;
-
-  return db
-    .select()
-    .from(webhookDeliveries)
-    .where(eq(webhookDeliveries.githubInstallationId, installationIdBigInt))
-    .orderBy(desc(webhookDeliveries.receivedAt))
-    .limit(limit);
-}

@@ -1,6 +1,6 @@
 'use client';
 
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { SettingsSidebar } from '../../../settings/_components/settings-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';

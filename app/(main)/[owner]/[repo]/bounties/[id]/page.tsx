@@ -41,8 +41,9 @@ export default async function BountyPage({ params }: BountyPageProps) {
   const { bounty: bountyData, author } = result;
   const submissionsData = await getSubmissionsByBounty(id);
 
-  // Check if current user can approve (primary funder)
+  // Check if current user can approve (primary funder or org member)
   const session = await getSession();
+  const isOrgBounty = !!bountyData.organizationId;
   const canApprove = session?.user?.id === bountyData.primaryFunderId;
 
   // Get funder's wallet info for payment flow
@@ -108,6 +109,7 @@ export default async function BountyPage({ params }: BountyPageProps) {
     <BountyDetail
       bounty={bounty}
       canApprove={canApprove}
+      isOrgBounty={isOrgBounty}
       treasuryCredentials={treasuryCredentials}
     />
   );

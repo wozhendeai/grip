@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth/auth-server';
 import { getAccessKeyByIdForUser } from '@/db/queries/access-keys';
 import { redirect, notFound } from 'next/navigation';
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { AccessKeyDetail } from '../../../_components/access-key-detail';
 
 interface Props {

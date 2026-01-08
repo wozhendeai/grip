@@ -1,5 +1,5 @@
-import { UnifiedWorkflow } from '@/components/home/unified-workflow';
-import { Hero } from '@/components/home/hero';
+import { UnifiedWorkflow } from './_components/home/unified-workflow';
+import { Hero } from './_components/home/hero';
 import { BountyCard } from '@/components/bounty/bounty-card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

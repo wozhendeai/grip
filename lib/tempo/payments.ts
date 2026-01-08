@@ -1,4 +1,4 @@
-import { Abis } from 'tempo.ts/viem';
+import { Abis } from 'viem/tempo';
 import { encodeFunctionData, toHex } from 'viem';
 
 /**

@@ -1,3 +1,5 @@
+import { tempoTestnet } from 'viem/chains';
+
 /**
  * Tempo blockchain configuration
  *
@@ -8,48 +10,28 @@
  * - Payment lane for guaranteed low-cost TIP-20 transfers
  * - Passkey (P256) authentication native support
  *
- * Note: We use the tempo.ts SDK for most operations, but these constants are
- * still needed for manual operations and app-specific configuration.
+ * Chain config (id, rpcUrls, blockExplorers) comes from viem/chains.
  */
 
-export const TEMPO_CHAIN_ID = 42429;
-
-export const TEMPO_RPC_URL = process.env.TEMPO_RPC_URL ?? 'https://rpc.testnet.tempo.xyz';
-
-export const TEMPO_EXPLORER_URL = 'https://explore.tempo.xyz';
-
-/**
- * Tempo System Contracts (Predeployed)
- *
- * Core protocol contracts that power Tempo's features.
- * See: https://docs.tempo.xyz/protocol
- */
-export const TEMPO_CONTRACTS = {
-  /** TIP-20 Factory - Create new TIP-20 tokens */
-  TIP20_FACTORY: '0x20fc000000000000000000000000000000000000' as const,
-  /** Fee Manager - Handle fee payments and conversions */
-  FEE_MANAGER: '0xfeec000000000000000000000000000000000000' as const,
-  /** Stablecoin DEX - Enshrined DEX for stablecoin swaps */
-  STABLECOIN_DEX: '0xdec0000000000000000000000000000000000000' as const,
-  /** TIP-403 Registry - Transfer policy registry */
-  TIP403_REGISTRY: '0x403c000000000000000000000000000000000000' as const,
-  /** PathUSD - First stablecoin deployed on Tempo */
-  PATH_USD: '0x20c0000000000000000000000000000000000000' as const,
-} as const;
+/** Re-export for convenience - prefer importing directly from viem/chains */
+export { tempoTestnet };
 
 /**
  * Well-known token addresses on Tempo
  *
- * PathUSD is the native fee token (always available for gas)
- * USDC is for bounty payments
+ * USDC is used for bounty payments and balance display.
+ * Fee tokens are handled by user preference with protocol fallback to pathUSD.
  */
+const TEMPO_USDC_ADDRESS =
+  process.env.TEMPO_USDC_ADDRESS ?? '0x20c0000000000000000000000000000000000001';
+
 export const TEMPO_TOKENS = {
-  /** PathUSD - Native fee token, always available for gas */
-  PATH_USD: TEMPO_CONTRACTS.PATH_USD,
-  /** USDC on Tempo - use this for bounty payments */
-  USDC: (process.env.TEMPO_USDC_ADDRESS ??
-    '0x0000000000000000000000000000000000000002') as `0x${string}`,
+  /** USDC on Tempo - use this for bounty payments and balance display */
+  USDC: TEMPO_USDC_ADDRESS as `0x${string}`,
 } as const;
+
+/** Official Tempo tokenlist for fee token selection and token discovery */
+export const TEMPO_TOKENLIST_URL = 'https://tempoxyz.github.io/tempo-apps/42429/tokenlist.json';
 
 /**
  * GRIP backend wallet addresses (Turnkey HSM-backed)
@@ -69,5 +51,6 @@ export const BACKEND_WALLET_ADDRESSES = {
  * Generate explorer URL for a transaction
  */
 export function getExplorerTxUrl(txHash: string): string {
-  return `${TEMPO_EXPLORER_URL}/tx/${txHash}`;
+  const explorerUrl = tempoTestnet.blockExplorers?.default.url ?? 'https://explore.tempo.xyz';
+  return `${explorerUrl}/tx/${txHash}`;
 }

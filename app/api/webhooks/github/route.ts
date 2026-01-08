@@ -17,7 +17,7 @@ import { createWebhookDelivery } from '@/db/queries/webhook-deliveries';
 import {
   type InstallationEvent,
   type InstallationRepositoriesEvent,
-  type IssueEvent,
+  type IssuesEvent,
   type PingEvent,
   type PullRequestEvent,
   extractLinkedIssues,
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
     // Parse payload
     let payload:
       | PullRequestEvent
-      | IssueEvent
+      | IssuesEvent
       | PingEvent
       | InstallationEvent
       | InstallationRepositoriesEvent;
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
 
     // Handle repo-level events (pull_request, issues, ping)
     // These require a repository ID and per-repo webhook secret
-    const repoPayload = payload as PullRequestEvent | IssueEvent | PingEvent;
+    const repoPayload = payload as PullRequestEvent | IssuesEvent | PingEvent;
     const repoId = repoPayload.repository?.id;
     if (!repoId) {
       deliveryStatus = 'failed';
@@ -284,10 +284,10 @@ export async function POST(request: NextRequest) {
       repoFullName: repoPayload.repository?.full_name,
       username:
         (repoPayload as PullRequestEvent).pull_request?.user?.login ??
-        (repoPayload as IssueEvent).issue?.user?.login ??
+        (repoPayload as IssuesEvent).issue?.user?.login ??
         (repoPayload as { sender?: { login: string } }).sender?.login,
       prNumber: (repoPayload as PullRequestEvent).pull_request?.number,
-      issueNumber: (repoPayload as IssueEvent).issue?.number,
+      issueNumber: (repoPayload as IssuesEvent).issue?.number,
     };
 
     // Find repo settings by GitHub repo ID
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
         return handlePullRequest(payload as PullRequestEvent, repo);
 
       case 'issues':
-        return handleIssue(payload as IssueEvent, repo);
+        return handleIssue(payload as IssuesEvent, repo);
 
       default:
         // Ignore other events
@@ -579,7 +579,7 @@ async function handlePullRequest(
  * - Closing bounties when issues are closed
  */
 async function handleIssue(
-  payload: IssueEvent,
+  payload: IssuesEvent,
   repo: typeof repoSettings.$inferSelect
 ): Promise<NextResponse> {
   const { action, issue } = payload;

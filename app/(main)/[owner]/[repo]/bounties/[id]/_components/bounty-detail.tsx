@@ -1,17 +1,17 @@
 'use client';
 
-import { CreateWalletModal } from '@/components/auth/create-wallet-modal';
+import { CreateWalletModal } from '@/components/tempo/create-wallet-modal';
+import { TokenSymbol } from '@/components/tempo/token-symbol';
 import { BountyStatus } from '@/components/bounty/bounty-status';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
-import { UserAvatar } from '@/components/user/user-avatar';
+import { UserAvatar } from '@/components/ui/avatar';
 import { getExplorerTxUrl } from '@/lib/tempo/constants';
 import type { Bounty } from '@/lib/types';
 import { CheckCircle, ExternalLink, GitPullRequest, Github } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ApprovePendingPaymentModal } from './approve-pending-payment-modal';
 import { ClaimSelectionModal } from './claim-selection-modal';
 import { PaymentModal } from './payment-modal';
 
@@ -37,12 +37,14 @@ interface ClaimantInfo {
 interface BountyDetailProps {
   bounty: Bounty;
   canApprove?: boolean;
+  isOrgBounty?: boolean;
   treasuryCredentials?: TreasuryCredentials | null;
 }
 
 export function BountyDetail({
   bounty,
   canApprove = false,
+  isOrgBounty = false,
   treasuryCredentials,
 }: BountyDetailProps) {
   const router = useRouter();
@@ -68,19 +70,6 @@ export function BountyDetail({
   // Auto-signing success state
   const [autoSignSuccess, setAutoSignSuccess] = useState(false);
   const [autoSignTxHash, setAutoSignTxHash] = useState<string | null>(null);
-
-  // Pending payment modal state
-  const [showPendingPaymentModal, setShowPendingPaymentModal] = useState(false);
-  const [pendingPaymentDetails, setPendingPaymentDetails] = useState<{
-    amount: string;
-    tokenAddress: string;
-    recipientGithubUsername: string;
-    recipientGithubUserId: string;
-  } | null>(null);
-  const [pendingPaymentSignature, setPendingPaymentSignature] = useState<{
-    signature: string;
-    authHash: string;
-  } | null>(null);
 
   const handleClaim = async () => {
     setClaimLoading(true);
@@ -110,74 +99,57 @@ export function BountyDetail({
     const activeSubmissions =
       bounty.submissions?.filter((c) => c.status === 'pending' || c.status === 'approved') ?? [];
 
-    // If multiple submissions, need to select which one to approve
+    // If multiple submissions, need to select which one
     if (activeSubmissions.length > 1) {
-      // Show manual selection UI
       setShowClaimSelection(true);
       return;
     }
 
-    // Single submission - proceed as normal
-    await approveWithClaim(activeSubmissions[0]?.id);
+    const submission = activeSubmissions[0];
+    if (!submission) {
+      setActionError('No active submissions to approve');
+      return;
+    }
+
+    // Backend validates contributor has wallet
+    await approveWithSubmission(submission.id);
   };
 
-  const approveWithClaim = async (claimId?: string) => {
+  const approveWithSubmission = async (submissionId: string) => {
     setIsApproving(true);
     setActionError(null);
 
     try {
-      // Include Access Key signature if we have it (retry after collecting)
-      const body: { claimId?: string; accessKeySignature?: string; accessKeyAuthHash?: string } = {
-        claimId,
-      };
-      if (pendingPaymentSignature) {
-        body.accessKeySignature = pendingPaymentSignature.signature;
-        body.accessKeyAuthHash = pendingPaymentSignature.authHash;
-      }
-
-      const res = await fetch(`/api/bounties/${bounty.id}/approve`, {
-        method: 'POST',
+      const res = await fetch(`/api/bounties/${bounty.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: 'approve', submissionId }),
       });
       const data = await res.json();
-
-      // Check for pending payment signature requirement
-      // This happens when contributor has no wallet yet
-      if (data.requiresAccessKeySignature && data.payment) {
-        setPendingPaymentDetails(data.payment);
-        setShowPendingPaymentModal(true);
-        return; // Don't finish approval yet - waiting for signature
-      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Failed to approve');
       }
 
       // Check if payment was auto-signed with Access Key
-      if (data.autoSigned && data.txHash) {
-        // SUCCESS: Access Key auto-signed the payout
+      if (data.autoSigned && data.payout?.txHash) {
         setAutoSignSuccess(true);
-        setAutoSignTxHash(data.txHash);
-
-        // Refresh page after showing success message
-        setTimeout(() => {
-          router.refresh();
-        }, 3000);
-      } else if (treasuryCredentials && data.payout && data.claimant) {
-        // FALLBACK: Manual signing required (no Access Key or Access Key failed)
-        // Convert amount from number to bigint for SDK compatibility
+        setAutoSignTxHash(data.payout.txHash);
+        setTimeout(() => router.refresh(), 3000);
+      } else if (data.payout && data.contributor) {
+        // Manual signing required (contributor has wallet, but no Access Key)
+        if (!treasuryCredentials) {
+          setActionError('Treasury wallet not configured. Please set up a treasury passkey first.');
+          return;
+        }
         setPayoutData({
           ...data.payout,
           amount: BigInt(data.payout.amount),
         });
-        setClaimantInfo(data.claimant);
+        setClaimantInfo(data.contributor);
         setShowPaymentModal(true);
-      } else if (!treasuryCredentials) {
-        // No treasury set up - show error
-        setActionError('Treasury wallet not configured. Please set up a treasury passkey first.');
       } else {
-        // Fallback - reload page
+        // Reload page on success
         window.location.reload();
       }
     } catch (error) {
@@ -195,19 +167,6 @@ export function BountyDetail({
     }, 2000);
   };
 
-  const handlePendingPaymentSignature = (signature: string, authHash: string) => {
-    // Store signature and retry approval
-    setPendingPaymentSignature({ signature, authHash });
-    setShowPendingPaymentModal(false);
-
-    // Retry approval with signature
-    // Use the same claimId from the original approval attempt
-    const activeSubmissions =
-      bounty.submissions?.filter((c) => c.status === 'pending' || c.status === 'approved') ?? [];
-    const claimId = activeSubmissions[0]?.id;
-    approveWithClaim(claimId);
-  };
-
   const handleReject = async () => {
     if (!rejectNote.trim()) {
       setActionError('Please provide a rejection reason');
@@ -216,10 +175,10 @@ export function BountyDetail({
     setIsRejecting(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/bounties/${bounty.id}/reject`, {
-        method: 'POST',
+      const res = await fetch(`/api/bounties/${bounty.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: rejectNote }),
+        body: JSON.stringify({ action: 'reject', note: rejectNote }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -309,7 +268,10 @@ export function BountyDetail({
                   <span className="text-3xl font-bold md:text-4xl">
                     ${Number(bounty.totalFunded).toLocaleString()}
                   </span>
-                  <span className="ml-2 text-lg text-muted-foreground">USDC</span>
+                  <TokenSymbol
+                    tokenAddress={bounty.tokenAddress as `0x${string}`}
+                    className="ml-2 text-lg text-muted-foreground"
+                  />
                 </>
               )}
             </div>
@@ -656,7 +618,9 @@ export function BountyDetail({
           bounty.submissions?.filter((c) => c.status === 'pending' || c.status === 'approved') ?? []
         }
         completedByUserId={null}
-        onSelect={approveWithClaim}
+        onSelect={(submissionId) => {
+          approveWithSubmission(submissionId);
+        }}
       />
 
       {/* Payment Modal - SDK Version */}
@@ -667,17 +631,6 @@ export function BountyDetail({
           payout={payoutData}
           claimant={claimantInfo}
           onSuccess={handlePaymentSuccess}
-        />
-      )}
-
-      {/* Pending Payment Signature Modal */}
-      {pendingPaymentDetails && treasuryCredentials && (
-        <ApprovePendingPaymentModal
-          open={showPendingPaymentModal}
-          onOpenChange={setShowPendingPaymentModal}
-          onSuccess={handlePendingPaymentSignature}
-          paymentDetails={pendingPaymentDetails}
-          credentialId={treasuryCredentials.credentialId}
         />
       )}
 

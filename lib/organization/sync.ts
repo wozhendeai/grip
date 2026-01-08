@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth/auth';
-import { getAllOrgMembersByRole } from '@/lib/github/organizations';
+import { getAllOrgMembersByRole } from '@/lib/github';
 import { db, invitation, member, organization, user } from '@/db';
 import { and, eq } from 'drizzle-orm';
 

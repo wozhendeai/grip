@@ -21,7 +21,6 @@ import type {
   PasskeyWithAddress,
   RevokeAccessKeyRequest,
   RevokeAccessKeyResponse,
-  SaveKeyRequest,
   SaveKeyResponse,
   TempoPluginConfig,
 } from './types';
@@ -50,7 +49,7 @@ function base64ToBase64url(base64: string): string {
  * Extract raw P-256 coordinates from a base64-encoded COSE public key.
  * Returns 64-byte hex string (x || y) for Tempo SDK consumption.
  */
-function coseKeyToHex(publicKeyBase64: string): `0x${string}` {
+export function coseKeyToHex(publicKeyBase64: string): `0x${string}` {
   const coseBytes = isoBase64URL.toBuffer(base64ToBase64url(publicKeyBase64), 'base64url');
   const coseKey = decodeCredentialPublicKey(coseBytes);
 
@@ -424,7 +423,93 @@ export const tempo = (config: TempoPluginConfig) => {
         }
       ),
 
-      // KeyManager endpoints - serve pre-computed values, no conversion at request time
+      // KeyManager endpoints using path params for SDK compatibility
+      // SDK's KeyManager.http expects: GET/POST /{path}/:credentialId
+      getPublicKey: createAuthEndpoint(
+        '/tempo/keymanager/:credentialId',
+        { method: 'GET', use: [sessionMiddleware] },
+        async (ctx) => {
+          const session = ctx.context.session;
+          console.log('[KeyManager] getPublicKey called', {
+            hasSession: !!session,
+            userId: session?.user?.id,
+            params: ctx.params,
+            path: ctx.path,
+          });
+
+          if (!session?.user) {
+            return ctx.json({ error: 'Unauthorized' }, { status: 401 });
+          }
+
+          // Extract credentialId from path params
+          const credentialId = ctx.params?.credentialId;
+          console.log('[KeyManager] credentialId from params:', credentialId);
+
+          if (!credentialId) {
+            return ctx.json({ error: 'Missing credentialId' }, { status: 400 });
+          }
+
+          const passkeys = (await ctx.context.adapter.findMany({
+            model: 'passkey',
+            where: [
+              { field: 'userId', value: session.user.id },
+              { field: 'credentialID', value: credentialId },
+            ],
+            limit: 1,
+          })) as PasskeyRecord[];
+
+          console.log('[KeyManager] found passkeys:', passkeys.length);
+
+          const passkey = passkeys[0];
+          if (!passkey) {
+            return ctx.json({ error: 'Key not found' }, { status: 404 });
+          }
+
+          const publicKeyHex = coseKeyToHex(passkey.publicKey);
+
+          // Verify the public key derives to the expected address
+          const derivedAddress = deriveTempoAddress(passkey.publicKey);
+          const addressMatch = derivedAddress.toLowerCase() === passkey.tempoAddress?.toLowerCase();
+
+          console.log('[KeyManager] returning publicKey:', {
+            credentialId: passkey.credentialID,
+            publicKeyHex,
+            storedAddress: passkey.tempoAddress,
+            derivedAddress,
+            addressMatch,
+            rawPublicKeyBase64: `${passkey.publicKey.slice(0, 30)}...`,
+          });
+
+          if (!addressMatch) {
+            console.error(
+              '[KeyManager] ADDRESS MISMATCH! Public key does not derive to stored address'
+            );
+          }
+
+          return ctx.json({
+            credentialId: passkey.credentialID,
+            publicKey: publicKeyHex,
+            address: passkey.tempoAddress || '',
+          } as LoadKeyResponse);
+        }
+      ),
+
+      setPublicKey: createAuthEndpoint(
+        '/tempo/keymanager/:credentialId',
+        { method: 'POST', use: [sessionMiddleware] },
+        async (ctx) => {
+          const session = ctx.context.session;
+          if (!session?.user) {
+            return ctx.json({ error: 'Unauthorized' }, { status: 401 });
+          }
+
+          // Passkey creation happens through better-auth's WebAuthn flow
+          // This endpoint exists for SDK compatibility but is a no-op
+          return ctx.json({ success: true } as SaveKeyResponse);
+        }
+      ),
+
+      // List all keys for the user (used by tempo-client, not SDK)
       listKeys: createAuthEndpoint(
         '/tempo/keymanager',
         { method: 'GET', use: [sessionMiddleware] },
@@ -432,35 +517,6 @@ export const tempo = (config: TempoPluginConfig) => {
           const session = ctx.context.session;
           if (!session?.user) {
             return ctx.json({ error: 'Unauthorized' }, { status: 401 });
-          }
-
-          if (!ctx.request?.url) {
-            return ctx.json({ error: 'Invalid request' }, { status: 400 });
-          }
-
-          const url = new URL(ctx.request.url);
-          const credentialId = url.searchParams.get('credentialId');
-
-          if (credentialId) {
-            const passkeys = (await ctx.context.adapter.findMany({
-              model: 'passkey',
-              where: [
-                { field: 'userId', value: session.user.id },
-                { field: 'credentialID', value: credentialId },
-              ],
-              limit: 1,
-            })) as PasskeyRecord[];
-
-            const passkey = passkeys[0];
-            if (!passkey) {
-              return ctx.json({ error: 'Key not found' }, { status: 404 });
-            }
-
-            return ctx.json({
-              credentialId: passkey.credentialID,
-              publicKey: coseKeyToHex(passkey.publicKey),
-              address: passkey.tempoAddress || '',
-            } as LoadKeyResponse);
           }
 
           const passkeys = (await ctx.context.adapter.findMany({
@@ -476,25 +532,6 @@ export const tempo = (config: TempoPluginConfig) => {
           }));
 
           return ctx.json({ keys } as ListKeysResponse);
-        }
-      ),
-
-      saveKey: createAuthEndpoint(
-        '/tempo/keymanager',
-        { method: 'POST', use: [sessionMiddleware] },
-        async (ctx) => {
-          const session = ctx.context.session;
-          if (!session?.user) {
-            return ctx.json({ error: 'Unauthorized' }, { status: 401 });
-          }
-
-          const body = ctx.body as SaveKeyRequest | undefined;
-          if (!body) {
-            return ctx.json({ error: 'Invalid request body' }, { status: 400 });
-          }
-
-          // Passkey creation happens through better-auth's flow
-          return ctx.json({ success: true } as SaveKeyResponse);
         }
       ),
     },

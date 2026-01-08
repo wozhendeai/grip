@@ -1,4 +1,4 @@
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { LoginForm } from '../../login/_components/login-form';
 import { Suspense } from 'react';
 

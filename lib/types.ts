@@ -132,6 +132,7 @@ export interface BountySubmission {
     id: string;
     name: string | null;
     image: string | null;
+    hasWallet: boolean;
   };
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { CreateWalletModal } from '@/components/auth/create-wallet-modal';
+import { CreateWalletModal } from '@/components/tempo/create-wallet-modal';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { SendPaymentModal } from './send-payment-modal';

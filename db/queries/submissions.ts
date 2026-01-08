@@ -1,5 +1,5 @@
-import { bounties, db, repoSettings, submissions, user } from '@/db';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { bounties, db, passkey, repoSettings, submissions, user } from '@/db';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
 /**
  * Cleanup note (2025-12-14):
@@ -110,6 +110,13 @@ export async function getSubmissionsByUser(userId: string) {
 }
 
 export async function getSubmissionsByBounty(bountyId: string) {
+  // Subquery to check if user has a wallet (passkey with tempoAddress)
+  const hasWalletSubquery = sql<boolean>`EXISTS(
+    SELECT 1 FROM ${passkey}
+    WHERE ${passkey.userId} = ${user.id}
+    AND ${passkey.tempoAddress} IS NOT NULL
+  )`.as('hasWallet');
+
   return db
     .select({
       submission: submissions,
@@ -117,6 +124,7 @@ export async function getSubmissionsByBounty(bountyId: string) {
         id: user.id,
         name: user.name,
         image: user.image,
+        hasWallet: hasWalletSubquery,
       },
     })
     .from(submissions)
@@ -185,25 +193,6 @@ export async function approveBountySubmissionAsFunder(
 }
 
 /**
- * Approve submission as repo owner
- *
- * Sets owner_approved_at and owner_approved_by.
- * Status becomes 'approved' if funder also approved.
- */
-export async function approveBountySubmissionAsOwner(id: string, approvedBy: string) {
-  const submission = await getSubmissionById(id);
-  if (!submission) return null;
-
-  // Only set status to approved if funder already approved
-  const newStatus = submission.funderApprovedAt ? 'approved' : 'pending';
-
-  return updateSubmissionStatus(id, newStatus as SubmissionStatus, {
-    ownerApprovedAt: new Date().toISOString(),
-    ownerApprovedBy: approvedBy,
-  });
-}
-
-/**
  * Reject submission
  *
  * Can be rejected by either funder or repo owner.
@@ -214,16 +203,6 @@ export async function rejectSubmission(id: string, rejectedBy: string, note?: st
     rejectedBy: rejectedBy,
     rejectionNote: note,
   });
-}
-
-/**
- * Get all submissions for a bounty (race condition model)
- *
- * Multiple users can submit work on same bounty.
- * Returns all submissions ordered by creation time.
- */
-export async function getSubmissionsForBounty(bountyId: string) {
-  return getSubmissionsByBounty(bountyId);
 }
 
 /**
@@ -278,23 +257,6 @@ export async function findOrCreateSubmissionForGitHubUser(
     githubPrUrl,
     githubPrTitle,
   });
-}
-
-/**
- * Get submission by GitHub PR ID (canonical reference)
- *
- * Used by webhooks to find submission when PR events occur.
- */
-export async function getSubmissionByGitHubPrId(githubPrId: bigint | string) {
-  const prIdBigInt = typeof githubPrId === 'string' ? BigInt(githubPrId) : githubPrId;
-
-  const [submission] = await db
-    .select()
-    .from(submissions)
-    .where(eq(submissions.githubPrId, prIdBigInt))
-    .limit(1);
-
-  return submission ?? null;
 }
 
 /**

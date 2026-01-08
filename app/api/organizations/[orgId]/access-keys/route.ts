@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { createOrgAccessKey } from '@/lib/tempo/access-keys';
 import { getOrgAccessKeys, isOrgOwner, isOrgMember } from '@/db/queries/organizations';
-import { TEMPO_CHAIN_ID } from '@/lib/tempo/constants';
+import { tempoTestnet } from 'viem/chains';
 
 type RouteContext = {
   params: Promise<{ orgId: string }>;
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       expiryTimestamp: expiryDays ? Math.floor(Date.now() / 1000) + expiryDays * 86400 : undefined,
       authorizationSignature,
       authorizationHash,
-      chainId: TEMPO_CHAIN_ID,
+      chainId: tempoTestnet.id,
     });
 
     return NextResponse.json(result);

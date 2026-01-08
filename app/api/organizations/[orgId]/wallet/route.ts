@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { getOrgWalletAddress, isOrgMember } from '@/db/queries/organizations';
-import { tempoClient } from '@/lib/tempo/client';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { getCurrentNetwork } from '@/db/network';
+import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { getTokenMetadata } from '@/lib/tempo/tokens';
 
 type RouteContext = {
   params: Promise<{ orgId: string }>;
@@ -12,9 +12,9 @@ type RouteContext = {
 /**
  * GET /api/organizations/[orgId]/wallet
  *
- * Get organization wallet address and balance (members can view)
+ * Get organization wallet address and token metadata (members can view)
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const session = await requireAuth();
     const { orgId } = await context.params;
@@ -24,16 +24,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const address = await getOrgWalletAddress(orgId);
-
-    const balance = await tempoClient.token.getBalance({
-      account: address,
-      token: TEMPO_TOKENS.PATH_USD,
-    });
+    const metadata = await getTokenMetadata(TEMPO_TOKENS.USDC);
 
     return NextResponse.json({
       address,
-      balance: balance.toString(),
       network: getCurrentNetwork(),
+      tokenAddress: TEMPO_TOKENS.USDC,
+      tokenDecimals: metadata.decimals,
+      tokenSymbol: metadata.symbol,
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {

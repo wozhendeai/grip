@@ -1,4 +1,4 @@
-import { RouteModal } from '@/components/modal/route-modal';
+import { RouteModal } from '@/components/layout/route-modal';
 import { TxDetail } from '../../../tx/[hash]/_components/tx-detail';
 
 interface TxModalPageProps {

@@ -13,10 +13,9 @@
  * - Use a single passkey for both auth and transaction signing
  */
 
-import { tempo } from 'tempo.ts/chains';
-import { KeyManager, webAuthn } from 'tempo.ts/wagmi';
+import { tempoTestnet } from 'viem/chains';
 import { http, createConfig } from 'wagmi';
-import { TEMPO_RPC_URL, TEMPO_TOKENS } from './tempo/constants';
+import { KeyManager, webAuthn } from 'wagmi/tempo';
 
 /**
  * Wagmi configuration with Tempo's webAuthn connector
@@ -32,11 +31,9 @@ import { TEMPO_RPC_URL, TEMPO_TOKENS } from './tempo/constants';
  */
 export const config = createConfig({
   chains: [
-    tempo({
-      // Use PathUSD as default fee token
-      // This is Tempo's native fee token, always available
-      feeToken: TEMPO_TOKENS.PATH_USD,
-    }),
+    // Fee token not specified - protocol handles fallback chain:
+    // Transaction → Account preference → Contract → pathUSD
+    tempoTestnet,
   ],
   connectors: [
     webAuthn({
@@ -44,11 +41,10 @@ export const config = createConfig({
       // instead of localStorage (which would be lost on logout/device change)
       keyManager: KeyManager.http(
         {
-          // Better Auth plugin endpoints for KeyManager
-          // SDK expects these specific endpoint properties with :credentialId placeholder
-          // The SDK will replace :credentialId with the actual credential ID
-          getPublicKey: '/api/auth/tempo/keymanager?credentialId=:credentialId',
-          setPublicKey: '/api/auth/tempo/keymanager?credentialId=:credentialId',
+          // Better-auth tempo plugin endpoints with path params
+          // SDK replaces :credentialId with the actual credential ID
+          getPublicKey: '/api/auth/tempo/keymanager/:credentialId',
+          setPublicKey: '/api/auth/tempo/keymanager/:credentialId',
         },
         {
           // CRITICAL: Include credentials (cookies) with requests
@@ -67,7 +63,9 @@ export const config = createConfig({
   // GRIP uses treasury passkeys only, not external wallets
   multiInjectedProviderDiscovery: false,
   transports: {
-    [tempo().id]: http(TEMPO_RPC_URL),
+    [tempoTestnet.id]: http(
+      process.env.NEXT_PUBLIC_TEMPO_RPC_URL ?? tempoTestnet.rpcUrls.default.http[0]
+    ),
   },
 });
 

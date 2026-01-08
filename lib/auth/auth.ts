@@ -1,7 +1,7 @@
 import { db } from '@/db';
 import * as schema from '@/db/schema/auth';
 import { signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
-import { getBackendWalletAddress } from '@/lib/turnkey/client';
+import { getBackendWalletAddress } from '@/lib/turnkey';
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -9,7 +9,7 @@ import { createAuthMiddleware } from 'better-auth/api';
 import { organization } from 'better-auth/plugins';
 import { and, eq } from 'drizzle-orm';
 import { getGitHubToken } from '@/lib/github';
-import { getUserOrgMembership } from '@/lib/github/organizations';
+import { getUserOrgMembership } from '@/lib/github';
 import { syncGitHubMembers } from '@/lib/organization/sync';
 import { ac, billingAdmin, bountyManager, member, owner } from './permissions';
 import { tempo } from './tempo-plugin/tempo-plugin';

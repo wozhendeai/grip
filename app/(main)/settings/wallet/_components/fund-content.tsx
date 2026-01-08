@@ -4,18 +4,24 @@ import { Button } from '@/components/ui/button';
 import { Check, Copy, Droplet, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
+import { Hooks } from 'wagmi/tempo';
 
 interface FundContentProps {
-  walletAddress: string;
+  walletAddress: `0x${string}`;
   onDone?: () => void;
 }
 
 export function FundContent({ walletAddress, onDone }: FundContentProps) {
   const [copied, setCopied] = useState(false);
-  const [faucetStatus, setFaucetStatus] = useState<'idle' | 'requesting' | 'success' | 'error'>(
-    'idle'
-  );
   const [faucetMessage, setFaucetMessage] = useState('');
+
+  // Use SDK hook for faucet
+  const {
+    mutateAsync: fundWallet,
+    isPending: isRequesting,
+    isSuccess,
+    isError,
+  } = Hooks.faucet.useFundSync();
 
   const isTestnet = process.env.NEXT_PUBLIC_TEMPO_NETWORK === 'testnet';
   const networkName = isTestnet ? 'Tempo Testnet' : 'Tempo';
@@ -30,31 +36,19 @@ export function FundContent({ walletAddress, onDone }: FundContentProps) {
   };
 
   async function handleRequestTestTokens() {
-    setFaucetStatus('requesting');
     setFaucetMessage('');
 
     try {
-      const res = await fetch('/api/wallet/faucet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const result = await res.json();
-
-      if (res.ok) {
-        setFaucetStatus('success');
-        setFaucetMessage('Test tokens sent! Balance updates in ~30s');
-      } else if (res.status === 429) {
-        setFaucetStatus('error');
-        const hours = Math.ceil((result.retryAfter || 86400) / 3600);
-        setFaucetMessage(`Rate limited. Try again in ${hours}h`);
+      await fundWallet({ account: walletAddress });
+      setFaucetMessage('Test tokens sent! Balance updates in ~30s');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Request failed';
+      // Check for rate limiting
+      if (message.toLowerCase().includes('rate') || message.toLowerCase().includes('limit')) {
+        setFaucetMessage('Rate limited. Try again later.');
       } else {
-        setFaucetStatus('error');
-        setFaucetMessage(result.error || 'Request failed');
+        setFaucetMessage(message);
       }
-    } catch {
-      setFaucetStatus('error');
-      setFaucetMessage('Network error');
     }
   }
 
@@ -106,18 +100,14 @@ export function FundContent({ walletAddress, onDone }: FundContentProps) {
             variant="link"
             size="sm"
             onClick={handleRequestTestTokens}
-            disabled={faucetStatus === 'requesting'}
+            disabled={isRequesting}
             className="h-auto gap-1 p-0 text-xs text-muted-foreground"
           >
             <Droplet className="h-3 w-3" />
-            {faucetStatus === 'requesting' ? 'Requesting...' : 'Get test tokens'}
+            {isRequesting ? 'Requesting...' : 'Get test tokens'}
           </Button>
           {faucetMessage && (
-            <span
-              className={`text-xs ${
-                faucetStatus === 'success' ? 'text-success' : 'text-destructive'
-              }`}
-            >
+            <span className={`text-xs ${isSuccess ? 'text-success' : 'text-destructive'}`}>
               {faucetMessage}
             </span>
           )}

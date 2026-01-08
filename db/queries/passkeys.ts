@@ -41,26 +41,6 @@ export async function getUserWallet(userId: string) {
   return wallet ?? null;
 }
 
-/**
- * Get passkey by ID
- * Used for looking up treasury passkeys
- */
-export async function getPasskeyById(passkeyId: string) {
-  const [result] = await db
-    .select({
-      id: passkey.id,
-      name: passkey.name,
-      credentialID: passkey.credentialID,
-      tempoAddress: passkey.tempoAddress,
-      createdAt: passkey.createdAt,
-    })
-    .from(passkey)
-    .where(eq(passkey.id, passkeyId))
-    .limit(1);
-
-  return result ?? null;
-}
-
 export type UserOnboardingInfo = {
   hasWallet: boolean;
   walletAddress: string | null;

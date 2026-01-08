@@ -10,17 +10,49 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ArrowUpRight, Settings, Wallet as WalletIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatUnits } from 'viem';
+import { Hooks } from 'wagmi/tempo';
 import { PasskeyManager } from '../../_components/passkey-manager';
+import { FeeTokenSelect } from './fee-token-select';
 import { FundContent } from './fund-content';
 import { WithdrawContent } from './withdraw-content';
+
+/**
+ * Hook to get user's primary token (fee token preference or USDC fallback)
+ */
+function usePrimaryToken(walletAddress: `0x${string}`) {
+  const { data: userFeeToken, isLoading: isLoadingFeeToken } = Hooks.fee.useUserToken({
+    account: walletAddress,
+    query: { enabled: Boolean(walletAddress) },
+  });
+
+  // Use fee token if set, otherwise default to USDC
+  const tokenAddress = (userFeeToken?.address ?? TEMPO_TOKENS.USDC) as `0x${string}`;
+
+  const { data: metadata, isLoading: isLoadingMetadata } = Hooks.token.useGetMetadata({
+    token: tokenAddress,
+    query: {
+      enabled: Boolean(tokenAddress),
+      staleTime: 86_400_000, // Cache for 24h - metadata rarely changes
+    },
+  });
+
+  return {
+    tokenAddress,
+    symbol: metadata?.symbol ?? 'USDC',
+    decimals: metadata?.decimals ?? 6,
+    isLoading: isLoadingFeeToken || isLoadingMetadata,
+  };
+}
 
 export interface WalletHeroProps {
   wallet: {
     id: string;
     name: string | null;
-    tempoAddress: string;
+    tempoAddress: `0x${string}`;
     createdAt: string;
   };
   isModal?: boolean;
@@ -30,37 +62,39 @@ export interface WalletHeroProps {
 type ModalView = 'main' | 'fund' | 'withdraw' | 'settings';
 
 export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletHeroProps) {
-  const [balance, setBalance] = useState<number>(0.0);
-  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [fundModalOpen, setFundModalOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [modalView, setModalView] = useState<ModalView>('main');
 
-  const fetchBalance = useCallback(async () => {
-    if (!wallet?.tempoAddress) return;
-    try {
-      const res = await fetch(`/api/wallet/balance?address=${wallet.tempoAddress}`);
-      if (res.ok) {
-        const data = await res.json();
-        const newBalance = Number.parseFloat(data.formattedBalance ?? '0');
-        setBalance(newBalance);
-        onBalanceChange?.(newBalance);
-      }
-    } catch (err) {
-      console.error('Failed to fetch balance:', err);
-    } finally {
-      setIsLoadingBalance(false);
-    }
-  }, [wallet?.tempoAddress, onBalanceChange]);
+  // Get user's primary token (fee token preference or USDC)
+  const {
+    tokenAddress,
+    symbol,
+    decimals,
+    isLoading: isLoadingToken,
+  } = usePrimaryToken(wallet.tempoAddress);
 
+  // Use SDK hook for balance - auto-refreshes every 10s
+  const { data: rawBalance, isLoading: isLoadingBalance } = Hooks.token.useGetBalance({
+    account: wallet.tempoAddress,
+    token: tokenAddress,
+    query: {
+      enabled: Boolean(wallet?.tempoAddress) && !isLoadingToken,
+      refetchInterval: 10_000,
+      staleTime: 10_000,
+    },
+  });
+
+  const balance = rawBalance ? Number(formatUnits(rawBalance, decimals)) : 0;
+  const isLoading = isLoadingToken || isLoadingBalance;
+
+  // Notify parent of balance changes
   useEffect(() => {
-    if (wallet?.tempoAddress) {
-      fetchBalance();
-      const interval = setInterval(fetchBalance, 10000);
-      return () => clearInterval(interval);
+    if (rawBalance !== undefined) {
+      onBalanceChange?.(balance);
     }
-  }, [fetchBalance, wallet?.tempoAddress]);
+  }, [rawBalance, balance, onBalanceChange]);
 
   // Modal mode: inline fund/withdraw/settings views
   if (isModal) {
@@ -117,8 +151,9 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <BalanceSection
           balance={balance}
-          isLoading={isLoadingBalance}
+          isLoading={isLoading}
           walletAddress={wallet.tempoAddress}
+          tokenSymbol={symbol}
         />
         <div className="flex gap-2">
           <Button className="gap-2" onClick={() => setModalView('fund')}>
@@ -145,8 +180,9 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <BalanceSection
               balance={balance}
-              isLoading={isLoadingBalance}
+              isLoading={isLoading}
               walletAddress={wallet.tempoAddress}
+              tokenSymbol={symbol}
             />
             <div className="flex gap-2">
               <Button size="lg" className="gap-2" onClick={() => setFundModalOpen(true)}>
@@ -213,10 +249,12 @@ function BalanceSection({
   balance,
   isLoading,
   walletAddress,
+  tokenSymbol,
 }: {
   balance: number;
   isLoading: boolean;
-  walletAddress: string;
+  walletAddress: `0x${string}`;
+  tokenSymbol: string;
 }) {
   return (
     <div>
@@ -227,11 +265,14 @@ function BalanceSection({
         ) : (
           <span className="text-3xl font-bold">${balance.toFixed(2)}</span>
         )}
-        <span className="text-sm text-muted-foreground">USDC</span>
+        <span className="text-sm text-muted-foreground">{tokenSymbol}</span>
       </div>
       <div className="mt-2 flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Address:</span>
         <AddressDisplay address={walletAddress} truncate />
+      </div>
+      <div className="mt-3">
+        <FeeTokenSelect walletAddress={walletAddress} />
       </div>
     </div>
   );

@@ -4,25 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Notification } from '@/lib/types';
-import { NOTIFICATION_ICONS } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { formatTimeAgo } from '@/lib/utils';
 
-/**
- * Format timestamp as relative time
- */
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  return date.toLocaleDateString();
-}
+// Notification icon mapping
+export const NOTIFICATION_ICONS: Record<string, string> = {
+  pr_submitted: '📝',
+  submission_expiring: '⏰',
+  payment_received: '💰',
+  bounty_created_on_repo: '🎯',
+  pr_approved: '✅',
+  pr_rejected: '❌',
+};
 
 interface NotificationsListProps {
   notifications: Notification[];
@@ -62,8 +57,10 @@ export function NotificationsList({
   // Mark as read on click
   const handleNotificationClick = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notificationId] }),
       });
       // Optimistic update
       setNotifications((prev) =>
@@ -77,8 +74,10 @@ export function NotificationsList({
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/read-all', {
-        method: 'PUT',
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
     } catch (error) {

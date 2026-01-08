@@ -10,11 +10,11 @@ import {
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { ActivityFeed } from '@/components/dashboard/activity-feed';
-import { QuickActions } from '@/components/dashboard/quick-actions';
-import { Suggestions } from '@/components/dashboard/suggestions';
-import { Onboarding } from '@/components/dashboard/onboarding';
-import { ActiveRepos } from '@/components/dashboard/active-repos';
+import { ActivityFeed } from './_components/activity-feed';
+import { QuickActions } from './_components/quick-actions';
+import { Suggestions } from './_components/suggestions';
+import { Onboarding } from './_components/onboarding';
+import { ActiveRepos } from './_components/active-repos';
 import type { Bounty } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

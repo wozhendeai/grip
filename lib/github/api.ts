@@ -1,101 +1,38 @@
-import { githubFetch, githubFetchWithToken } from './index';
+import type { RestEndpointMethodTypes } from '@octokit/rest';
+import { serverOctokit, userOctokit } from './index';
 
 /**
  * GitHub API Operations
  *
- * All GitHub API operations consolidated:
- * - User operations (profiles, activity)
- * - Repo operations (metadata, permissions)
- * - Issue operations (fetch, labels, comments)
+ * Thin wrappers around Octokit with caching.
+ * Uses serverOctokit for public data, userOctokit for authenticated operations.
  */
 
 // ============ Types ============
 
-export type GitHubUser = {
-  id: number;
-  login: string;
-  name: string | null;
-  avatar_url: string;
-  bio: string | null;
-  public_repos: number;
-  followers: number;
-  following: number;
-  created_at: string;
-  html_url: string;
-  blog: string | null;
-  location: string | null;
-  twitter_username: string | null;
-};
-
-export type GitHubRepo = {
-  id: number;
-  name: string;
-  full_name: string;
-  owner: { login: string; avatar_url: string; id: number };
-  description: string | null;
-  private: boolean;
-  html_url: string;
-  stargazers_count: number;
-  forks_count: number;
-  open_issues_count: number;
-  language: string | null;
-  created_at: string;
-  updated_at: string;
-  default_branch: string;
-};
-
-export interface GitHubIssue {
-  id: number;
-  number: number;
-  title: string;
-  body: string | null;
-  html_url: string;
-  state: 'open' | 'closed';
-  labels: Array<{ name: string; color: string }>;
-  user: {
-    id: number;
-    login: string;
-    avatar_url: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
+export type GitHubUser = RestEndpointMethodTypes['users']['getByUsername']['response']['data'];
+export type GitHubRepo = RestEndpointMethodTypes['repos']['get']['response']['data'];
+export type GitHubRepoMinimal =
+  RestEndpointMethodTypes['repos']['listForUser']['response']['data'][number];
+export type GitHubIssue = RestEndpointMethodTypes['issues']['get']['response']['data'];
 
 export interface IssuesResult {
   issues: GitHubIssue[];
   hasNextPage: boolean;
 }
 
-/**
- * Activity level based on recent contributions
- */
 export type ActivityLevel = 'active' | 'recent' | 'inactive';
 
-/**
- * GitHub user activity summary
- */
 export type GitHubActivity = {
-  lastActiveAt: string | null; // ISO timestamp of last public event
+  lastActiveAt: string | null;
   activityLevel: ActivityLevel;
-};
-
-/**
- * GitHub Event from Events API (simplified)
- */
-type GitHubEvent = {
-  id: string;
-  type: string;
-  created_at: string;
 };
 
 // ============ Constants ============
 
-/**
- * Bounty label configuration
- */
 export const BOUNTY_LABEL = {
   name: 'bounty',
-  color: '2ea44f', // GitHub green
+  color: '2ea44f',
   description: 'This issue has a bounty attached via GRIP',
 };
 
@@ -104,45 +41,38 @@ export const BOUNTY_LABEL = {
 /**
  * Fetch GitHub user profile by username (uses server token)
  *
- * Caches for 1 hour since user profiles don't change frequently.
  * Returns null if user doesn't exist.
  */
 export async function fetchGitHubUser(username: string): Promise<GitHubUser | null> {
-  return githubFetch<GitHubUser>(`/users/${username}`, {
-    next: { revalidate: 3600 }, // Cache 1 hour
-  });
+  try {
+    const { data } = await serverOctokit.users.getByUsername({ username });
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
+  }
 }
 
 /**
- * Fetch GitHub user activity to determine if they're an active contributor (uses server token)
- *
- * Fetches recent public events to show credibility signals.
- * Filters out passive events (WatchEvent, ForkEvent) that don't indicate real contributions.
+ * Fetch GitHub user activity to determine if they're an active contributor
  *
  * Activity levels:
  * - active: < 7 days since last activity
  * - recent: 7-30 days since last activity
  * - inactive: > 30 days or no events
- *
- * Caches for 1 hour to minimize API requests while staying reasonably fresh.
  */
 export async function fetchGitHubUserActivity(username: string): Promise<GitHubActivity> {
   try {
-    // Fetch recent public events (max 30 to ensure we find a real contribution)
-    // Filter out passive events that don't indicate real activity
-    const events = await githubFetch<GitHubEvent[]>(
-      `/users/${username}/events/public?per_page=30`,
-      {
-        next: { revalidate: 3600 }, // Cache 1 hour
-      }
-    );
+    const { data: events } = await serverOctokit.activity.listPublicEventsForUser({
+      username,
+      per_page: 30,
+    });
 
-    if (!events || events.length === 0) {
+    if (events.length === 0) {
       return { lastActiveAt: null, activityLevel: 'inactive' };
     }
 
-    // Filter out passive events (WatchEvent = starring repos, ForkEvent = forking without contribution)
-    // Keep events that indicate real activity: PushEvent, PullRequestEvent, IssuesEvent, etc.
+    // Filter out passive events (WatchEvent = starring, ForkEvent = forking without contribution)
     const activeEvents = events.filter(
       (event) => event.type !== 'WatchEvent' && event.type !== 'ForkEvent'
     );
@@ -151,11 +81,13 @@ export async function fetchGitHubUserActivity(username: string): Promise<GitHubA
       return { lastActiveAt: null, activityLevel: 'inactive' };
     }
 
-    // Get most recent active event
     const lastEvent = activeEvents[0];
     const lastActiveAt = lastEvent.created_at;
 
-    // Calculate activity level based on recency
+    if (!lastActiveAt) {
+      return { lastActiveAt: null, activityLevel: 'inactive' };
+    }
+
     const now = new Date();
     const lastActiveDate = new Date(lastActiveAt);
     const diffInDays = Math.floor(
@@ -172,10 +104,7 @@ export async function fetchGitHubUserActivity(username: string): Promise<GitHubA
     }
 
     return { lastActiveAt, activityLevel };
-  } catch (error) {
-    // Graceful degradation on error (rate limits, API issues)
-    // Return inactive instead of throwing - profile page should still render
-    console.error('Failed to fetch GitHub activity:', error);
+  } catch {
     return { lastActiveAt: null, activityLevel: 'inactive' };
   }
 }
@@ -185,60 +114,64 @@ export async function fetchGitHubUserActivity(username: string): Promise<GitHubA
 /**
  * Fetch GitHub repository by owner/repo (uses server token)
  *
- * Caches for 1 hour since repo metadata doesn't change frequently.
  * Returns null if repo doesn't exist.
  */
 export async function fetchGitHubRepo(owner: string, repo: string): Promise<GitHubRepo | null> {
-  return githubFetch<GitHubRepo>(`/repos/${owner}/${repo}`, {
-    next: { revalidate: 3600 }, // Cache 1 hour
-  });
+  try {
+    const { data } = await serverOctokit.repos.get({ owner, repo });
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
+  }
 }
 
 /**
- * Check if user has write or admin access to a repository (uses server token)
+ * Check if user has write or admin access to a repository
  *
  * Used to determine if user can create bounties on unclaimed repos.
- * Caches for 1 hour.
  */
 export async function canUserManageRepo(
   owner: string,
   repo: string,
   username: string
 ): Promise<boolean> {
-  const permission = await githubFetch<{ permission: string }>(
-    `/repos/${owner}/${repo}/collaborators/${username}/permission`,
-    { next: { revalidate: 3600 } }
-  );
-
-  return permission?.permission === 'admin' || permission?.permission === 'write';
+  try {
+    const { data } = await serverOctokit.repos.getCollaboratorPermissionLevel({
+      owner,
+      repo,
+      username,
+    });
+    return data.permission === 'admin' || data.permission === 'write';
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Check if user is a collaborator on a repository (any permission level)
  *
- * Used to enforce contributor eligibility settings.
  * Returns true if user has any collaborator access (read, triage, write, maintain, or admin).
- * Returns false if user is not a collaborator or if check fails.
  */
 export async function isUserCollaborator(
   owner: string,
   repo: string,
   username: string
 ): Promise<boolean> {
-  const permission = await githubFetch<{ permission: string }>(
-    `/repos/${owner}/${repo}/collaborators/${username}/permission`,
-    { next: { revalidate: 300 } } // Cache 5 min (shorter than canUserManageRepo)
-  );
-
-  // Any non-null permission means they're a collaborator
-  return permission !== null;
+  try {
+    await serverOctokit.repos.getCollaboratorPermissionLevel({
+      owner,
+      repo,
+      username,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Fetch a GitHub user's public repositories (uses server token)
- *
- * Uses public API with server GITHUB_TOKEN (no user auth required).
- * Caches for 1 hour. Returns empty array if user not found.
  */
 export async function fetchGitHubUserRepositories(
   username: string,
@@ -246,36 +179,46 @@ export async function fetchGitHubUserRepositories(
     sort?: 'created' | 'updated' | 'pushed' | 'full_name';
     perPage?: number;
   } = {}
-): Promise<GitHubRepo[]> {
+): Promise<GitHubRepoMinimal[]> {
   const { sort = 'updated', perPage = 30 } = options;
 
-  const data = await githubFetch<GitHubRepo[]>(
-    `/users/${username}/repos?sort=${sort}&per_page=${perPage}&type=public`,
-    { next: { revalidate: 3600 } }
-  );
-
-  return data ?? [];
+  try {
+    const { data } = await serverOctokit.repos.listForUser({
+      username,
+      sort,
+      per_page: perPage,
+      type: 'owner',
+    });
+    // Filter to public repos only (GitHub API returns all for owner type)
+    return data.filter((repo) => !repo.private);
+  } catch {
+    return [];
+  }
 }
 
 /**
  * Fetch organization's public repositories (uses server token)
- * Caches for 1 hour. Returns empty array if org not found.
  */
 export async function fetchGitHubOrgRepositories(
-  orgLogin: string,
+  org: string,
   options: {
     sort?: 'created' | 'updated' | 'pushed' | 'full_name';
     perPage?: number;
   } = {}
-): Promise<GitHubRepo[]> {
+): Promise<GitHubRepoMinimal[]> {
   const { sort = 'updated', perPage = 30 } = options;
 
-  const data = await githubFetch<GitHubRepo[]>(
-    `/orgs/${orgLogin}/repos?sort=${sort}&per_page=${perPage}&type=public`,
-    { next: { revalidate: 3600 } }
-  );
-
-  return data ?? [];
+  try {
+    const { data } = await serverOctokit.repos.listForOrg({
+      org,
+      sort,
+      per_page: perPage,
+    });
+    // Filter to public repos only
+    return data.filter((repo) => !repo.private);
+  } catch {
+    return [];
+  }
 }
 
 // ============ Issue Operations (Requires User OAuth Token) ============
@@ -289,28 +232,21 @@ export async function getIssue(
   repo: string,
   issueNumber: number
 ): Promise<GitHubIssue | null> {
-  const response = await githubFetchWithToken(
-    token,
-    `/repos/${owner}/${repo}/issues/${issueNumber}`
-  );
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      return null;
-    }
-    throw new Error(`GitHub API error: ${response.status} ${await response.text()}`);
+  try {
+    const { data } = await userOctokit(token).issues.get({
+      owner,
+      repo,
+      issue_number: issueNumber,
+    });
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
  * List open issues from a GitHub repository (requires user token)
- *
- * @param token GitHub access token
- * @param owner Repository owner
- * @param repo Repository name
- * @param options Optional filters
  */
 export async function listOpenIssues(
   token: string,
@@ -322,52 +258,30 @@ export async function listOpenIssues(
     labels?: string;
   } = {}
 ): Promise<IssuesResult> {
-  const params = new URLSearchParams({
+  const octokit = userOctokit(token);
+
+  const { data, headers } = await octokit.issues.listForRepo({
+    owner,
+    repo,
     state: 'open',
-    per_page: String(options.perPage ?? 50),
-    page: String(options.page ?? 1),
+    per_page: options.perPage ?? 50,
+    page: options.page ?? 1,
     sort: 'updated',
     direction: 'desc',
+    labels: options.labels,
   });
 
-  if (options.labels) {
-    params.set('labels', options.labels);
-  }
-
-  const response = await githubFetchWithToken(token, `/repos/${owner}/${repo}/issues?${params}`);
-
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${await response.text()}`);
-  }
-
-  // Parse Link header for pagination metadata
-  const linkHeader = response.headers.get('Link');
+  const linkHeader = headers.link;
   const hasNextPage = linkHeader?.includes('rel="next"') ?? false;
 
-  const issues = await response.json();
-
   // Filter out pull requests (GitHub API returns PRs as issues)
-  const filteredIssues = issues.filter(
-    (issue: GitHubIssue & { pull_request?: unknown }) => !issue.pull_request
-  );
+  const issues = data.filter((issue) => !issue.pull_request);
 
-  return {
-    issues: filteredIssues,
-    hasNextPage,
-  };
+  return { issues, hasNextPage };
 }
 
 /**
  * Search issues in a GitHub repository using GitHub Search API (requires user token)
- *
- * Uses GitHub's search endpoint to search ALL issues in a repo (not just loaded ones).
- * Search is performed server-side by GitHub for better performance on large repos.
- *
- * @param token GitHub access token
- * @param owner Repository owner
- * @param repo Repository name
- * @param searchTerm Search query (searches title and body)
- * @param options Optional pagination settings
  */
 export async function searchRepoIssues(
   token: string,
@@ -379,39 +293,25 @@ export async function searchRepoIssues(
     page?: number;
   } = {}
 ): Promise<IssuesResult> {
-  // Build GitHub search query: searches in specified repo, only open issues
+  const octokit = userOctokit(token);
+
   const query = `repo:${owner}/${repo} is:issue is:open ${searchTerm}`;
 
-  const params = new URLSearchParams({
+  const { data, headers } = await octokit.search.issuesAndPullRequests({
     q: query,
-    per_page: String(options.perPage ?? 50),
-    page: String(options.page ?? 1),
+    per_page: options.perPage ?? 50,
+    page: options.page ?? 1,
     sort: 'updated',
     order: 'desc',
   });
 
-  const response = await githubFetchWithToken(token, `/search/issues?${params}`);
-
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${await response.text()}`);
-  }
-
-  // Parse Link header for pagination metadata
-  const linkHeader = response.headers.get('Link');
+  const linkHeader = headers.link;
   const hasNextPage = linkHeader?.includes('rel="next"') ?? false;
 
-  const data = await response.json();
+  // Filter out pull requests
+  const issues = data.items.filter((issue) => !issue.pull_request);
 
-  // GitHub Search API returns { items: [], total_count: N }
-  // Filter out pull requests (GitHub API returns PRs as issues)
-  const filteredIssues = (data.items || []).filter(
-    (issue: GitHubIssue & { pull_request?: unknown }) => !issue.pull_request
-  );
-
-  return {
-    issues: filteredIssues,
-    hasNextPage,
-  };
+  return { issues: issues as GitHubIssue[], hasNextPage };
 }
 
 /**
@@ -426,22 +326,24 @@ export async function addLabelToIssue(
   issueNumber: number,
   label: string = BOUNTY_LABEL.name
 ): Promise<void> {
-  // First, ensure the label exists in the repository
-  await ensureLabelExists(token, owner, repo, label);
+  const octokit = userOctokit(token);
+
+  // Ensure the label exists in the repository
+  await ensureLabelExists(octokit, owner, repo, label);
 
   // Add the label to the issue
-  const response = await githubFetchWithToken(
-    token,
-    `/repos/${owner}/${repo}/issues/${issueNumber}/labels`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ labels: [label] }),
-    }
-  );
-
-  if (!response.ok && response.status !== 422) {
+  try {
+    await octokit.issues.addLabels({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      labels: [label],
+    });
+  } catch (error) {
     // 422 means label already exists on issue, which is fine
-    throw new Error(`Failed to add label: ${response.status} ${await response.text()}`);
+    if ((error as { status?: number }).status !== 422) {
+      throw error;
+    }
   }
 }
 
@@ -449,41 +351,37 @@ export async function addLabelToIssue(
  * Ensure a label exists in the repository
  */
 async function ensureLabelExists(
-  token: string,
+  octokit: ReturnType<typeof userOctokit>,
   owner: string,
   repo: string,
   label: string
 ): Promise<void> {
-  // Try to get the label
-  const getResponse = await githubFetchWithToken(
-    token,
-    `/repos/${owner}/${repo}/labels/${encodeURIComponent(label)}`
-  );
-
-  if (getResponse.ok) {
-    // Label already exists
-    return;
-  }
-
-  if (getResponse.status !== 404) {
-    throw new Error(`Failed to check label: ${getResponse.status}`);
-  }
-
-  // Create the label
-  const createResponse = await githubFetchWithToken(token, `/repos/${owner}/${repo}/labels`, {
-    method: 'POST',
-    body: JSON.stringify({
-      name: BOUNTY_LABEL.name,
-      color: BOUNTY_LABEL.color,
-      description: BOUNTY_LABEL.description,
-    }),
-  });
-
-  if (!createResponse.ok && createResponse.status !== 422) {
-    // 422 means label already exists (race condition), which is fine
-    throw new Error(
-      `Failed to create label: ${createResponse.status} ${await createResponse.text()}`
-    );
+  try {
+    await octokit.issues.getLabel({
+      owner,
+      repo,
+      name: label,
+    });
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) {
+      // Create the label
+      try {
+        await octokit.issues.createLabel({
+          owner,
+          repo,
+          name: BOUNTY_LABEL.name,
+          color: BOUNTY_LABEL.color,
+          description: BOUNTY_LABEL.description,
+        });
+      } catch (createError) {
+        // 422 means label already exists (race condition), which is fine
+        if ((createError as { status?: number }).status !== 422) {
+          throw createError;
+        }
+      }
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -497,16 +395,18 @@ export async function removeLabelFromIssue(
   issueNumber: number,
   label: string = BOUNTY_LABEL.name
 ): Promise<void> {
-  const response = await githubFetchWithToken(
-    token,
-    `/repos/${owner}/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
-    {
-      method: 'DELETE',
+  try {
+    await userOctokit(token).issues.removeLabel({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      name: label,
+    });
+  } catch (error) {
+    // 404 means label wasn't on issue, which is fine
+    if ((error as { status?: number }).status !== 404) {
+      throw error;
     }
-  );
-
-  if (!response.ok && response.status !== 404) {
-    throw new Error(`Failed to remove label: ${response.status} ${await response.text()}`);
   }
 }
 
@@ -520,20 +420,14 @@ export async function commentOnIssue(
   issueNumber: number,
   body: string
 ): Promise<{ id: number; html_url: string }> {
-  const response = await githubFetchWithToken(
-    token,
-    `/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ body }),
-    }
-  );
+  const { data } = await userOctokit(token).issues.createComment({
+    owner,
+    repo,
+    issue_number: issueNumber,
+    body,
+  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to post comment: ${response.status} ${await response.text()}`);
-  }
-
-  return response.json();
+  return { id: data.id, html_url: data.html_url };
 }
 
 /**
@@ -566,4 +460,163 @@ This issue has a bounty attached via [GRIP](https://usegrip.xyz).
 
 ---
 <sub>Powered by [GRIP](https://usegrip.xyz) - Open source bounties on Tempo blockchain</sub>`;
+}
+
+// ============ Organization Types ============
+
+export type GitHubOrganization = RestEndpointMethodTypes['orgs']['get']['response']['data'];
+
+/**
+ * Minimal organization info for display purposes.
+ * Compatible with both full GitHub API response and placeholders.
+ */
+export interface GitHubOrganizationMinimal {
+  id: number;
+  login: string;
+  avatar_url: string;
+  description?: string | null;
+  name?: string | null;
+  blog?: string | null;
+  location?: string | null;
+  email?: string | null;
+  public_repos?: number;
+  public_gists?: number;
+  followers?: number;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+}
+
+export type GitHubOrgMembership =
+  RestEndpointMethodTypes['orgs']['getMembershipForAuthenticatedUser']['response']['data'];
+
+export type GitHubMember =
+  RestEndpointMethodTypes['orgs']['listMembers']['response']['data'][number];
+
+// ============ Organization Operations ============
+
+/**
+ * Get public organization info
+ *
+ * Returns: Organization details or null if not found
+ */
+export async function getOrganization(orgLogin: string): Promise<GitHubOrganization | null> {
+  try {
+    const { data } = await serverOctokit.orgs.get({ org: orgLogin });
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * List user's organizations
+ *
+ * Scope required: read:org
+ * Returns: Array of organizations user belongs to (empty array on error)
+ */
+export async function getUserOrganizations(
+  token: string
+): Promise<RestEndpointMethodTypes['orgs']['listForAuthenticatedUser']['response']['data']> {
+  try {
+    const { data } = await userOctokit(token).orgs.listForAuthenticatedUser();
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 403) {
+      console.info('GitHub organizations: read:org scope required');
+      throw new Error('GitHub API error: 403');
+    }
+    console.error('Failed to fetch user orgs:', error);
+    return [];
+  }
+}
+
+/**
+ * Check user's membership in an organization
+ *
+ * Scope required: read:org
+ * Returns: Membership details or null if user is not a member
+ */
+export async function getUserOrgMembership(
+  token: string,
+  orgLogin: string
+): Promise<GitHubOrgMembership | null> {
+  try {
+    const { data } = await userOctokit(token).orgs.getMembershipForAuthenticatedUser({
+      org: orgLogin,
+    });
+    return data;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * List organization members (single page)
+ *
+ * Scope required: read:org (or org admin)
+ * Supports role filtering: 'all', 'admin', 'member'
+ */
+export async function getOrgMembers(
+  token: string,
+  orgLogin: string,
+  page = 1,
+  perPage = 100,
+  role: 'admin' | 'member' | 'all' = 'all'
+): Promise<GitHubMember[]> {
+  try {
+    const { data } = await userOctokit(token).orgs.listMembers({
+      org: orgLogin,
+      page,
+      per_page: perPage,
+      role: role === 'all' ? undefined : role,
+    });
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch org members:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all organization members (handles pagination)
+ *
+ * Supports role filtering: 'all', 'admin', 'member'
+ */
+export async function getAllOrgMembers(
+  token: string,
+  orgLogin: string,
+  role: 'admin' | 'member' | 'all' = 'all'
+): Promise<GitHubMember[]> {
+  const octokit = userOctokit(token);
+
+  try {
+    return await octokit.paginate(octokit.orgs.listMembers, {
+      org: orgLogin,
+      per_page: 100,
+      role: role === 'all' ? undefined : role,
+    });
+  } catch (error) {
+    console.error('Failed to fetch all org members:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all organization members with role information
+ *
+ * Fetches both all members and admins in parallel.
+ */
+export async function getAllOrgMembersByRole(
+  token: string,
+  orgLogin: string
+): Promise<{ admins: GitHubMember[]; allMembers: GitHubMember[] }> {
+  const [admins, allMembers] = await Promise.all([
+    getAllOrgMembers(token, orgLogin, 'admin'),
+    getAllOrgMembers(token, orgLogin, 'all'),
+  ]);
+
+  return { admins, allMembers };
 }

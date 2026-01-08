@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@/components/theme/theme-provider';
+import { ThemeProvider } from '@/components/ui/theme-provider';
 import type { Metadata } from 'next';
 import { Noto_Sans } from 'next/font/google';
 import { Providers } from './providers';
