@@ -1,5 +1,6 @@
-import { getOrgBySlug, getOrgMembership } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
+import { headers } from 'next/headers';
 import type { Organization, OrgRole, OrgSettingsContext } from './types';
 
 export interface OrgSettingsLayoutData {
@@ -21,15 +22,28 @@ export async function getOrgSettingsLayoutData(
     return null;
   }
 
-  const org = await getOrgBySlug(ownerSlug);
-  if (!org) {
+  const headersList = await headers();
+  const result = await auth.api.getFullOrganization({
+    headers: headersList,
+    query: { organizationSlug: ownerSlug },
+  });
+
+  if (!result) {
     return null;
   }
 
-  const membership = await getOrgMembership(org.id, session.user.id);
+  // Find current user's membership
+  const membership = result.members.find((m) => m.userId === session.user.id);
   if (!membership) {
     return null;
   }
+
+  // Cast to access custom fields (better-auth types don't include additionalFields)
+  const org = result as typeof result & {
+    githubOrgLogin?: string | null;
+    syncMembership?: boolean;
+    lastSyncedAt?: Date | null;
+  };
 
   const currentUserRole = membership.role as OrgRole;
   const isOwner = currentUserRole === 'owner';
@@ -41,10 +55,10 @@ export async function getOrgSettingsLayoutData(
     id: org.id,
     name: org.name,
     slug: org.slug,
-    logo: org.logo,
-    githubOrgLogin: org.githubOrgLogin,
-    syncMembership: org.syncMembership,
-    lastSyncedAt: org.lastSyncedAt,
+    logo: org.logo ?? null,
+    githubOrgLogin: org.githubOrgLogin ?? null,
+    syncMembership: org.syncMembership ?? false,
+    lastSyncedAt: org.lastSyncedAt ?? null,
     createdAt: org.createdAt,
   };
 

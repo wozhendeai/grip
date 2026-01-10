@@ -1,4 +1,4 @@
-import { getUserOrganizations, getUserPendingInvitations } from '@/db/queries/users';
+import { getUserOrganizations } from '@/db/queries/users';
 import { getSession } from '@/lib/auth/auth-server';
 import { OrganizationsContent } from '../_components/content/organizations-content';
 
@@ -8,10 +8,7 @@ export default async function OrganizationsPage() {
     return null;
   }
 
-  const [memberships, pendingInvitations] = await Promise.all([
-    getUserOrganizations(session.user.id),
-    getUserPendingInvitations(session.user.email),
-  ]);
+  const memberships = await getUserOrganizations(session.user.id);
 
-  return <OrganizationsContent memberships={memberships} pendingInvitations={pendingInvitations} />;
+  return <OrganizationsContent memberships={memberships} />;
 }

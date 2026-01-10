@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
-import { revokeAccessKey } from '@/lib/tempo/access-keys';
-import { isOrgOwner } from '@/db/queries/organizations';
+import { revokeAccessKeyById } from '@/lib/tempo/access-keys';
 import { getOrgAccessKeyById } from '@/db/queries/access-keys';
+import { headers } from 'next/headers';
 
 type RouteContext = {
   params: Promise<{ orgId: string; keyId: string }>;
@@ -15,10 +16,16 @@ type RouteContext = {
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const session = await requireAuth();
+    await requireAuth();
     const { orgId, keyId } = await context.params;
 
-    if (!(await isOrgOwner(orgId, session.user.id))) {
+    const headersList = await headers();
+    const hasDeletePermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { organization: ['delete'] }, organizationId: orgId },
+    });
+
+    if (!hasDeletePermission?.success) {
       return NextResponse.json(
         { error: 'Only organization owner can revoke Access Keys' },
         { status: 403 }
@@ -30,7 +37,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Access Key not found' }, { status: 404 });
     }
 
-    await revokeAccessKey(keyId, 'Revoked by owner');
+    await revokeAccessKeyById(keyId, 'Revoked by owner');
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {

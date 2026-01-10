@@ -32,7 +32,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export function UserNav() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const { setTheme } = useTheme();
   const router = useRouter();
 
@@ -40,6 +40,11 @@ export function UserNav() {
     await authClient.signOut();
     router.refresh();
   };
+
+  // Show placeholder during SSR and initial hydration to prevent mismatch
+  if (isPending) {
+    return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />;
+  }
 
   if (!session?.user) {
     return (
@@ -95,7 +100,7 @@ export function UserNav() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem>
-            <Link href="/wallet" className="flex w-full items-center gap-2 cursor-pointer">
+            <Link href="/settings/wallet" className="flex w-full items-center gap-2 cursor-pointer">
               <Wallet className="h-4 w-4" />
               Wallet
             </Link>

@@ -82,7 +82,7 @@ export const createBountySchema = z.object({
   repo: z.string().min(1),
   githubIssueNumber: z.number().int().positive(),
   amount: z.number().positive(),
-  tokenAddress: hexAddress.optional(),
+  tokenAddress: hexAddress,
   publish: z.boolean().optional(),
 });
 

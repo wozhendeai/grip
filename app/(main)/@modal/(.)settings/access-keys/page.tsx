@@ -1,38 +1,23 @@
-import { getAccessKeysByUser } from '@/db/queries/access-keys';
-import { getPasskeysByUser } from '@/db/queries/passkeys';
-import { getSession } from '@/lib/auth/auth-server';
+import { auth } from '@/lib/auth/auth';
+import { headers } from 'next/headers';
 import { AccessKeysContent } from '../../../settings/_components/content/access-keys-content';
 
 export default async function AccessKeysModal() {
-  const session = await getSession();
+  const headersList = await headers();
+  const session = await auth.api.getSession({ headers: headersList });
   if (!session?.user) {
     return null;
   }
 
-  const passkeys = await getPasskeysByUser(session.user.id);
-  const walletPasskey = passkeys.find((p) => p.tempoAddress) ?? null;
+  // Get wallets and access keys from plugin API
+  const { wallets } = await auth.api.listWallets({ headers: headersList });
+  const passkeyWallet = wallets.find((w) => w.walletType === 'passkey') ?? null;
 
-  if (!walletPasskey) {
-    return <AccessKeysContent hasWallet={false} accessKeys={[]} credentialId={null} />;
+  if (!passkeyWallet) {
+    return <AccessKeysContent hasWallet={false} accessKeys={[]} />;
   }
 
-  const accessKeysRaw = await getAccessKeysByUser(session.user.id);
-  const accessKeys = accessKeysRaw.map((key) => ({
-    id: key.id,
-    label: key.label,
-    backendWalletAddress: key.backendWalletAddress,
-    status: key.status,
-    createdAt: key.createdAt,
-    expiry: key.expiry ? Number(key.expiry) : null,
-    limits: key.limits as Record<string, { initial: string; remaining: string }>,
-    lastUsedAt: key.lastUsedAt,
-  }));
+  const { accessKeys } = await auth.api.listAccessKeys({ headers: headersList });
 
-  return (
-    <AccessKeysContent
-      hasWallet={true}
-      accessKeys={accessKeys}
-      credentialId={walletPasskey.credentialID}
-    />
-  );
+  return <AccessKeysContent hasWallet={true} accessKeys={accessKeys} />;
 }

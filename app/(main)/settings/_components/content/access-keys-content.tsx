@@ -2,32 +2,27 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { Key } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AccessKeyManager } from '../access-key-manager';
 import { CreateAccessKeyInline } from '../create-access-key-inline';
 
-export interface AccessKey {
-  id: string;
-  label: string | null;
-  backendWalletAddress: string | null;
-  status: string;
-  createdAt: string | null;
-  expiry: number | null;
-  limits: Record<string, { initial: string; remaining: string }>;
-  lastUsedAt: string | null;
-}
+// Default token for access key spending limits (alphaUSD on Moderato testnet)
+const DEFAULT_LIMIT_TOKEN = '0x20c0000000000000000000000000000000000001' as `0x${string}`;
 
 export interface AccessKeysContentProps {
   hasWallet: boolean;
   accessKeys: AccessKey[];
-  credentialId: string | null;
 }
 
 type ContentView = 'main' | 'create';
 
-export function AccessKeysContent({ hasWallet, accessKeys, credentialId }: AccessKeysContentProps) {
+export function AccessKeysContent({
+  hasWallet,
+  accessKeys,
+}: AccessKeysContentProps) {
   const [view, setView] = useState<ContentView>('main');
   const [keys, setKeys] = useState(accessKeys);
 
@@ -69,6 +64,7 @@ export function AccessKeysContent({ hasWallet, accessKeys, credentialId }: Acces
             setView('main');
           }}
           onBack={() => setView('main')}
+          tokenAddress={DEFAULT_LIMIT_TOKEN}
         />
       </div>
     );
@@ -86,7 +82,6 @@ export function AccessKeysContent({ hasWallet, accessKeys, credentialId }: Acces
         keys={keys}
         onKeysChange={setKeys}
         onCreateClick={() => setView('create')}
-        credentialId={credentialId!}
       />
     </div>
   );

@@ -70,7 +70,7 @@ async function tryAutoPayOnMerge(params: {
   const { getUserWallet } = await import('@/db/queries/passkeys');
   const contributorWallet = await getUserWallet(contributorUserId);
 
-  if (!contributorWallet?.tempoAddress) {
+  if (!contributorWallet?.address) {
     console.log('[webhook/auto-pay] Contributor has no wallet - skipping auto-pay');
     return { success: false, reason: 'Contributor has no wallet' };
   }
@@ -94,8 +94,8 @@ async function tryAutoPayOnMerge(params: {
       bountyId: bounty.id,
       recipientUserId: contributorUserId,
       payerUserId: repo.verifiedOwnerUserId,
-      recipientPasskeyId: contributorWallet.id,
-      recipientAddress: contributorWallet.tempoAddress,
+      recipientPasskeyId: contributorWallet.passkeyId,
+      recipientAddress: contributorWallet.address,
       amount: bounty.totalFunded,
       tokenAddress: bounty.tokenAddress,
       memoIssueNumber: bounty.githubIssueNumber,
@@ -107,7 +107,7 @@ async function tryAutoPayOnMerge(params: {
     const { buildPayoutTransaction } = await import('@/lib/tempo');
     const txParams = buildPayoutTransaction({
       tokenAddress: bounty.tokenAddress as `0x${string}`,
-      recipientAddress: contributorWallet.tempoAddress as `0x${string}`,
+      recipientAddress: contributorWallet.address as `0x${string}`,
       amount: BigInt(bounty.totalFunded.toString()),
       issueNumber: bounty.githubIssueNumber,
       prNumber: submissionDetails.submission.githubPrNumber ?? 0,
@@ -116,20 +116,20 @@ async function tryAutoPayOnMerge(params: {
 
     // Get funder's wallet for signing
     const funderWallet = await getUserWallet(repo.verifiedOwnerUserId);
-    if (!funderWallet?.tempoAddress) {
+    if (!funderWallet?.address) {
       throw new Error('Funder wallet not found');
     }
 
     // Get nonce and sign transaction
     const { tempoClient } = await import('@/lib/tempo/client');
-    const { getNetworkForInsert } = await import('@/db/network');
+    const { getNetworkName } = await import('@/db/network');
     const { signTransactionWithAccessKey, broadcastTransaction } = await import(
       '@/lib/tempo/keychain-signing'
     );
 
     const nonce = BigInt(
       await tempoClient.getTransactionCount({
-        address: funderWallet.tempoAddress as `0x${string}`,
+        address: funderWallet.address as `0x${string}`,
         blockTag: 'pending',
       })
     );
@@ -141,8 +141,8 @@ async function tryAutoPayOnMerge(params: {
         value: txParams.value,
         nonce,
       },
-      funderAddress: funderWallet.tempoAddress as `0x${string}`,
-      network: getNetworkForInsert() as 'testnet' | 'mainnet',
+      funderAddress: funderWallet.address as `0x${string}`,
+      network: getNetworkName(),
     });
 
     // Broadcast transaction

@@ -14,34 +14,55 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { ArrowLeft, Key, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { Hooks } from 'wagmi/tempo';
 import { revokeAccessKeyAction } from '../access-keys/_actions/revoke-access-key';
 
 interface AccessKeyDetailProps {
-  accessKey: {
-    id: string;
-    label: string | null;
-    backendWalletAddress: string | null;
-    status: string;
-    createdAt: string | null;
-    expiry: bigint | null;
-    limits: Record<string, { initial: string; remaining: string }>;
-    lastUsedAt: string | null;
-  };
+  accessKey: AccessKey;
+  keyWalletAddress?: `0x${string}`;
+  rootWalletAddress?: `0x${string}`;
   variant: 'page' | 'modal';
 }
 
-export function AccessKeyDetail({ accessKey, variant }: AccessKeyDetailProps) {
+export function AccessKeyDetail({
+  accessKey,
+  keyWalletAddress,
+  rootWalletAddress,
+  variant,
+}: AccessKeyDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const isExpired = accessKey.expiry && Date.now() / 1000 > Number(accessKey.expiry);
+  const isExpired = accessKey.expiry && Date.now() / 1000 > accessKey.expiry;
   const isActive = accessKey.status === 'active' && !isExpired;
   const isRevoked = accessKey.status === 'revoked';
+
+  // Get the first token limit
+  const firstLimit = accessKey.limits?.[0];
+  const tokenAddress = firstLimit?.token;
+  const authorizedLimit = firstLimit
+    ? (BigInt(firstLimit.limit) / BigInt(1_000_000)).toString()
+    : '0';
+
+  // Fetch remaining allowance from chain
+  const { data: remainingAllowance, isLoading: isLoadingAllowance } = Hooks.token.useGetAllowance({
+    account: rootWalletAddress ?? '0x0000000000000000000000000000000000000000',
+    spender: keyWalletAddress ?? '0x0000000000000000000000000000000000000000',
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
+    query: {
+      enabled: Boolean(rootWalletAddress && keyWalletAddress && tokenAddress),
+    },
+  });
+
+  const remainingAmount = remainingAllowance
+    ? (remainingAllowance / BigInt(1_000_000)).toString()
+    : null;
 
   function handleRevoke() {
     setError(null);
@@ -63,28 +84,12 @@ export function AccessKeyDetail({ accessKey, variant }: AccessKeyDetailProps) {
     : 'Unknown';
 
   const expiryDate = accessKey.expiry
-    ? new Date(Number(accessKey.expiry) * 1000).toLocaleDateString('en-US', {
+    ? new Date(accessKey.expiry * 1000).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       })
     : 'Never';
-
-  const lastUsedDate = accessKey.lastUsedAt
-    ? new Date(accessKey.lastUsedAt).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : 'Never';
-
-  // Format spending limits
-  const limitEntries = Object.entries(accessKey.limits);
-  const formattedLimits = limitEntries.map(([token, { initial, remaining }]) => ({
-    token,
-    initial: (BigInt(initial) / BigInt(1_000_000)).toString(),
-    remaining: (BigInt(remaining) / BigInt(1_000_000)).toString(),
-  }));
 
   return (
     <div className="space-y-6 p-6">
@@ -123,9 +128,7 @@ export function AccessKeyDetail({ accessKey, variant }: AccessKeyDetailProps) {
                   {accessKey.label || 'Auto-Pay Access Key'}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground font-mono">
-                  {accessKey.backendWalletAddress
-                    ? truncateAddress(accessKey.backendWalletAddress)
-                    : 'Organization Access Key'}
+                  {keyWalletAddress ? truncateAddress(keyWalletAddress) : 'Access Key'}
                 </p>
               </div>
             </div>
@@ -162,35 +165,30 @@ export function AccessKeyDetail({ accessKey, variant }: AccessKeyDetailProps) {
           </div>
 
           {/* Spending limits */}
-          {formattedLimits.length > 0 && (
+          {tokenAddress && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground">Spending Limits</h4>
-              <div className="space-y-2">
-                {formattedLimits.map(({ token, initial, remaining }) => (
-                  <div
-                    key={token}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {truncateAddress(token)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">${remaining} remaining</p>
-                      <p className="text-xs text-muted-foreground">of ${initial} USDC</p>
-                    </div>
-                  </div>
-                ))}
+              <h4 className="text-sm font-medium text-muted-foreground">Spending Limit</h4>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {truncateAddress(tokenAddress)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {isLoadingAllowance ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : remainingAmount !== null ? (
+                    <>
+                      <p className="text-sm font-medium">${remainingAmount} remaining</p>
+                      <p className="text-xs text-muted-foreground">of ${authorizedLimit} USDC</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-medium">${authorizedLimit} USDC authorized</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
-
-          {/* Last used */}
-          <div>
-            <p className="text-sm text-muted-foreground">Last Used</p>
-            <p className="text-sm font-medium">{lastUsedDate}</p>
-          </div>
 
           {/* Error message */}
           {error && (

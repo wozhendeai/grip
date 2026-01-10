@@ -58,7 +58,7 @@ export default async function ExplorePage({
   const bounties = bountiesData.map(({ bounty }) => ({
     ...bounty,
     id: bounty.id,
-    network: bounty.network,
+    chainId: bounty.chainId,
     githubRepoId: bounty.githubRepoId.toString(),
     githubOwner: bounty.githubOwner,
     githubRepo: bounty.githubRepo,

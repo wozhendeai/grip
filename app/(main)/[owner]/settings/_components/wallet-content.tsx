@@ -4,7 +4,6 @@ import { AddressDisplay } from '@/components/tempo/address-display';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ExternalLink, HelpCircle, Loader2, Wallet } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { Hooks } from 'wagmi/tempo';
@@ -17,18 +16,35 @@ export function WalletContent({ walletAddress }: WalletContentProps) {
   const isTestnet = process.env.NEXT_PUBLIC_TEMPO_NETWORK === 'testnet';
   const explorerUrl = isTestnet ? 'https://explore.testnet.tempo.xyz' : 'https://explore.tempo.xyz';
 
-  // Use SDK hook for balance - auto-refreshes every 15s
+  // Get org owner's fee token preference
+  const { data: userFeeToken, isLoading: isLoadingFeeToken } = Hooks.fee.useUserToken({
+    account: walletAddress ?? '0x0000000000000000000000000000000000000000',
+    query: { enabled: Boolean(walletAddress) },
+  });
+  const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
+  const hasToken = Boolean(tokenAddress);
+
+  // Only fetch balance if owner has set a fee token
   const { data: rawBalance, isLoading: isLoadingBalance } = Hooks.token.useGetBalance({
     account: walletAddress ?? '0x0000000000000000000000000000000000000000',
-    token: TEMPO_TOKENS.USDC as `0x${string}`,
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
-      enabled: Boolean(walletAddress),
+      enabled: Boolean(walletAddress) && hasToken,
       refetchInterval: 15_000,
       staleTime: 15_000,
     },
   });
 
-  const balance = rawBalance ? Number(formatUnits(rawBalance, 6)) : 0;
+  // Get token metadata for display
+  const { data: metadata } = Hooks.token.useGetMetadata({
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
+    query: { enabled: hasToken, staleTime: 86_400_000 },
+  });
+
+  const decimals = metadata?.decimals ?? 6;
+  const symbol = metadata?.symbol;
+  const balance = rawBalance ? Number(formatUnits(rawBalance, decimals)) : 0;
+  const isLoading = isLoadingFeeToken || (hasToken && isLoadingBalance);
 
   // No wallet address available
   if (!walletAddress) {
@@ -85,18 +101,24 @@ export function WalletContent({ walletAddress }: WalletContentProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Balance</p>
-              <div className="flex items-baseline gap-2">
-                {isLoadingBalance ? (
-                  <span className="text-3xl font-bold text-muted-foreground animate-pulse">
-                    $---.--
-                  </span>
-                ) : (
-                  <span className="text-3xl font-bold">${balance.toFixed(2)}</span>
-                )}
-                <span className="text-sm text-muted-foreground">USDC</span>
-              </div>
+              {hasToken ? (
+                <div className="flex items-baseline gap-2">
+                  {isLoading ? (
+                    <span className="text-3xl font-bold text-muted-foreground animate-pulse">
+                      $---.--
+                    </span>
+                  ) : (
+                    <span className="text-3xl font-bold">${balance.toFixed(2)}</span>
+                  )}
+                  <span className="text-sm text-muted-foreground">{symbol}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Owner needs to set a fee token in wallet settings
+                </p>
+              )}
             </div>
-            {isLoadingBalance && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
+            {isLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
           </div>
 
           {/* Address */}

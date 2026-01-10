@@ -69,9 +69,9 @@ export const auth = betterAuth({
 - ALWAYS use `TIP20.balanceOf(address)` for balance checks
 - Fees are paid in any USD-denominated TIP-20 token
 
-**Network (Testnet):**
-- Chain ID: 42429
-- RPC: https://rpc.testnet.tempo.xyz
+**Network (Moderato Testnet):**
+- Chain ID: 42431
+- RPC: https://rpc.moderato.tempo.xyz
 - Explorer: https://explore.tempo.xyz
 
 **Key Tempo features used:**

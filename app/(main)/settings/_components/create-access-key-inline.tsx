@@ -5,129 +5,115 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { PasskeyOperationContent } from '@/components/tempo';
-import { getCurrentNetwork } from '@/db/network';
-import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
-import {
-  classifyWebAuthnError,
-  type PasskeyOperationError,
-  type PasskeyPhase,
-} from '@/lib/webauthn';
+import { authClient } from '@/lib/auth/auth-client';
+import { getChainId } from '@/lib/network';
+import { config } from '@/lib/wagmi-config';
+import type { PasskeyOperationError, PasskeyPhase } from '@/lib/webauthn';
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { useCallback, useState } from 'react';
-import { KeyAuthorization } from 'ox/tempo';
-import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
-
-type AccessKey = {
-  id: string;
-  backendWalletAddress: string | null;
-  limits: Record<string, { initial: string; remaining: string }>;
-  status: string;
-  createdAt: string | null;
-  lastUsedAt: string | null;
-  label: string | null;
-  expiry: number | null;
-};
 
 type CreateAccessKeyInlineProps = {
   onSuccess: (key: AccessKey) => void;
   onBack: () => void;
+  tokenAddress: `0x${string}`;
 };
 
 /**
  * Inline form for creating access keys - replaces main content to avoid nested modals
  */
-export function CreateAccessKeyInline({ onSuccess, onBack }: CreateAccessKeyInlineProps) {
+export function CreateAccessKeyInline({
+  onSuccess,
+  onBack,
+  tokenAddress,
+}: CreateAccessKeyInlineProps) {
   const [phase, setPhase] = useState<PasskeyPhase>('ready');
   const [spendingLimit, setSpendingLimit] = useState('10000');
   const [error, setError] = useState<PasskeyOperationError | null>(null);
 
-  const connectors = useConnectors();
-  const connections = useConnections();
-  const connect = useConnect();
-  const signMessage = useSignMessage();
-
   const handleCreate = useCallback(async () => {
     setError(null);
-    setPhase('connecting');
+    setPhase('signing');
 
     try {
-      // Connect if not already connected
-      if (connections.length === 0) {
-        const webAuthnConnector = connectors.find(
-          (c) => c.id === 'webAuthn' || c.type === 'webAuthn'
-        );
+      const limitAmount = BigInt(spendingLimit) * BigInt(1_000_000);
 
-        if (!webAuthnConnector) {
-          setError({
-            type: 'unknown',
-            message: 'WebAuthn connector not available. Please refresh and try again.',
-            phase: 'connect',
-          });
-          setPhase('error');
-          return;
-        }
-
-        await connect.mutateAsync({ connector: webAuthnConnector });
+      // Get user's passkey wallet
+      const { data: passkeyWallet, error: walletError } = await authClient.getPasskeyWallet();
+      if (walletError || !passkeyWallet) {
+        setError({
+          type: 'wallet_not_found',
+          message: 'No passkey wallet found. Please create a wallet first.',
+          phase: 'connect',
+        });
+        setPhase('error');
+        return;
       }
 
-      // Sign authorization
-      setPhase('signing');
+      // Get server wallet for authorization
+      const { data: serverWalletData, error: serverError } = await authClient.getServerWallet();
+      if (serverError || !serverWalletData?.wallet) {
+        setError({
+          type: 'operation_failed',
+          message: 'Server wallet not configured. Please contact support.',
+          phase: 'connect',
+        });
+        setPhase('error');
+        return;
+      }
+      const serverWallet = serverWalletData.wallet;
 
-      const network = getCurrentNetwork();
-      const backendWalletAddress = BACKEND_WALLET_ADDRESSES[network];
-
-      const authorization = KeyAuthorization.from({
-        chainId: BigInt(42429),
-        type: 'secp256k1',
-        address: backendWalletAddress as `0x${string}`,
-        limits: [
-          {
-            token: TEMPO_TOKENS.USDC,
-            limit: BigInt(spendingLimit) * BigInt(1_000_000),
-          },
-        ],
+      // Sign authorization using tempo plugin
+      const { data: signResult, error: signError } = await authClient.signKeyAuthorization({
+        config,
+        chainId: getChainId(),
+        keyType: 'secp256k1',
+        address: serverWallet.address as `0x${string}`,
+        limits: [{ token: tokenAddress, amount: limitAmount }],
       });
 
-      const hash = KeyAuthorization.getSignPayload(authorization);
-      const signature = await signMessage.mutateAsync({ message: { raw: hash } });
+      if (signError || !signResult) {
+        setError({
+          type: 'unknown',
+          message: signError?.message || 'Failed to sign authorization',
+          phase: 'sign',
+        });
+        setPhase('error');
+        return;
+      }
 
       // Create access key
       setPhase('processing');
-      const createRes = await fetch('/api/auth/tempo/access-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          keyId: backendWalletAddress,
-          chainId: 42429,
-          keyType: 0,
-          limits: {
-            [TEMPO_TOKENS.USDC]: (BigInt(spendingLimit) * BigInt(1_000_000)).toString(),
-          },
-          signature,
-          label: 'GRIP Auto-pay',
-        }),
+      const { data, error: createError } = await authClient.createAccessKey({
+        rootWalletId: passkeyWallet.id,
+        keyWalletAddress: serverWallet.address as `0x${string}`,
+        chainId: getChainId(),
+        limits: [{ token: tokenAddress, limit: limitAmount.toString() }],
+        authorizationSignature: signResult.signature,
+        authorizationHash: signResult.hash,
+        label: 'GRIP Auto-pay',
       });
 
-      if (!createRes.ok) {
-        const data = await createRes.json().catch(() => ({}));
+      if (createError || !data?.accessKey) {
         setError({
           type: 'operation_failed',
-          message: data.error || 'Failed to create Access Key. Please try again.',
+          message: 'Failed to create Access Key. Please try again.',
           phase: 'process',
         });
         setPhase('error');
         return;
       }
 
-      const { accessKey } = await createRes.json();
       setPhase('success');
-      onSuccess(accessKey);
+      onSuccess(data.accessKey);
     } catch (err) {
-      const currentPhase = phase === 'connecting' ? 'connect' : 'sign';
-      const classified = classifyWebAuthnError(err, currentPhase, 'signing');
-      setError(classified);
+      setError({
+        type: 'unknown',
+        message: err instanceof Error ? err.message : 'An unexpected error occurred',
+        phase: 'sign',
+      });
       setPhase('error');
     }
-  }, [connections.length, connectors, connect, signMessage, spendingLimit, onSuccess, phase]);
+  }, [spendingLimit, tokenAddress, onSuccess]);
 
   const handleRetry = useCallback(() => {
     setError(null);

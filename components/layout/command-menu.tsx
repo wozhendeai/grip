@@ -71,7 +71,7 @@ export function CommandMenu({ open: controlledOpen, onOpenChange }: CommandMenuP
             View All Bounties
             <CommandShortcut>B</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push('/wallet'))}>
+          <CommandItem onSelect={() => runCommand(() => router.push('/settings/wallet'))}>
             <Backpack className="mr-2 h-4 w-4" />
             Open Wallet
             <CommandShortcut>W</CommandShortcut>

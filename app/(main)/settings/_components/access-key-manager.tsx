@@ -3,34 +3,19 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { authClient } from '@/lib/auth/auth-client';
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { AlertCircle, ChevronRight, Key, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-
-type AccessKey = {
-  id: string;
-  backendWalletAddress: string | null;
-  limits: Record<string, { initial: string; remaining: string }>;
-  status: string;
-  createdAt: string | null;
-  lastUsedAt: string | null;
-  label: string | null;
-  expiry: number | null;
-};
 
 type AccessKeyManagerProps = {
   keys: AccessKey[];
   onKeysChange: (keys: AccessKey[]) => void;
   onCreateClick: () => void;
-  credentialId: string;
 };
 
-export function AccessKeyManager({
-  keys,
-  onKeysChange,
-  onCreateClick,
-  credentialId,
-}: AccessKeyManagerProps) {
+export function AccessKeyManager({ keys, onKeysChange, onCreateClick }: AccessKeyManagerProps) {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   async function handleRevoke(keyId: string) {
@@ -45,18 +30,12 @@ export function AccessKeyManager({
     try {
       setRevoking(keyId);
 
-      const res = await fetch(`/api/auth/tempo/access-keys/${keyId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason: 'User revoked from settings',
-        }),
+      const { data, error } = await authClient.revokeAccessKey(keyId, {
+        reason: 'User revoked from settings',
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to revoke Access Key');
+      if (error || !data?.accessKey) {
+        throw new Error(error?.message || 'Failed to revoke Access Key');
       }
 
       onKeysChange(keys.map((k) => (k.id === keyId ? data.accessKey : k)));
@@ -166,15 +145,9 @@ function AccessKeyListItem({
   const isActive = accessKey.status === 'active';
   const isExpired = accessKey.expiry && Date.now() / 1000 > accessKey.expiry;
 
-  const limitEntries = Object.entries(accessKey.limits);
-  const totalLimit =
-    limitEntries.length > 0
-      ? (BigInt(limitEntries[0][1].initial) / BigInt(1_000_000)).toString()
-      : '0';
-  const remainingLimit =
-    limitEntries.length > 0
-      ? (BigInt(limitEntries[0][1].remaining) / BigInt(1_000_000)).toString()
-      : '0';
+  // Get the first token limit (typically USDC)
+  const firstLimit = accessKey.limits?.[0];
+  const limitAmount = firstLimit ? (BigInt(firstLimit.limit) / BigInt(1_000_000)).toString() : '0';
 
   return (
     <Link
@@ -194,9 +167,9 @@ function AccessKeyListItem({
             {accessKey.status === 'revoked' && <Badge variant="secondary">Revoked</Badge>}
           </div>
           <p className="caption text-muted-foreground font-mono">
-            {accessKey.backendWalletAddress
-              ? truncateAddress(accessKey.backendWalletAddress)
-              : 'Org Access Key'}
+            {accessKey.keyWalletId
+              ? `Wallet: ${accessKey.keyWalletId.slice(0, 8)}...`
+              : 'Access Key'}
           </p>
         </div>
 
@@ -219,24 +192,10 @@ function AccessKeyListItem({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <p className="caption text-muted-foreground">Spending Limit</p>
-          <p className="body-sm font-medium">${totalLimit} USDC</p>
-        </div>
-        <div>
-          <p className="caption text-muted-foreground">Remaining</p>
-          <p className="body-sm font-medium">${remainingLimit} USDC</p>
-        </div>
+      <div className="text-sm">
+        <p className="caption text-muted-foreground">Authorized Limit</p>
+        <p className="body-sm font-medium">${limitAmount} USDC</p>
       </div>
-
-      {accessKey.lastUsedAt && (
-        <div className="pt-2 border-t">
-          <p className="caption text-muted-foreground">
-            Last used: {new Date(accessKey.lastUsedAt).toLocaleDateString()}
-          </p>
-        </div>
-      )}
 
       {isExpired && (
         <div className="flex items-start gap-2 p-3 bg-muted rounded">
@@ -248,9 +207,4 @@ function AccessKeyListItem({
       )}
     </Link>
   );
-}
-
-function truncateAddress(address: string): string {
-  if (address.length < 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }

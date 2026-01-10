@@ -1,5 +1,5 @@
 import { getBountyWithRepoSettings } from '@/db/queries/bounties';
-import { isOrgMember } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import {
   getActiveSubmissionsForBounty,
   getSubmissionById,
@@ -7,6 +7,7 @@ import {
 } from '@/db/queries/submissions';
 import type { requireAuth } from '@/lib/auth/auth-server';
 import { checkOrgMatch } from '@/app/api/_lib';
+import { headers } from 'next/headers';
 
 type RejectParams = {
   submissionId?: string;
@@ -46,7 +47,12 @@ export async function handleReject(
 
   // Permission check
   if (isOrgBounty) {
-    if (!(await isOrgMember(bounty.organizationId!, session.user.id))) {
+    const headersList = await headers();
+    const hasPermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { member: ['read'] }, organizationId: bounty.organizationId! },
+    });
+    if (!hasPermission?.success) {
       return Response.json(
         { error: 'Only organization members can reject org bounty submissions' },
         { status: 403 }

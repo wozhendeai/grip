@@ -24,6 +24,7 @@ import {
   Check,
   Clock,
   ExternalLink,
+  Loader2,
   LogOut,
   Mail,
   Plus,
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface OrganizationMembership {
   id: string;
@@ -46,27 +47,17 @@ export interface OrganizationMembership {
   };
 }
 
+// Invitation type matching better-auth's listUserInvitations response
 export interface PendingInvitation {
   id: string;
   role: string | null;
   expiresAt: Date;
-  createdAt: Date | null;
-  organization: {
-    id: string;
-    name: string | null;
-    slug: string;
-    logo: string | null;
-  };
-  user: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  };
+  organizationId: string;
+  organizationName: string | null;
 }
 
 export interface OrganizationsContentProps {
   memberships: OrganizationMembership[];
-  pendingInvitations: PendingInvitation[];
   isModal?: boolean;
 }
 
@@ -83,14 +74,39 @@ type View = 'main' | 'create';
 
 export function OrganizationsContent({
   memberships,
-  pendingInvitations,
   isModal = false,
 }: OrganizationsContentProps) {
   const router = useRouter();
   const [view, setView] = useState<View>('main');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [localMemberships, setLocalMemberships] = useState(memberships);
-  const [localInvitations, setLocalInvitations] = useState(pendingInvitations);
+  const [localInvitations, setLocalInvitations] = useState<PendingInvitation[]>([]);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
+
+  // Fetch invitations client-side using better-auth API
+  useEffect(() => {
+    async function fetchInvitations() {
+      try {
+        const result = await authClient.organization.listUserInvitations();
+        if (result.data) {
+          setLocalInvitations(
+            result.data.map((inv) => ({
+              id: inv.id,
+              role: inv.role,
+              expiresAt: new Date(inv.expiresAt),
+              organizationId: inv.organizationId,
+              organizationName: inv.organizationName,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Failed to fetch invitations:', error);
+      } finally {
+        setIsLoadingInvitations(false);
+      }
+    }
+    fetchInvitations();
+  }, []);
 
   const handleCreateSuccess = () => {
     setView('main');
@@ -142,14 +158,23 @@ export function OrganizationsContent({
 
       <Tabs defaultValue="memberships">
         <TabsList>
-          <TabsTrigger value="memberships">My Organizations</TabsTrigger>
+          <TabsTrigger value="memberships">
+            My Organizations
+            {localMemberships.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {localMemberships.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="invitations">
             Pending Invitations
-            {localInvitations.length > 0 && (
+            {isLoadingInvitations ? (
+              <Loader2 className="ml-2 h-3 w-3 animate-spin" />
+            ) : localInvitations.length > 0 ? (
               <Badge variant="secondary" className="ml-2">
                 {localInvitations.length}
               </Badge>
-            )}
+            ) : null}
           </TabsTrigger>
         </TabsList>
 
@@ -160,6 +185,7 @@ export function OrganizationsContent({
         <TabsContent value="invitations" className="mt-6">
           <PendingInvitationsTab
             invitations={localInvitations}
+            isLoading={isLoadingInvitations}
             onInvitationAction={handleInvitationAction}
           />
         </TabsContent>
@@ -346,10 +372,15 @@ function MyOrganizationsTab({ memberships, onLeaveSuccess }: MyOrganizationsTabP
 
 interface PendingInvitationsTabProps {
   invitations: PendingInvitation[];
+  isLoading: boolean;
   onInvitationAction: (invitationId: string) => void;
 }
 
-function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvitationsTabProps) {
+function PendingInvitationsTab({
+  invitations,
+  isLoading,
+  onInvitationAction,
+}: PendingInvitationsTabProps) {
   const router = useRouter();
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -394,6 +425,19 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
     return `Expires in ${days} days`;
   };
 
+  if (isLoading) {
+    return (
+      <Card className="py-0 gap-0">
+        <CardContent className="py-12">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+            <span>Loading invitations...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (invitations.length === 0) {
     return (
       <Card className="py-0 gap-0">
@@ -415,8 +459,6 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
   return (
     <div className="space-y-3">
       {invitations.map((invitation) => {
-        const org = invitation.organization;
-        const inviter = invitation.user;
         const isProcessing = processingId === invitation.id;
 
         return (
@@ -428,13 +470,14 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar className="size-10">
-                    <AvatarImage src={org.logo ?? undefined} alt={org.name ?? org.slug} />
                     <AvatarFallback>
                       <Building2 className="size-5" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 space-y-1">
-                    <h3 className="font-medium truncate">{org.name || org.slug}</h3>
+                    <h3 className="font-medium truncate">
+                      {invitation.organizationName || 'Organization'}
+                    </h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>Invited as:</span>
                       <Badge variant="secondary" className="text-xs">
@@ -442,9 +485,6 @@ function PendingInvitationsTab({ invitations, onInvitationAction }: PendingInvit
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        From: {inviter.name || 'Unknown'}
-                      </span>
                       <span className="flex items-center gap-1">
                         <Clock className="size-3" />
                         {formatExpiry(invitation.expiresAt)}

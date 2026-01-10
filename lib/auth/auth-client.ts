@@ -1,8 +1,7 @@
-import { passkeyClient } from '@better-auth/passkey/client';
 import { createAuthClient } from 'better-auth/react';
 import { inferOrgAdditionalFields, organizationClient } from 'better-auth/client/plugins';
 import { ac, billingAdmin, bountyManager, member, owner } from './permissions';
-import { tempoClient } from './tempo-plugin/tempo-client';
+import { tempoClient } from './tempo-plugin/client';
 import type { auth } from './auth';
 
 /**
@@ -11,8 +10,13 @@ import type { auth } from './auth';
  * Provides:
  * - useSession hook for auth state
  * - signIn/signOut methods
- * - passkey.register/authenticate for wallet creation
+ * - tempo plugin methods for passkey + wallet management
  * - organization methods for multi-user orgs
+ *
+ * Passkey registration flow:
+ * 1. authClient.getPasskeyRegistrationOptions() - get WebAuthn options from server
+ * 2. startRegistration(options) - browser WebAuthn ceremony (@simplewebauthn/browser)
+ * 3. authClient.registerPasskey({ response, name }) - verify + create wallet atomically
  */
 export const authClient = createAuthClient({
   // Important: keep auth requests on the same origin as the current page.
@@ -23,7 +27,6 @@ export const authClient = createAuthClient({
       ? process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       : window.location.origin,
   plugins: [
-    passkeyClient(),
     tempoClient(),
     organizationClient({
       ac,
@@ -33,4 +36,4 @@ export const authClient = createAuthClient({
   ],
 });
 
-export const { signIn, signOut, useSession, passkey } = authClient;
+export const { signIn, signOut, useSession, usePasskeys, useAccessKeys } = authClient;

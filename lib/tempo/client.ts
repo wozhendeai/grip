@@ -7,7 +7,7 @@ import { tempoActions } from 'viem/tempo';
 /**
  * Tempo SDK Client
  *
- * Uses the official tempo.ts SDK via viem extensions.
+ * Uses Tempo extensions built into viem (viem/tempo).
  *
  * Instead of wrapper functions, use the client directly:
  * - `tempoClient.token.getBalance({ account, token })` - Get TIP-20 balance

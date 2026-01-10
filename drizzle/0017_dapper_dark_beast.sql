@@ -1,3 +1,0 @@
-ALTER TABLE "pending_payments" ALTER COLUMN "dedicated_access_key_id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "pending_payments" ADD COLUMN "approved_by_user_id" text;--> statement-breakpoint
-ALTER TABLE "pending_payments" ADD CONSTRAINT "pending_payments_approved_by_user_id_user_id_fk" FOREIGN KEY ("approved_by_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;

@@ -1,8 +1,9 @@
 import { db } from '@/db';
-import * as schema from '@/db/schema/auth';
-import { signTransactionWithAccessKey } from '@/lib/tempo/keychain-signing';
-import { getBackendWalletAddress } from '@/lib/turnkey';
-import { passkey } from '@better-auth/passkey';
+import * as authSchema from '@/db/schema/auth';
+
+const schema = authSchema;
+import { BACKEND_WALLET_ADDRESSES } from '@/lib/tempo/constants';
+import { getChainId } from '@/lib/network';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { createAuthMiddleware } from 'better-auth/api';
@@ -12,18 +13,18 @@ import { getGitHubToken } from '@/lib/github';
 import { getUserOrgMembership } from '@/lib/github';
 import { syncGitHubMembers } from '@/lib/organization/sync';
 import { ac, billingAdmin, bountyManager, member, owner } from './permissions';
-import { tempo } from './tempo-plugin/tempo-plugin';
-import type { TempoTransactionParams } from './tempo-plugin/types';
+import { tempo } from './tempo-plugin';
 
 /**
  * better-auth server configuration
  *
  * Auth flow:
  * 1. GitHub OAuth → establishes identity (user, session, account tables)
- * 2. Passkey registration → creates WebAuthn credential (passkey table)
- * 3. Tempo plugin → derives blockchain address from passkey public key
+ * 2. Passkey registration → creates WebAuthn credential + wallet atomically
+ *    (via tempo plugin's /tempo/passkey/register endpoint)
  *
- * The passkey IS the wallet - no separate wallets table needed.
+ * The tempo plugin handles passkeys natively - no separate passkey() plugin needed.
+ * Each passkey derives a Tempo blockchain address from its P-256 public key.
  */
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -46,42 +47,65 @@ export const auth = betterAuth({
   },
 
   plugins: [
-    // Passkey (WebAuthn) for wallet creation
-    // P-256 only (ES256, algorithm ID -7) for Tempo compatibility
-    passkey({
-      rpID: process.env.NEXT_PUBLIC_RP_ID || 'localhost',
-      rpName: 'GRIP',
-      origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    }),
-
-    // Tempo plugin - derives blockchain address from passkey public key
-    // Provides Access Key endpoints for backend signing authorization
+    // Tempo plugin - handles passkeys natively with Tempo blockchain address derivation
+    // Each passkey creates a Tempo wallet atomically (ES256/P-256 only)
     tempo({
-      // Turnkey HSM backend wallet for Access Key signing
-      backendWallet: {
-        provider: 'turnkey',
-        getAddress: async (network) => {
-          return getBackendWalletAddress(network as 'testnet' | 'mainnet');
-        },
-        signTransaction: async ({ tx, funderAddress, network }) => {
-          // Sign with Turnkey using Access Key authorization
-          return signTransactionWithAccessKey({
-            tx: tx as TempoTransactionParams,
-            funderAddress,
-            network: network as 'testnet' | 'mainnet',
-          });
-        },
+      // Passkey (WebAuthn) configuration
+      // P-256 only (ES256, algorithm ID -7) for Tempo compatibility
+      passkey: {
+        rpID: process.env.NEXT_PUBLIC_RP_ID || 'localhost',
+        rpName: 'GRIP',
+        origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
       },
 
-      // Enable multi-network support (testnet/mainnet)
-      enableNetworkField: true,
+      // Backend wallet for Access Key authorization (Turnkey HSM-backed)
+      // Must be manually inserted into wallet table (see tempo-plugin/README.md)
+      serverWallet: {
+        address: BACKEND_WALLET_ADDRESSES.testnet,
+        keyType: 'secp256k1',
+        label: 'GRIP Backend Signer',
+      },
 
-      // Allow Tempo testnet only for now
-      allowedChainIds: [42429],
+      // Allow current network's chain ID
+      allowedChainIds: [getChainId()],
 
       // Default Access Key settings
-      accessKeyDefaults: {
-        label: 'GRIP Auto-pay',
+      defaults: {
+        accessKeyLabel: 'GRIP Auto-pay',
+      },
+
+      // Application-specific schema extensions
+      // Extends tempo plugin tables with GRIP-specific fields
+      schema: {
+        accessKey: {
+          additionalFields: {
+            // Organization ownership (XOR with userId - org treasury access keys)
+            organizationId: {
+              type: 'string',
+              required: false,
+              references: {
+                model: 'organization',
+                field: 'id',
+                onDelete: 'cascade',
+              },
+            },
+            // Single-use keys for pending payments
+            isDedicated: {
+              type: 'boolean',
+              defaultValue: false,
+            },
+            // Revocation audit trail
+            revokedReason: {
+              type: 'string',
+              required: false,
+            },
+            // Usage tracking
+            lastUsedAt: {
+              type: 'date',
+              required: false,
+            },
+          },
+        },
       },
     }),
 

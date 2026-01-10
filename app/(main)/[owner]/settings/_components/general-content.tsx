@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +17,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { formatTimeAgo } from '@/lib/utils';
-import { Building2, ExternalLink, Calendar, Trash2 } from 'lucide-react';
+import { Building2, ExternalLink, Calendar, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { authClient } from '@/lib/auth/auth-client';
 
 interface Organization {
   id: string;
@@ -33,9 +36,25 @@ interface GeneralContentProps {
 }
 
 export function GeneralContent({ organization, isOwner }: GeneralContentProps) {
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const handleDeleteOrg = async () => {
-    // TODO: Implement org deletion via authClient.organization.delete
-    console.log('Delete org:', organization.id);
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    const result = await authClient.organization.delete({
+      organizationId: organization.id,
+    });
+
+    if (result.error) {
+      setDeleteError(result.error.message || 'Failed to delete organization');
+      setIsDeleting(false);
+      return;
+    }
+
+    router.push('/dashboard');
   };
 
   return (
@@ -90,7 +109,12 @@ export function GeneralContent({ organization, isOwner }: GeneralContentProps) {
               Irreversible and destructive actions for this organization
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {deleteError && (
+              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                {deleteError}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-medium">Delete this organization</p>
@@ -101,9 +125,13 @@ export function GeneralContent({ organization, isOwner }: GeneralContentProps) {
               <AlertDialog>
                 <AlertDialogTrigger
                   render={
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="size-4 mr-2" />
-                      Delete
+                    <Button variant="destructive" size="sm" disabled={isDeleting}>
+                      {isDeleting ? (
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4 mr-2" />
+                      )}
+                      {isDeleting ? 'Deleting...' : 'Delete'}
                     </Button>
                   }
                 />
@@ -117,12 +145,13 @@ export function GeneralContent({ organization, isOwner }: GeneralContentProps) {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteOrg}
+                      disabled={isDeleting}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
-                      Delete Organization
+                      {isDeleting ? 'Deleting...' : 'Delete Organization'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

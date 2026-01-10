@@ -27,8 +27,10 @@ import {
 
 // Define Grip-specific resources and actions
 // Extends Better Auth defaults (organization, member, invitation)
+// We add 'read' to member for explicit membership checks via hasPermission
 const statement = {
   ...defaultStatements,
+  member: ['read', 'create', 'update', 'delete'],
   bounty: ['create', 'update', 'approve', 'cancel'],
   wallet: ['view', 'fund', 'withdraw'],
   reports: ['view', 'export'],
@@ -48,6 +50,7 @@ export const ac = createAccessControl(statement);
  */
 export const owner = ac.newRole({
   ...ownerAc.statements, // Inherit Better Auth owner permissions
+  member: ['read', 'create', 'update', 'delete'],
   bounty: ['create', 'update', 'approve', 'cancel'],
   wallet: ['view', 'fund', 'withdraw'],
   reports: ['view', 'export'],
@@ -64,6 +67,7 @@ export const owner = ac.newRole({
  */
 export const billingAdmin = ac.newRole({
   ...memberAc.statements, // Base member permissions (read-only org/members)
+  member: ['read'],
   wallet: ['view', 'fund', 'withdraw'],
   reports: ['view', 'export'],
   // NO bounty permissions - this is intentional
@@ -79,6 +83,7 @@ export const billingAdmin = ac.newRole({
  */
 export const bountyManager = ac.newRole({
   ...memberAc.statements, // Base member permissions
+  member: ['read'],
   bounty: ['create', 'update', 'approve', 'cancel'],
   // NO wallet permissions - this is intentional
 });
@@ -93,5 +98,5 @@ export const bountyManager = ac.newRole({
  */
 export const member = ac.newRole({
   ...memberAc.statements, // Only default read permissions
-  // NO additional permissions - view-only role
+  member: ['read'], // Explicit read permission for membership checks
 });

@@ -1,5 +1,6 @@
-import { getOrgBySlug, getOrgMembership } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { GeneralContent } from './_components/general-content';
 
@@ -23,12 +24,17 @@ export default async function OrgSettingsPage({ params }: OrgSettingsPageProps) 
     redirect(`/login?callbackUrl=/${owner}/settings`);
   }
 
-  const org = await getOrgBySlug(owner);
-  if (!org) {
+  const headersList = await headers();
+  const result = await auth.api.getFullOrganization({
+    headers: headersList,
+    query: { organizationSlug: owner },
+  });
+
+  if (!result) {
     notFound();
   }
 
-  const membership = await getOrgMembership(org.id, session.user.id);
+  const membership = result.members.find((m) => m.userId === session.user.id);
   if (!membership) {
     return (
       <div className="py-8 text-center">
@@ -38,6 +44,7 @@ export default async function OrgSettingsPage({ params }: OrgSettingsPageProps) 
     );
   }
 
+  const org = result as typeof result & { githubOrgLogin?: string | null };
   const isOwner = membership.role === 'owner';
 
   return (
@@ -46,8 +53,8 @@ export default async function OrgSettingsPage({ params }: OrgSettingsPageProps) 
         id: org.id,
         name: org.name,
         slug: org.slug,
-        logo: org.logo,
-        githubOrgLogin: org.githubOrgLogin,
+        logo: org.logo ?? null,
+        githubOrgLogin: org.githubOrgLogin ?? null,
         createdAt: org.createdAt,
       }}
       isOwner={isOwner}

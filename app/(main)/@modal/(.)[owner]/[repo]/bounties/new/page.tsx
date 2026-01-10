@@ -32,7 +32,7 @@ export default async function NewBountyModal({ params }: NewBountyModalProps) {
 
   if (githubRepo.private) {
     return (
-      <RouteModal title="Private Repository">
+      <RouteModal title="Private Repository" useBack>
         <div className="p-6 text-center">
           <h2 className="text-lg font-medium">Private Repository</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -47,7 +47,7 @@ export default async function NewBountyModal({ params }: NewBountyModalProps) {
   const repoSettings = await getRepoSettingsByName(owner, repo);
 
   return (
-    <RouteModal title="Create Bounty">
+    <RouteModal title="Create Bounty" useBack>
       <div className="p-6">
         <p className="mb-6 text-sm text-muted-foreground">
           Select an open issue and set a bounty amount. Contributors can then claim the bounty and

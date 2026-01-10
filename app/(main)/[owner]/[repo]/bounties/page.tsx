@@ -56,7 +56,7 @@ export default async function BountiesPage({ params }: BountiesPageProps) {
 
     return {
       id: b.id,
-      network: b.network,
+      chainId: b.chainId,
       githubRepoId: b.githubRepoId.toString(),
       githubOwner: b.githubOwner,
       githubRepo: b.githubRepo,

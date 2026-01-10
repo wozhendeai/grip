@@ -5,18 +5,13 @@ import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCurrentNetwork } from '@/db/network';
-import { BACKEND_WALLET_ADDRESSES, TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { authClient } from '@/lib/auth/auth-client';
+import { getChainId } from '@/lib/network';
+import { config } from '@/lib/wagmi-config';
 import { cn } from '@/lib/utils';
-import {
-  classifyWebAuthnError,
-  type PasskeyOperationError,
-  type PasskeyPhase,
-} from '@/lib/webauthn';
+import type { PasskeyOperationError, PasskeyPhase } from '@/lib/webauthn';
 import { ArrowLeft, ArrowRight, CheckCircle2, Hand, Zap } from 'lucide-react';
 import { useState } from 'react';
-import { KeyAuthorization } from 'ox/tempo';
-import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
 
 type PayoutMode = 'auto' | 'manual';
 
@@ -25,6 +20,7 @@ interface OnboardingStepAutopayProps {
   hasAccessKey: boolean;
   onBack: () => void;
   onNext: (settings: { autoPayEnabled: boolean }) => void;
+  tokenAddress: `0x${string}` | undefined;
 }
 
 export function OnboardingStepAutopay({
@@ -32,16 +28,14 @@ export function OnboardingStepAutopay({
   hasAccessKey,
   onBack,
   onNext,
+  tokenAddress,
 }: OnboardingStepAutopayProps) {
   const [mode, setMode] = useState<PayoutMode>(hasAccessKey ? 'auto' : 'manual');
   const [spendingLimit, setSpendingLimit] = useState('1000');
   const [phase, setPhase] = useState<PasskeyPhase>(hasAccessKey ? 'success' : 'ready');
   const [error, setError] = useState<PasskeyOperationError | null>(null);
 
-  const connectors = useConnectors();
-  const connections = useConnections();
-  const connect = useConnect();
-  const signMessage = useSignMessage();
+  const hasToken = Boolean(tokenAddress);
 
   async function handleEnableAutoPay() {
     if (!hasWallet) {
@@ -54,70 +48,95 @@ export function OnboardingStepAutopay({
       return;
     }
 
+    if (!tokenAddress) {
+      setError({
+        type: 'operation_failed',
+        message: 'You need to set a fee token in your wallet settings first',
+        phase: 'connect',
+      });
+      setPhase('error');
+      return;
+    }
+
     try {
       setError(null);
-      setPhase('connecting');
-
-      // Connect wagmi if not already connected
-      if (connections.length === 0) {
-        const webAuthnConnector = connectors.find(
-          (c) => c.id === 'webAuthn' || c.type === 'webAuthn'
-        );
-        if (!webAuthnConnector) {
-          throw new Error('WebAuthn connector not available');
-        }
-        await connect.mutateAsync({ connector: webAuthnConnector });
-      }
-
       setPhase('signing');
 
-      const network = getCurrentNetwork();
-      const backendWalletAddress = BACKEND_WALLET_ADDRESSES[network];
+      const limitAmount = BigInt(spendingLimit) * BigInt(1_000_000);
 
-      const authorization = KeyAuthorization.from({
-        chainId: BigInt(42429),
-        type: 'secp256k1',
-        address: backendWalletAddress as `0x${string}`,
-        limits: [
-          {
-            token: TEMPO_TOKENS.USDC,
-            limit: BigInt(spendingLimit) * BigInt(1_000_000),
-          },
-        ],
+      // Get user's passkey wallet
+      const { data: passkeyWallet, error: walletError } = await authClient.getPasskeyWallet();
+      if (walletError || !passkeyWallet) {
+        setError({
+          type: 'wallet_not_found',
+          message: 'No passkey wallet found. Please create a wallet first.',
+          phase: 'connect',
+        });
+        setPhase('error');
+        return;
+      }
+
+      // Get server wallet for authorization
+      const { data: serverWalletData, error: serverError } = await authClient.getServerWallet();
+      if (serverError || !serverWalletData?.wallet) {
+        setError({
+          type: 'operation_failed',
+          message: 'Server wallet not configured. Please contact support.',
+          phase: 'connect',
+        });
+        setPhase('error');
+        return;
+      }
+      const serverWallet = serverWalletData.wallet;
+
+      // Sign authorization using tempo plugin
+      const { data: signResult, error: signError } = await authClient.signKeyAuthorization({
+        config,
+        chainId: getChainId(),
+        keyType: 'secp256k1',
+        address: serverWallet.address as `0x${string}`,
+        limits: [{ token: tokenAddress, amount: limitAmount }],
       });
 
-      const hash = KeyAuthorization.getSignPayload(authorization);
+      if (signError || !signResult) {
+        setError({
+          type: 'unknown',
+          message: signError?.message || 'Failed to sign authorization',
+          phase: 'sign',
+        });
+        setPhase('error');
+        return;
+      }
 
-      const signature = await signMessage.mutateAsync({
-        message: { raw: hash },
-      });
-
+      // Create access key
       setPhase('processing');
-
-      const createRes = await fetch('/api/auth/tempo/access-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          keyId: backendWalletAddress,
-          chainId: 42429,
-          keyType: 0,
-          limits: {
-            [TEMPO_TOKENS.USDC]: (BigInt(spendingLimit) * BigInt(1_000_000)).toString(),
-          },
-          signature,
-          label: 'GRIP Auto-pay',
-        }),
+      const { error: createError } = await authClient.createAccessKey({
+        rootWalletId: passkeyWallet.id,
+        keyWalletAddress: serverWallet.address as `0x${string}`,
+        chainId: getChainId(),
+        limits: [{ token: tokenAddress, limit: limitAmount.toString() }],
+        authorizationSignature: signResult.signature,
+        authorizationHash: signResult.hash,
+        label: 'GRIP Auto-pay',
       });
 
-      if (!createRes.ok) {
-        const data = await createRes.json();
-        throw new Error(data.error || 'Failed to create Access Key');
+      if (createError) {
+        setError({
+          type: 'operation_failed',
+          message: 'Failed to create Access Key. Please try again.',
+          phase: 'process',
+        });
+        setPhase('error');
+        return;
       }
 
       setPhase('success');
     } catch (err) {
-      const classified = classifyWebAuthnError(err, 'sign', 'signing');
-      setError(classified);
+      setError({
+        type: 'unknown',
+        message: err instanceof Error ? err.message : 'An unexpected error occurred',
+        phase: 'sign',
+      });
       setPhase('error');
     }
   }
@@ -334,6 +353,13 @@ export function OnboardingStepAutopay({
             You need to create a wallet first to enable auto-pay.
           </div>
         )}
+
+        {mode === 'auto' && hasWallet && !hasToken && (
+          <div className="p-3 bg-chart-4/10 rounded-lg text-sm text-chart-4">
+            You need to set a fee token in your wallet settings to enable auto-pay. You can skip
+            this step and set it up later.
+          </div>
+        )}
       </div>
 
       <div className="flex justify-between pt-2">
@@ -341,7 +367,7 @@ export function OnboardingStepAutopay({
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
-        {mode === 'auto' && hasWallet ? (
+        {mode === 'auto' && hasWallet && hasToken ? (
           <Button onClick={handleEnableAutoPay}>
             Sign & Enable Auto-Pay
             <ArrowRight className="ml-2 h-4 w-4" />

@@ -21,7 +21,7 @@ export default async function BountyModalPage({ params }: BountyModalPageProps) 
   // Verify bounty exists and belongs to this repo
   if (!result || result.bounty.githubOwner !== owner || result.bounty.githubRepo !== repo) {
     return (
-      <RouteModal title="Bounty not found">
+      <RouteModal title="Bounty not found" useBack>
         <div className="p-6 text-center">
           <h2 className="text-lg font-medium">Bounty not found</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -39,7 +39,7 @@ export default async function BountyModalPage({ params }: BountyModalPageProps) 
   // BigInt fields are serialized to strings for JSON compatibility
   const bounty: Bounty = {
     id: bountyData.id,
-    network: bountyData.network,
+    chainId: bountyData.chainId,
     githubRepoId: bountyData.githubRepoId.toString(),
     githubOwner: bountyData.githubOwner,
     githubRepo: bountyData.githubRepo,
@@ -83,7 +83,7 @@ export default async function BountyModalPage({ params }: BountyModalPageProps) 
   };
 
   return (
-    <RouteModal title={bounty.title}>
+    <RouteModal title={bounty.title} useBack>
       <BountyDetail bounty={bounty} />
     </RouteModal>
   );

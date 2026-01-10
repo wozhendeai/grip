@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { ArrowUpRight, Settings, Wallet as WalletIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
@@ -21,36 +20,40 @@ import { FundContent } from './fund-content';
 import { WithdrawContent } from './withdraw-content';
 
 /**
- * Hook to get user's primary token (fee token preference or USDC fallback)
+ * Hook to get user's fee token preference
+ *
+ * Returns undefined if user hasn't set a fee token yet.
+ * Callers should prompt user to set a fee token before showing balance.
  */
-function usePrimaryToken(walletAddress: `0x${string}`) {
+function useFeeToken(walletAddress: `0x${string}`) {
   const { data: userFeeToken, isLoading: isLoadingFeeToken } = Hooks.fee.useUserToken({
     account: walletAddress,
     query: { enabled: Boolean(walletAddress) },
   });
 
-  // Use fee token if set, otherwise default to USDC
-  const tokenAddress = (userFeeToken?.address ?? TEMPO_TOKENS.USDC) as `0x${string}`;
+  const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
 
   const { data: metadata, isLoading: isLoadingMetadata } = Hooks.token.useGetMetadata({
-    token: tokenAddress,
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: Boolean(tokenAddress),
-      staleTime: 86_400_000, // Cache for 24h - metadata rarely changes
+      staleTime: 86_400_000,
     },
   });
 
   return {
     tokenAddress,
-    symbol: metadata?.symbol ?? 'USDC',
+    symbol: metadata?.symbol,
     decimals: metadata?.decimals ?? 6,
     isLoading: isLoadingFeeToken || isLoadingMetadata,
+    hasToken: Boolean(tokenAddress),
   };
 }
 
 export interface WalletHeroProps {
   wallet: {
     id: string;
+    credentialID: string;
     name: string | null;
     tempoAddress: `0x${string}`;
     createdAt: string;
@@ -67,27 +70,28 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [modalView, setModalView] = useState<ModalView>('main');
 
-  // Get user's primary token (fee token preference or USDC)
+  // Get user's fee token preference (undefined if not set)
   const {
     tokenAddress,
     symbol,
     decimals,
     isLoading: isLoadingToken,
-  } = usePrimaryToken(wallet.tempoAddress);
+    hasToken,
+  } = useFeeToken(wallet.tempoAddress);
 
-  // Use SDK hook for balance - auto-refreshes every 10s
+  // Only fetch balance if user has set a fee token
   const { data: rawBalance, isLoading: isLoadingBalance } = Hooks.token.useGetBalance({
     account: wallet.tempoAddress,
-    token: tokenAddress,
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
-      enabled: Boolean(wallet?.tempoAddress) && !isLoadingToken,
+      enabled: Boolean(wallet?.tempoAddress) && hasToken,
       refetchInterval: 10_000,
       staleTime: 10_000,
     },
   });
 
   const balance = rawBalance ? Number(formatUnits(rawBalance, decimals)) : 0;
-  const isLoading = isLoadingToken || isLoadingBalance;
+  const isLoading = isLoadingToken || (hasToken && isLoadingBalance);
 
   // Notify parent of balance changes
   useEffect(() => {
@@ -125,7 +129,12 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
           >
             ← Back
           </Button>
-          <WithdrawContent balance={balance} />
+          <WithdrawContent
+            balance={balance}
+            tokenAddress={tokenAddress}
+            decimals={decimals}
+            tokenSymbol={symbol}
+          />
         </div>
       );
     }
@@ -154,6 +163,7 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
           isLoading={isLoading}
           walletAddress={wallet.tempoAddress}
           tokenSymbol={symbol}
+          hasToken={hasToken}
         />
         <div className="flex gap-2">
           <Button className="gap-2" onClick={() => setModalView('fund')}>
@@ -183,6 +193,7 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
               isLoading={isLoading}
               walletAddress={wallet.tempoAddress}
               tokenSymbol={symbol}
+              hasToken={hasToken}
             />
             <div className="flex gap-2">
               <Button size="lg" className="gap-2" onClick={() => setFundModalOpen(true)}>
@@ -227,7 +238,13 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
           <DialogHeader className="sr-only">
             <DialogTitle>Withdraw Funds</DialogTitle>
           </DialogHeader>
-          <WithdrawContent balance={balance} />
+          <WithdrawContent
+            balance={balance}
+            tokenAddress={tokenAddress}
+            decimals={decimals}
+            tokenSymbol={symbol}
+            onDone={() => setWithdrawModalOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
@@ -250,23 +267,29 @@ function BalanceSection({
   isLoading,
   walletAddress,
   tokenSymbol,
+  hasToken,
 }: {
   balance: number;
   isLoading: boolean;
   walletAddress: `0x${string}`;
-  tokenSymbol: string;
+  tokenSymbol: string | undefined;
+  hasToken: boolean;
 }) {
   return (
     <div>
       <p className="text-sm text-muted-foreground mb-1">Balance</p>
-      <div className="flex items-baseline gap-2">
-        {isLoading ? (
-          <span className="text-3xl font-bold text-muted-foreground animate-pulse">$---.--</span>
-        ) : (
-          <span className="text-3xl font-bold">${balance.toFixed(2)}</span>
-        )}
-        <span className="text-sm text-muted-foreground">{tokenSymbol}</span>
-      </div>
+      {hasToken ? (
+        <div className="flex items-baseline gap-2">
+          {isLoading ? (
+            <span className="text-3xl font-bold text-muted-foreground animate-pulse">$---.--</span>
+          ) : (
+            <span className="text-3xl font-bold">${balance.toFixed(2)}</span>
+          )}
+          <span className="text-sm text-muted-foreground">{tokenSymbol}</span>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Select a fee token to view balance</p>
+      )}
       <div className="mt-2 flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Address:</span>
         <AddressDisplay address={walletAddress} truncate />

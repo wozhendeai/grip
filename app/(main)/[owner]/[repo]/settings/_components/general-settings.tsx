@@ -6,6 +6,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
+import { authClient } from '@/lib/auth/auth-client';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -25,10 +26,6 @@ interface RepoSettingsData {
     emailOnMerge: boolean;
     emailOnPaymentFailure: boolean;
   };
-}
-
-interface AccessKeyData {
-  accessKeys: Array<{ status: string }>;
 }
 
 /**
@@ -70,9 +67,9 @@ export function GeneralSettings({ githubRepoId }: GeneralSettingsProps) {
         setIsLoading(true);
         setError(null);
 
-        const [settingsRes, accessKeysRes] = await Promise.all([
+        const [settingsRes, accessKeysResult] = await Promise.all([
           fetch(`/api/repo-settings/${githubRepoId}`),
-          fetch('/api/auth/tempo/access-keys'),
+          authClient.listAccessKeys(),
         ]);
 
         if (settingsRes.ok) {
@@ -86,9 +83,10 @@ export function GeneralSettings({ githubRepoId }: GeneralSettingsProps) {
           setEmailOnPaymentFailure(data.repoSettings?.emailOnPaymentFailure ?? true);
         }
 
-        if (accessKeysRes.ok) {
-          const data: AccessKeyData = await accessKeysRes.json();
-          const activeKey = data.accessKeys?.find((key) => key.status === 'active');
+        if (accessKeysResult.data) {
+          const activeKey = accessKeysResult.data.accessKeys?.find(
+            (key) => key.status === 'active'
+          );
           setHasAccessKey(!!activeKey);
         }
       } catch (err) {

@@ -1,7 +1,9 @@
 import { db } from '@/db';
-import { getNetworkForInsert } from '@/db/network';
-import { isOrgMember, getOrgAccessKey, getOrgWalletAddress } from '@/db/queries/organizations';
+import { chainIdFilter, getChainId, getNetworkName } from '@/db/network';
+import { getOrgAccessKey, getOrgWalletAddress } from '@/db/queries/organizations';
 import { getBountyWithRepoSettings } from '@/db/queries/bounties';
+import { auth } from '@/lib/auth/auth';
+import { headers } from 'next/headers';
 import { getUserWallet } from '@/db/queries/passkeys';
 import { createPayout, updatePayoutStatus } from '@/db/queries/payouts';
 import {
@@ -10,7 +12,8 @@ import {
   getSubmissionById,
   getSubmissionWithDetails,
 } from '@/db/queries/submissions';
-import { accessKeys, activityLog } from '@/db/schema/business';
+import { activityLog } from '@/db/schema/business';
+import { accessKey } from '@/db/schema/auth';
 import type { requireAuth } from '@/lib/auth/auth-server';
 import { notifyPrApproved } from '@/lib/notifications';
 import { tempoClient } from '@/lib/tempo/client';
@@ -57,7 +60,12 @@ export async function handleApprove(
 
   // Permission check
   if (isOrgPayment) {
-    if (!(await isOrgMember(bounty.organizationId!, session.user.id))) {
+    const headersList = await headers();
+    const hasPermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { member: ['read'] }, organizationId: bounty.organizationId! },
+    });
+    if (!hasPermission?.success) {
       return Response.json(
         { error: 'Only organization members can approve org bounties' },
         { status: 403 }
@@ -78,7 +86,7 @@ export async function handleApprove(
 
   // Get contributor wallet - REQUIRED (no pending payments)
   const contributorWallet = await getUserWallet(submissionToApprove.userId);
-  if (!contributorWallet?.tempoAddress) {
+  if (!contributorWallet?.address) {
     return Response.json(
       { error: 'Contributor must create a wallet before receiving payment' },
       { status: 400 }
@@ -116,8 +124,8 @@ export async function handleApprove(
     recipientUserId: submissionToApprove.userId,
     payerUserId: isOrgPayment ? undefined : (bounty.primaryFunderId ?? undefined),
     payerOrganizationId: isOrgPayment ? (bounty.organizationId ?? undefined) : undefined,
-    recipientPasskeyId: contributorWallet.id,
-    recipientAddress: contributorWallet.tempoAddress,
+    recipientPasskeyId: contributorWallet.passkeyId,
+    recipientAddress: contributorWallet.address,
     amount: bounty.totalFunded,
     tokenAddress: bounty.tokenAddress,
     memoIssueNumber: bounty.githubIssueNumber,
@@ -128,7 +136,7 @@ export async function handleApprove(
   // Build transaction
   const txParams = buildPayoutTransaction({
     tokenAddress: bounty.tokenAddress as `0x${string}`,
-    recipientAddress: contributorWallet.tempoAddress as `0x${string}`,
+    recipientAddress: contributorWallet.address as `0x${string}`,
     amount: BigInt(bounty.totalFunded.toString()),
     issueNumber: bounty.githubIssueNumber,
     prNumber: submissionToApprove.githubPrNumber ?? 0,
@@ -146,7 +154,7 @@ export async function handleApprove(
     const autoSignResult = await tryAutoSign({
       session,
       bounty,
-      funderWalletAddress: funderWallet?.tempoAddress,
+      funderWalletAddress: funderWallet?.address,
       payout,
       txParams,
       memo,
@@ -178,7 +186,7 @@ export async function handleApprove(
     contributor: {
       id: submissionDetails.submitter.id,
       name: submissionDetails.submitter.name,
-      address: contributorWallet.tempoAddress,
+      address: contributorWallet.address,
     },
   });
 }
@@ -233,18 +241,18 @@ async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
     contributorWallet,
     isOrgPayment,
   } = params;
-  const network = getNetworkForInsert();
+  const network = getNetworkName();
 
   // Get active Access Key
-  let activeKey: typeof accessKeys.$inferSelect | null | undefined;
+  let activeKey: typeof accessKey.$inferSelect | null | undefined;
   if (isOrgPayment) {
     activeKey = await getOrgAccessKey(bounty.organizationId!, session.user.id);
   } else {
-    activeKey = await db.query.accessKeys.findFirst({
+    activeKey = await db.query.accessKey.findFirst({
       where: and(
-        eq(accessKeys.userId, session.user.id),
-        eq(accessKeys.network, network),
-        eq(accessKeys.status, 'active')
+        eq(accessKey.userId, session.user.id),
+        chainIdFilter(accessKey),
+        eq(accessKey.status, 'active')
       ),
     });
   }
@@ -271,16 +279,16 @@ async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
     const txHash = await broadcastTransaction(rawTransaction);
     await updatePayoutStatus(payout.id, 'pending', { txHash });
 
-    // Log usage
+    // Log usage (using access_key_created event for now - should add access_key_used to enum)
     await db.insert(activityLog).values({
-      eventType: 'access_key_created',
-      network,
+      eventType: 'payout_sent',
+      chainId: getChainId(),
       userId: session.user.id,
       bountyId: bounty.id,
       payoutId: payout.id,
       metadata: {
         accessKeyId: activeKey.id,
-        backendWalletAddress: activeKey.backendWalletAddress,
+        keyWalletId: activeKey.keyWalletId,
         tokenAddress: bounty.tokenAddress,
         amount: bounty.totalFunded.toString(),
         txHash,
@@ -288,9 +296,9 @@ async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
     });
 
     await db
-      .update(accessKeys)
-      .set({ lastUsedAt: new Date().toISOString() })
-      .where(eq(accessKeys.id, activeKey.id));
+      .update(accessKey)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(accessKey.id, activeKey.id));
 
     return Response.json({
       message: 'Payment sent automatically via Access Key',
@@ -308,7 +316,7 @@ async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
       contributor: {
         id: submissionDetails.submitter.id,
         name: submissionDetails.submitter.name,
-        address: contributorWallet.tempoAddress,
+        address: contributorWallet.address,
       },
     });
   } catch (error) {

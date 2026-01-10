@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/auth-server';
-import { getOrgWalletAddress, isOrgMember } from '@/db/queries/organizations';
-import { getCurrentNetwork } from '@/db/network';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { getOrgWalletAddress } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
+import { getNetworkName } from '@/db/network';
+import { tempoClient } from '@/lib/tempo/client';
 import { getTokenMetadata } from '@/lib/tempo/tokens';
+import { headers } from 'next/headers';
 
 type RouteContext = {
   params: Promise<{ orgId: string }>;
@@ -16,22 +18,44 @@ type RouteContext = {
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
-    const session = await requireAuth();
+    await requireAuth();
     const { orgId } = await context.params;
 
-    if (!(await isOrgMember(orgId, session.user.id))) {
+    const headersList = await headers();
+    const hasPermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { member: ['read'] }, organizationId: orgId },
+    });
+    if (!hasPermission?.success) {
       return NextResponse.json({ error: 'Not a member of this organization' }, { status: 403 });
     }
 
     const address = await getOrgWalletAddress(orgId);
-    const metadata = await getTokenMetadata(TEMPO_TOKENS.USDC);
 
+    // Get org owner's fee token preference
+    const userFeeToken = address
+      ? await tempoClient.fee.getUserToken({ account: address as `0x${string}` })
+      : null;
+    const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
+
+    if (tokenAddress) {
+      const metadata = await getTokenMetadata(tokenAddress);
+      return NextResponse.json({
+        address,
+        network: getNetworkName(),
+        tokenAddress,
+        tokenDecimals: metadata.decimals,
+        tokenSymbol: metadata.symbol,
+      });
+    }
+
+    // No fee token set - return without token info
     return NextResponse.json({
       address,
-      network: getCurrentNetwork(),
-      tokenAddress: TEMPO_TOKENS.USDC,
-      tokenDecimals: metadata.decimals,
-      tokenSymbol: metadata.symbol,
+      network: getNetworkName(),
+      tokenAddress: undefined,
+      tokenDecimals: undefined,
+      tokenSymbol: undefined,
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {

@@ -15,7 +15,7 @@ export default async function TxModalPage({ params }: TxModalPageProps) {
   const { hash } = await params;
 
   return (
-    <RouteModal title="Transaction Details">
+    <RouteModal title="Transaction Details" useBack>
       <TxDetail hash={hash} />
     </RouteModal>
   );

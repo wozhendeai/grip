@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PasskeyOperationContent, getPasskeyTitle } from '@/components/tempo';
-import { passkey } from '@/lib/auth/auth-client';
+import { authClient } from '@/lib/auth/auth-client';
 import {
   classifyWebAuthnError,
   type PasskeyOperationError,
@@ -44,10 +44,9 @@ export function CreateWalletModal({
     setPhase('processing');
 
     try {
-      // Check if user already has a wallet
-      const checkRes = await fetch('/api/auth/tempo/passkeys');
-      const { passkeys } = await checkRes.json();
-      const existingWallet = passkeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
+      // Check if user already has a passkey wallet
+      const { data: walletsData } = await authClient.listWallets();
+      const existingWallet = walletsData?.wallets.find((w) => w.walletType === 'passkey');
 
       if (existingWallet) {
         setError({
@@ -60,16 +59,15 @@ export function CreateWalletModal({
         return;
       }
 
-      // Proceed with wallet creation
+      // Single call handles full WebAuthn ceremony + wallet creation
       setPhase('registering');
-      await passkey.addPasskey({ name: 'GRIP Wallet' });
+      const result = await authClient.registerPasskey({ name: 'GRIP Wallet' });
 
-      // Fetch created wallet (has tempoAddress field from tempo plugin)
-      setPhase('processing');
-      const res = await fetch('/api/auth/tempo/passkeys');
-      const { passkeys: updatedPasskeys } = await res.json();
-      const wallet = updatedPasskeys.find((p: { tempoAddress?: string | null }) => p.tempoAddress);
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to register passkey');
+      }
 
+      const wallet = result.data?.wallet;
       if (!wallet) {
         setError({
           type: 'operation_failed',
@@ -81,7 +79,7 @@ export function CreateWalletModal({
       }
 
       setPhase('success');
-      onSuccess?.(wallet);
+      onSuccess?.({ address: wallet.address, id: wallet.id });
 
       setTimeout(() => {
         onOpenChange(false);

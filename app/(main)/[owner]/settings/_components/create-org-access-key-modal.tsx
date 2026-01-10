@@ -14,15 +14,11 @@ import {
 } from '@/components/ui/select';
 import { PasskeyOperationContent, getPasskeyTitle } from '@/components/tempo';
 import { HelpCircle } from 'lucide-react';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
-import {
-  classifyWebAuthnError,
-  type PasskeyOperationError,
-  type PasskeyPhase,
-} from '@/lib/webauthn';
+import type { PasskeyOperationError, PasskeyPhase } from '@/lib/webauthn';
 import { useCallback, useMemo, useState } from 'react';
-import { KeyAuthorization } from 'ox/tempo';
-import { useConnect, useConnections, useConnectors, useSignMessage } from 'wagmi';
+import { authClient } from '@/lib/auth/auth-client';
+import { config } from '@/lib/wagmi-config';
+import { getChainId } from '@/lib/network';
 import type { OrgAccessKey, OrgMember } from '../_lib/types';
 
 type CreateOrgAccessKeyModalProps = {
@@ -31,6 +27,7 @@ type CreateOrgAccessKeyModalProps = {
   onSuccess: (key: OrgAccessKey) => void;
   members: OrgMember[];
   organizationId: string;
+  tokenAddress: `0x${string}`;
 };
 
 export function CreateOrgAccessKeyModal({
@@ -39,16 +36,12 @@ export function CreateOrgAccessKeyModal({
   onSuccess,
   members,
   organizationId,
+  tokenAddress,
 }: CreateOrgAccessKeyModalProps) {
   const [phase, setPhase] = useState<PasskeyPhase>('ready');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [spendingLimit, setSpendingLimit] = useState('1000');
   const [error, setError] = useState<PasskeyOperationError | null>(null);
-
-  const connectors = useConnectors();
-  const connections = useConnections();
-  const connect = useConnect();
-  const signMessage = useSignMessage();
 
   // Filter to only non-owner members (owner doesn't need delegation to their own wallet)
   // and members with passkeys
@@ -64,13 +57,13 @@ export function CreateOrgAccessKeyModal({
     return members.find((m) => m.user?.id === selectedMemberId);
   }, [members, selectedMemberId]);
 
-  const selectedMemberPasskeyAddress = useMemo(() => {
-    if (!selectedMember?.user?.passkeys?.length) return null;
-    return selectedMember.user.passkeys[0].tempoAddress;
+  const selectedMemberWalletAddress = useMemo(() => {
+    const passkeyWallet = selectedMember?.user?.wallets?.find((w) => w.walletType === 'passkey');
+    return passkeyWallet?.address ?? null;
   }, [selectedMember]);
 
   const handleCreate = useCallback(async () => {
-    if (!selectedMemberId || !selectedMemberPasskeyAddress) {
+    if (!selectedMemberId || !selectedMemberWalletAddress) {
       setError({
         type: 'operation_failed',
         message: 'Selected team member has no passkey wallet. They need to create one first.',
@@ -81,46 +74,29 @@ export function CreateOrgAccessKeyModal({
     }
 
     setError(null);
-    setPhase('connecting');
+    setPhase('signing');
 
     try {
-      // Connect if not already connected
-      if (connections.length === 0) {
-        const webAuthnConnector = connectors.find(
-          (c) => c.id === 'webAuthn' || c.type === 'webAuthn'
-        );
+      const limitAmount = BigInt(spendingLimit) * BigInt(1_000_000);
 
-        if (!webAuthnConnector) {
-          setError({
-            type: 'unknown',
-            message: 'WebAuthn connector not available. Please refresh and try again.',
-            phase: 'connect',
-          });
-          setPhase('error');
-          return;
-        }
-
-        await connect.mutateAsync({ connector: webAuthnConnector });
-      }
-
-      // Sign authorization for team member's passkey
-      setPhase('signing');
-
-      // For org access keys: authorize the team member's passkey address (webAuthn type)
-      const authorization = KeyAuthorization.from({
-        chainId: BigInt(42429),
-        type: 'webAuthn',
-        address: selectedMemberPasskeyAddress as `0x${string}`,
-        limits: [
-          {
-            token: TEMPO_TOKENS.USDC,
-            limit: BigInt(spendingLimit) * BigInt(1_000_000),
-          },
-        ],
+      // Sign authorization for team member's passkey (webAuthn type)
+      const { data: signResult, error: signError } = await authClient.signKeyAuthorization({
+        config,
+        chainId: getChainId(),
+        keyType: 'webAuthn',
+        address: selectedMemberWalletAddress as `0x${string}`,
+        limits: [{ token: tokenAddress, amount: limitAmount }],
       });
 
-      const hash = KeyAuthorization.getSignPayload(authorization);
-      const signature = await signMessage.mutateAsync({ message: { raw: hash } });
+      if (signError || !signResult) {
+        setError({
+          type: 'unknown',
+          message: signError?.message || 'Failed to sign authorization',
+          phase: 'sign',
+        });
+        setPhase('error');
+        return;
+      }
 
       // Create access key via API
       setPhase('processing');
@@ -131,13 +107,12 @@ export function CreateOrgAccessKeyModal({
           teamMemberUserId: selectedMemberId,
           spendingLimits: [
             {
-              tokenAddress: TEMPO_TOKENS.USDC,
-              amount: (BigInt(spendingLimit) * BigInt(1_000_000)).toString(),
+              tokenAddress,
+              amount: limitAmount.toString(),
             },
           ],
-          authorizationSignature: signature,
-          // Pass the hash for server-side verification
-          authorizationHash: hash,
+          authorizationSignature: signResult.signature,
+          authorizationHash: signResult.hash,
         }),
       });
 
@@ -159,11 +134,11 @@ export function CreateOrgAccessKeyModal({
       const newKey: OrgAccessKey = {
         id: result.id,
         organizationId: result.organizationId,
-        network: result.network,
-        authorizedUserPasskeyId: result.authorizedUserPasskeyId,
-        keyType: result.keyType,
         chainId: result.chainId,
-        expiry: result.expiry ? BigInt(result.expiry) : null,
+        rootWalletId: result.rootWalletId,
+        keyWalletId: result.keyWalletId,
+        keyType: result.keyType ?? null,
+        expiry: result.expiry ?? null,
         limits: result.limits,
         status: result.status,
         createdAt: result.createdAt,
@@ -186,24 +161,22 @@ export function CreateOrgAccessKeyModal({
         setSpendingLimit('1000');
       }, 2000);
     } catch (err) {
-      const currentPhase = phase === 'connecting' ? 'connect' : 'sign';
-      const classified = classifyWebAuthnError(err, currentPhase, 'signing');
-      setError(classified);
+      setError({
+        type: 'unknown',
+        message: err instanceof Error ? err.message : 'An unexpected error occurred',
+        phase: 'sign',
+      });
       setPhase('error');
     }
   }, [
     selectedMemberId,
-    selectedMemberPasskeyAddress,
+    selectedMemberWalletAddress,
     selectedMember,
-    connections.length,
-    connectors,
-    connect,
-    signMessage,
     spendingLimit,
+    tokenAddress,
     organizationId,
     onSuccess,
     onOpenChange,
-    phase,
   ]);
 
   const handleClose = useCallback(
@@ -236,7 +209,7 @@ export function CreateOrgAccessKeyModal({
   }, []);
 
   const canCreate =
-    selectedMemberId && selectedMemberPasskeyAddress && spendingLimit && Number(spendingLimit) > 0;
+    selectedMemberId && selectedMemberWalletAddress && spendingLimit && Number(spendingLimit) > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -298,16 +271,18 @@ export function CreateOrgAccessKeyModal({
                       </div>
                     ) : (
                       eligibleMembers.map((member) => {
-                        const hasPasskey = member.user?.passkeys?.some((p) => p.tempoAddress);
+                        const hasWallet = member.user?.wallets?.some(
+                          (w) => w.walletType === 'passkey'
+                        );
                         return (
                           <SelectItem
                             key={member.user?.id}
                             value={member.user?.id ?? ''}
-                            disabled={!hasPasskey}
+                            disabled={!hasWallet}
                           >
                             <div className="flex items-center gap-2">
                               <span>{member.user?.name || member.user?.email}</span>
-                              {!hasPasskey && (
+                              {!hasWallet && (
                                 <span className="text-xs text-muted-foreground">(no wallet)</span>
                               )}
                             </div>
@@ -317,7 +292,7 @@ export function CreateOrgAccessKeyModal({
                     )}
                   </SelectContent>
                 </Select>
-                {selectedMemberId && !selectedMemberPasskeyAddress && (
+                {selectedMemberId && !selectedMemberWalletAddress && (
                   <p className="text-sm text-destructive">
                     This team member hasn&apos;t created a wallet yet. They need to create one
                     before you can authorize spending.

@@ -117,12 +117,44 @@ export const passkey = pgTable(
     transports: text('transports'),
     createdAt: timestamp('created_at'),
     aaguid: text('aaguid'),
-    // Tempo plugin extension - derived from P256 public key
-    tempoAddress: varchar('tempo_address', { length: 42 }).unique(),
   },
   (table) => [
     index('passkey_userId_idx').on(table.userId),
     index('passkey_credentialID_idx').on(table.credentialID),
+  ]
+);
+
+/**
+ * Wallet table (Tempo plugin)
+ *
+ * First-class entity for anything that can sign Tempo transactions:
+ * - passkey: User's passkey-derived wallet (P256 curve)
+ * - server: Backend wallet (Turnkey HSM, KMS)
+ * - external: User's external wallet (MetaMask, WalletConnect, etc.)
+ *
+ * Replaces the need for tempoAddress on passkey table.
+ */
+export const walletTypeEnum = ['passkey', 'server', 'external'] as const;
+export const keyTypeEnum = ['secp256k1', 'p256', 'webauthn'] as const;
+
+export const wallet = pgTable(
+  'wallet',
+  {
+    id: text('id').primaryKey(),
+    address: varchar('address', { length: 42 }).notNull().unique(),
+    keyType: varchar('key_type', { length: 20, enum: keyTypeEnum }).notNull(),
+    walletType: varchar('wallet_type', { length: 20, enum: walletTypeEnum }).notNull(),
+    passkeyId: text('passkey_id')
+      .unique()
+      .references(() => passkey.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    label: varchar('label', { length: 100 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('wallet_userId_idx').on(table.userId),
+    index('wallet_passkeyId_idx').on(table.passkeyId),
+    index('wallet_address_idx').on(table.address),
   ]
 );
 
@@ -187,6 +219,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   passkeys: many(passkey),
+  wallets: many(wallet),
   members: many(member),
   invitations: many(invitation),
 }));
@@ -209,6 +242,18 @@ export const passkeyRelations = relations(passkey, ({ one }) => ({
   user: one(user, {
     fields: [passkey.userId],
     references: [user.id],
+  }),
+  wallet: one(wallet),
+}));
+
+export const walletRelations = relations(wallet, ({ one }) => ({
+  user: one(user, {
+    fields: [wallet.userId],
+    references: [user.id],
+  }),
+  passkey: one(passkey, {
+    fields: [wallet.passkeyId],
+    references: [passkey.id],
   }),
 }));
 
@@ -236,5 +281,75 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
   user: one(user, {
     fields: [invitation.inviterId],
     references: [user.id],
+  }),
+}));
+
+/**
+ * Access Key table (Tempo plugin)
+ *
+ * Stores user authorizations for backend signing via Tempo Access Keys.
+ * Managed by better-auth's tempo-plugin adapter.
+ *
+ * Flow:
+ * 1. User signs KeyAuthorization with passkey (granting backend key spending permission)
+ * 2. Backend stores authorization proof in this table
+ * 3. Backend uses Turnkey-managed secp256k1 key to sign payouts via Keychain signature
+ * 4. Tempo validates authorization on-chain via Account Keychain Precompile
+ */
+export const accessKeyStatuses = ['active', 'revoked', 'expired'] as const;
+export type AccessKeyStatus = (typeof accessKeyStatuses)[number];
+
+export const accessKey = pgTable(
+  'access_key',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    rootWalletId: text('root_wallet_id')
+      .notNull()
+      .references(() => wallet.id, { onDelete: 'restrict' }),
+    keyWalletId: text('key_wallet_id')
+      .notNull()
+      .references(() => wallet.id, { onDelete: 'restrict' }),
+    chainId: integer('chain_id').notNull(),
+    expiry: integer('expiry'),
+    limits: text('limits'),
+    authorizationSignature: text('authorization_signature').notNull(),
+    authorizationHash: text('authorization_hash').notNull(),
+    status: text('status').notNull(),
+    label: text('label'),
+    revokedAt: text('revoked_at'),
+    createdAt: text('created_at'),
+    updatedAt: text('updated_at'),
+    organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'cascade',
+    }),
+    isDedicated: boolean('is_dedicated').default(false),
+    revokedReason: text('revoked_reason'),
+    lastUsedAt: timestamp('last_used_at'),
+  },
+  (table) => [
+    index('access_key_userId_idx').on(table.userId),
+    index('access_key_rootWalletId_idx').on(table.rootWalletId),
+    index('access_key_keyWalletId_idx').on(table.keyWalletId),
+    index('access_key_status_idx').on(table.status),
+  ]
+);
+
+export const accessKeyRelations = relations(accessKey, ({ one }) => ({
+  user: one(user, {
+    fields: [accessKey.userId],
+    references: [user.id],
+  }),
+  organization: one(organization, {
+    fields: [accessKey.organizationId],
+    references: [organization.id],
+  }),
+  rootWallet: one(wallet, {
+    fields: [accessKey.rootWalletId],
+    references: [wallet.id],
+  }),
+  keyWallet: one(wallet, {
+    fields: [accessKey.keyWalletId],
+    references: [wallet.id],
   }),
 }));

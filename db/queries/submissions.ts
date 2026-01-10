@@ -1,5 +1,5 @@
-import { bounties, db, passkey, repoSettings, submissions, user } from '@/db';
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { bounties, db, repoSettings, submissions, user, wallet } from '@/db';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 /**
  * Cleanup note (2025-12-14):
@@ -110,11 +110,11 @@ export async function getSubmissionsByUser(userId: string) {
 }
 
 export async function getSubmissionsByBounty(bountyId: string) {
-  // Subquery to check if user has a wallet (passkey with tempoAddress)
+  // Subquery to check if user has a passkey wallet
   const hasWalletSubquery = sql<boolean>`EXISTS(
-    SELECT 1 FROM ${passkey}
-    WHERE ${passkey.userId} = ${user.id}
-    AND ${passkey.tempoAddress} IS NOT NULL
+    SELECT 1 FROM ${wallet}
+    WHERE ${wallet.userId} = ${user.id}
+    AND ${wallet.walletType} = 'passkey'
   )`.as('hasWallet');
 
   return db

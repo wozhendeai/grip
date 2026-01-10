@@ -24,8 +24,9 @@ export function FundContent({ walletAddress, onDone }: FundContentProps) {
   } = Hooks.faucet.useFundSync();
 
   const isTestnet = process.env.NEXT_PUBLIC_TEMPO_NETWORK === 'testnet';
-  const networkName = isTestnet ? 'Tempo Testnet' : 'Tempo';
-  const explorerUrl = isTestnet ? 'https://explore.testnet.tempo.xyz' : 'https://explore.tempo.xyz';
+  const networkName = isTestnet ? 'Tempo Testnet (Moderato)' : 'Tempo';
+  // Explorer URL is same for testnet and mainnet
+  const explorerUrl = 'https://explore.tempo.xyz';
 
   const truncatedAddress = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
 

@@ -23,6 +23,9 @@ import { useState } from 'react';
 import type { OrgAccessKey, OrgMember } from '../_lib/types';
 import { CreateOrgAccessKeyModal } from './create-org-access-key-modal';
 
+// Default token for access key spending limits (alphaUSD on Moderato testnet)
+const DEFAULT_LIMIT_TOKEN = '0x20c0000000000000000000000000000000000001' as `0x${string}`;
+
 interface AccessKeysContentProps {
   ownerHasAccessKey: boolean;
   orgAccessKeys: OrgAccessKey[];
@@ -50,7 +53,11 @@ export function AccessKeysContent({
 
   // Owner has access key - show delegation UI
   return (
-    <DelegationUI orgAccessKeys={orgAccessKeys} members={members} organizationId={organizationId} />
+    <DelegationUI
+      orgAccessKeys={orgAccessKeys}
+      members={members}
+      organizationId={organizationId}
+    />
   );
 }
 
@@ -97,7 +104,11 @@ interface DelegationUIProps {
 /**
  * Full delegation UI for managing team member access
  */
-function DelegationUI({ orgAccessKeys, members, organizationId }: DelegationUIProps) {
+function DelegationUI({
+  orgAccessKeys,
+  members,
+  organizationId,
+}: DelegationUIProps) {
   const [localKeys, setLocalKeys] = useState(orgAccessKeys);
   const [keyToRevoke, setKeyToRevoke] = useState<OrgAccessKey | null>(null);
   const [isRevoking, setIsRevoking] = useState(false);
@@ -253,13 +264,13 @@ function DelegationUI({ orgAccessKeys, members, organizationId }: DelegationUIPr
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Create Org Access Key Modal */}
       <CreateOrgAccessKeyModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onSuccess={handleCreateSuccess}
         members={members}
         organizationId={organizationId}
+        tokenAddress={DEFAULT_LIMIT_TOKEN}
       />
     </div>
   );

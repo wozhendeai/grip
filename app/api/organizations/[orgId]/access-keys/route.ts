@@ -1,8 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { createOrgAccessKey } from '@/lib/tempo/access-keys';
-import { getOrgAccessKeys, isOrgOwner, isOrgMember } from '@/db/queries/organizations';
+import { getOrgAccessKeys, isOrgMember } from '@/db/queries/organizations';
+import { headers } from 'next/headers';
 import { tempoTestnet } from 'viem/chains';
+
+// Note: isOrgMember is kept for checking OTHER users (teamMemberUserId).
+// For session user checks, we use auth.api.hasPermission instead.
 
 type RouteContext = {
   params: Promise<{ orgId: string }>;
@@ -15,11 +20,17 @@ type RouteContext = {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const session = await requireAuth();
+    await requireAuth();
     const { orgId } = await context.params;
 
     // Only owner can authorize Access Keys
-    if (!(await isOrgOwner(orgId, session.user.id))) {
+    const headersList = await headers();
+    const hasDeletePermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { organization: ['delete'] }, organizationId: orgId },
+    });
+
+    if (!hasDeletePermission?.success) {
       return NextResponse.json(
         { error: 'Only organization owner can authorize Access Keys' },
         { status: 403 }
@@ -39,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    // Verify team member is in org
+    // Verify team member is in org (checking a different user - must use db query)
     if (!(await isOrgMember(orgId, teamMemberUserId))) {
       return NextResponse.json(
         { error: 'User is not a member of this organization' },
@@ -80,10 +91,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const session = await requireAuth();
+    await requireAuth();
     const { orgId } = await context.params;
 
-    if (!(await isOrgMember(orgId, session.user.id))) {
+    const headersList = await headers();
+    const hasPermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { member: ['read'] }, organizationId: orgId },
+    });
+    if (!hasPermission?.success) {
       return NextResponse.json({ error: 'Not a member of this organization' }, { status: 403 });
     }
 

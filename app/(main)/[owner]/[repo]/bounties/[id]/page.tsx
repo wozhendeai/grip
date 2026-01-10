@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { getBountyWithAuthor } from '@/db/queries/bounties';
-import { getUserWallet } from '@/db/queries/passkeys';
 import { getSubmissionsByBounty } from '@/db/queries/submissions';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
 import type { Bounty, SubmissionStatus } from '@/lib/types';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { BountyDetail } from './_components/bounty-detail';
 
@@ -46,14 +47,16 @@ export default async function BountyPage({ params }: BountyPageProps) {
   const isOrgBounty = !!bountyData.organizationId;
   const canApprove = session?.user?.id === bountyData.primaryFunderId;
 
-  // Get funder's wallet info for payment flow
+  // Get funder's wallet info via tempo plugin API
   let treasuryCredentials: { credentialId: string; address: string } | null = null;
   if (canApprove && session?.user) {
-    const funderWallet = await getUserWallet(session.user.id);
-    if (funderWallet?.id && funderWallet?.tempoAddress) {
+    const headersList = await headers();
+    const { wallets } = await auth.api.listWallets({ headers: headersList });
+    const funderWallet = wallets.find((w) => w.walletType === 'passkey');
+    if (funderWallet?.passkeyId && funderWallet?.address) {
       treasuryCredentials = {
-        credentialId: funderWallet.id,
-        address: funderWallet.tempoAddress,
+        credentialId: funderWallet.passkeyId,
+        address: funderWallet.address,
       };
     }
   }
@@ -62,7 +65,7 @@ export default async function BountyPage({ params }: BountyPageProps) {
   // BigInt fields are serialized to strings for JSON compatibility
   const bounty: Bounty = {
     id: bountyData.id,
-    network: bountyData.network,
+    chainId: bountyData.chainId,
     githubRepoId: bountyData.githubRepoId.toString(),
     githubOwner: bountyData.githubOwner,
     githubRepo: bountyData.githubRepo,

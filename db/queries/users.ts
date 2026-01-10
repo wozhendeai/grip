@@ -1,24 +1,24 @@
-import { account, bounties, db, invitation, passkey, payouts, user } from '@/db';
+import { account, bounties, db, payouts, user, wallet } from '@/db';
 import { member } from '@/db/schema/auth';
-import { and, eq, gt, sql } from 'drizzle-orm';
-import { networkFilter } from '../network';
+import { and, eq, sql } from 'drizzle-orm';
+import { chainIdFilter } from '../network';
 
 /**
  * Get user by name with computed stats and wallet address
  *
  * Computes stats from payouts (no cached user_stats table).
- * Joins with passkey for tempoAddress.
+ * Joins with wallet table for passkey wallet address.
  */
 export async function getUserByName(name: string) {
   const [result] = await db
     .select({
       user: user,
       wallet: {
-        tempoAddress: passkey.tempoAddress,
+        address: wallet.address,
       },
     })
     .from(user)
-    .leftJoin(passkey, eq(user.id, passkey.userId))
+    .leftJoin(wallet, and(eq(wallet.userId, user.id), eq(wallet.walletType, 'passkey')))
     .where(eq(user.name, name))
     .limit(1);
 
@@ -33,7 +33,7 @@ export async function getUserByName(name: string) {
     .from(payouts)
     .where(
       and(
-        networkFilter(payouts),
+        chainIdFilter(payouts),
         eq(payouts.recipientUserId, result.user.id),
         eq(payouts.status, 'confirmed')
       )
@@ -46,53 +46,7 @@ export async function getUserByName(name: string) {
     image: result.user.image,
     createdAt: result.user.createdAt,
     githubUserId: result.user.githubUserId,
-    tempoAddress: result.wallet?.tempoAddress ?? null,
-    totalEarned: stats?.totalEarned ?? 0,
-    bountiesCompleted: stats?.bountiesCompleted ?? 0,
-  };
-}
-
-/**
- * Get user by ID with computed stats and wallet address
- */
-export async function getUserById(userId: string) {
-  const [result] = await db
-    .select({
-      user: user,
-      wallet: {
-        tempoAddress: passkey.tempoAddress,
-      },
-    })
-    .from(user)
-    .leftJoin(passkey, eq(user.id, passkey.userId))
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  if (!result) return null;
-
-  // Compute stats from payouts (network-aware)
-  const [stats] = await db
-    .select({
-      totalEarned: sql<number>`coalesce(sum(${payouts.amount}), 0)::bigint`,
-      bountiesCompleted: sql<number>`count(distinct ${payouts.bountyId})::int`,
-    })
-    .from(payouts)
-    .where(
-      and(
-        networkFilter(payouts),
-        eq(payouts.recipientUserId, result.user.id),
-        eq(payouts.status, 'confirmed')
-      )
-    );
-
-  return {
-    id: result.user.id,
-    name: result.user.name,
-    email: result.user.email,
-    image: result.user.image,
-    createdAt: result.user.createdAt,
-    githubUserId: result.user.githubUserId,
-    tempoAddress: result.wallet?.tempoAddress ?? null,
+    tempoAddress: result.wallet?.address ?? null,
     totalEarned: stats?.totalEarned ?? 0,
     bountiesCompleted: stats?.bountiesCompleted ?? 0,
   };
@@ -135,7 +89,7 @@ export async function getBountyDataByGitHubId(githubId: bigint | string) {
     .from(payouts)
     .where(
       and(
-        networkFilter(payouts),
+        chainIdFilter(payouts),
         eq(payouts.recipientUserId, foundUser.id),
         eq(payouts.status, 'confirmed')
       )
@@ -154,7 +108,7 @@ export async function getBountyDataByGitHubId(githubId: bigint | string) {
     })
     .from(payouts)
     .innerJoin(bounties, eq(payouts.bountyId, bounties.id))
-    .where(and(networkFilter(payouts), eq(payouts.recipientUserId, foundUser.id)));
+    .where(and(chainIdFilter(payouts), eq(payouts.recipientUserId, foundUser.id)));
 
   // Get funded bounties (bounties user is primary funder for)
   const funded = await db
@@ -168,7 +122,7 @@ export async function getBountyDataByGitHubId(githubId: bigint | string) {
       createdAt: bounties.createdAt,
     })
     .from(bounties)
-    .where(and(networkFilter(bounties), eq(bounties.primaryFunderId, foundUser.id)));
+    .where(and(chainIdFilter(bounties), eq(bounties.primaryFunderId, foundUser.id)));
 
   return {
     completed,
@@ -217,39 +171,5 @@ export async function getUserOrganizations(userId: string) {
       },
     },
     orderBy: (member, { asc }) => [asc(member.createdAt)],
-  });
-}
-
-/**
- * Get pending invitations for a user by email
- *
- * Returns active (non-expired, pending) invitations with organization and inviter info.
- * Used in settings/organizations to show invitations user can accept/decline.
- */
-export async function getUserPendingInvitations(email: string) {
-  return db.query.invitation.findMany({
-    where: and(
-      eq(invitation.email, email),
-      eq(invitation.status, 'pending'),
-      gt(invitation.expiresAt, new Date())
-    ),
-    with: {
-      organization: {
-        columns: {
-          id: true,
-          name: true,
-          slug: true,
-          logo: true,
-        },
-      },
-      user: {
-        columns: {
-          id: true,
-          name: true,
-          image: true,
-        },
-      },
-    },
-    orderBy: (inv, { desc }) => [desc(inv.createdAt)],
   });
 }

@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import type { GitHubRepo } from '@/lib/github';
 import { cn } from '@/lib/utils';
 import { ExternalLink, Search } from 'lucide-react';
@@ -228,7 +227,7 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
           repo,
           githubIssueNumber: selectedIssue.number,
           amount: amountNum,
-          tokenAddress: selectedToken?.address ?? TEMPO_TOKENS.USDC,
+          tokenAddress: selectedToken!.address,
           claimDeadlineDays: Number.parseInt(claimDeadlineDays, 10),
           payoutMode,
           publish,
@@ -494,7 +493,9 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
               placeholder="Select token"
               className="w-full"
             />
-            <FieldDescription>{selectedToken?.symbol ?? 'USDC'} on Tempo</FieldDescription>
+            <FieldDescription>
+              {selectedToken?.symbol ?? 'Select a token'} on Tempo
+            </FieldDescription>
           </Field>
         </div>
 
@@ -565,14 +566,14 @@ export function CreateBountyForm({ githubRepo, projectId, owner, repo }: CreateB
       <ButtonGroup className="pt-4">
         <Button
           onClick={() => handleSubmit(true)}
-          disabled={isSubmitting || !selectedIssue || !amount}
+          disabled={isSubmitting || !selectedIssue || !amount || !selectedToken}
         >
           {isSubmitting ? 'Creating...' : 'Create & Publish'}
         </Button>
         <ButtonGroupSeparator />
         <Button
           onClick={() => handleSubmit(false)}
-          disabled={isSubmitting || !selectedIssue || !amount}
+          disabled={isSubmitting || !selectedIssue || !amount || !selectedToken}
           variant="outline"
         >
           Save as Draft

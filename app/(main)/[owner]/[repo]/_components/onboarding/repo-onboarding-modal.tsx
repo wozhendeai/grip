@@ -1,8 +1,10 @@
 'use client';
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { authClient } from '@/lib/auth/auth-client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Hooks } from 'wagmi/tempo';
 import { OnboardingProgress } from './onboarding-progress';
 import { OnboardingStepAutopay } from './onboarding-step-autopay';
 import { OnboardingStepComplete } from './onboarding-step-complete';
@@ -30,6 +32,13 @@ export function RepoOnboardingModal({ repo, user }: RepoOnboardingModalProps) {
   const [autoPayEnabled, setAutoPayEnabled] = useState(user.hasAccessKey);
   const [walletAddress, setWalletAddress] = useState(user.walletAddress);
   const [hasWallet, setHasWallet] = useState(user.hasWallet);
+
+  // Get user's fee token preference for access key limits
+  const { data: userFeeToken } = Hooks.fee.useUserToken({
+    account: (walletAddress ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    query: { enabled: Boolean(walletAddress) },
+  });
+  const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
 
   const totalSteps = 4;
 
@@ -65,14 +74,10 @@ export function RepoOnboardingModal({ repo, user }: RepoOnboardingModalProps) {
     // Wallet was just created - fetch updated user data to get the address
     setHasWallet(true);
     try {
-      const res = await fetch('/api/auth/tempo/passkeys');
-      if (res.ok) {
-        const { passkeys } = await res.json();
-        // Get the first passkey with a tempoAddress (the one we just created)
-        const walletPasskey = passkeys?.find((p: { tempoAddress?: string }) => p.tempoAddress);
-        if (walletPasskey?.tempoAddress) {
-          setWalletAddress(walletPasskey.tempoAddress);
-        }
+      const { data } = await authClient.listWallets();
+      const wallet = data?.wallets.find((w) => w.walletType === 'passkey');
+      if (wallet?.address) {
+        setWalletAddress(wallet.address);
       }
     } catch (error) {
       console.error('Failed to fetch wallet address:', error);
@@ -107,6 +112,7 @@ export function RepoOnboardingModal({ repo, user }: RepoOnboardingModalProps) {
             hasAccessKey={user.hasAccessKey}
             onBack={() => setStep(2)}
             onNext={handleAutopayNext}
+            tokenAddress={tokenAddress}
           />
         )}
 

@@ -1,11 +1,12 @@
 import { getBountyById } from '@/db/queries/bounties';
-import { getUserWallet } from '@/db/queries/passkeys';
 import { getRepoSettingsByGithubRepoId } from '@/db/queries/repo-settings';
 import { createSubmission, getUserSubmissionForBounty } from '@/db/queries/submissions';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { isUserCollaborator } from '@/lib/github/api';
 import { handleRouteError, validateBody } from '@/app/api/_lib';
 import { bountySubmitSchema } from '@/app/api/_lib/schemas';
+import { headers } from 'next/headers';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -21,9 +22,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<'/api/bountie
     const { id } = await ctx.params;
     const body = await validateBody(request, bountySubmitSchema);
 
-    // Check wallet requirement
-    const wallet = await getUserWallet(session.user.id);
-    if (!wallet?.tempoAddress) {
+    // Check wallet requirement via tempo plugin API
+    const headersList = await headers();
+    const { wallets } = await auth.api.listWallets({ headers: headersList });
+    const wallet = wallets.find((w) => w.walletType === 'passkey');
+    if (!wallet?.address) {
       return Response.json(
         { error: 'WALLET_REQUIRED', message: 'Create a wallet to submit work for bounties' },
         { status: 400 }

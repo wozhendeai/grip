@@ -21,11 +21,11 @@ interface OrgRepo {
 
 interface OrgReposProps {
   repos: OrgRepo[];
-  isAdmin: boolean;
+  isMember: boolean;
   orgSlug: string;
 }
 
-export function OrgRepos({ repos, isAdmin, orgSlug }: OrgReposProps) {
+export function OrgRepos({ repos, isMember, orgSlug }: OrgReposProps) {
   if (repos.length === 0) {
     return (
       <section id="repos">
@@ -35,7 +35,7 @@ export function OrgRepos({ repos, isAdmin, orgSlug }: OrgReposProps) {
               <FolderGit2 strokeWidth={1.5} />
             </EmptyMedia>
             <EmptyTitle>No repositories on GRIP yet</EmptyTitle>
-            {isAdmin && (
+            {isMember && (
               <EmptyDescription>
                 <Link href={`/${orgSlug}/settings`} className="text-primary hover:underline">
                   Add a repository →

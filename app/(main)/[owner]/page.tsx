@@ -4,6 +4,7 @@ import {
   getOrgBountyData,
   getOrgMembersWithUsers,
   getOrgRepositories,
+  isOrgMember,
 } from '@/db/queries/organizations';
 import { getSession } from '@/lib/auth/auth-server';
 import {
@@ -61,13 +62,38 @@ export default async function OwnerPage({ params }: OwnerPageProps) {
   // 1. Try BountyLane org first (DB lookup by slug)
   const gripOrg = await getOrgBySlug(owner);
   if (gripOrg) {
+    // Check if current user is a member of this org
+    const isMember = session?.user ? await isOrgMember(gripOrg.id, session.user.id) : false;
+
+    // Privacy check for GitHub-linked orgs
+    // If linked to GitHub and GitHub org is not publicly accessible, require membership
+    //
+    // TODO: Plan better privacy support. Current approach has limitations:
+    // - Relies on GitHub API returning 404 to detect private orgs (extra API call)
+    // - No explicit `isPrivate` field on organization schema
+    // - Non-GitHub orgs have no privacy controls at all
+    //
+    // Better approach would be:
+    // 1. Add `visibility: 'public' | 'private' | 'members_only'` to organization schema
+    // 2. Set visibility when linking GitHub org (check org.type or visibility API)
+    // 3. Allow manual visibility override for non-GitHub orgs
+    // 4. Consider what data is visible at each level (profile, repos, bounties, members)
+    // 5. Add visibility controls to org settings UI
+    if (gripOrg.githubOrgId) {
+      const githubOrgAccessible = await getOrganization(gripOrg.githubOrgLogin!);
+      if (!githubOrgAccessible && !isMember) {
+        // GitHub org is private and user is not a GRIP member - return 404
+        notFound();
+      }
+    }
+
     // Fetch BountyLane org data in parallel
+    // Members list is only visible to org members
     const [github, repos, bountyData, members] = await Promise.all([
       gripOrg.githubOrgLogin ? getOrganization(gripOrg.githubOrgLogin) : null,
-      // Use new query that aggregates bounty stats
       getOrgRepositories(gripOrg.id, gripOrg.githubOrgLogin),
       getOrgBountyData(gripOrg.id),
-      getOrgMembersWithUsers(gripOrg.id),
+      isMember ? getOrgMembersWithUsers(gripOrg.id) : Promise.resolve(null),
     ]);
 
     const isLoggedIn = !!session?.user;
@@ -97,6 +123,7 @@ export default async function OwnerPage({ params }: OwnerPageProps) {
         gripOrg={gripOrg}
         bountyData={bountyData}
         members={members}
+        isMember={isMember}
         isLoggedIn={isLoggedIn}
       />
     );
@@ -163,6 +190,7 @@ export default async function OwnerPage({ params }: OwnerPageProps) {
         gripOrg={null}
         bountyData={null}
         members={null}
+        isMember={false}
         isLoggedIn={isLoggedIn}
       />
     );

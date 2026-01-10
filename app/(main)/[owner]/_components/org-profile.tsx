@@ -53,6 +53,7 @@ interface OrgProfileProps {
       image: string | null;
     } | null;
   }> | null;
+  isMember: boolean;
   isLoggedIn: boolean;
 }
 
@@ -68,6 +69,7 @@ export function OrgProfile({
   gripOrg,
   bountyData,
   members,
+  isMember,
   isLoggedIn,
 }: OrgProfileProps) {
   // Calculate aggregate stats
@@ -78,9 +80,6 @@ export function OrgProfile({
   };
 
   const memberCount = members?.length ?? 0;
-
-  // TODO: Check if current user is admin (needs session user ID passed down or hook)
-  const isAdmin = false;
 
   // If no gripOrg, construct a dummy object for OrgHeader
   const displayOrg = gripOrg ?? {
@@ -136,7 +135,7 @@ export function OrgProfile({
           stats={stats}
           memberCount={memberCount}
           members={members}
-          isAdmin={isAdmin}
+          isMember={isMember}
           isLoggedIn={isLoggedIn}
         />
 
@@ -198,7 +197,7 @@ export function OrgProfile({
         {/* Content */}
         <div className="mt-6">
           {activeTab === 'repos' ? (
-            <OrgRepos repos={repos} isAdmin={isAdmin} orgSlug={displayOrg.slug} />
+            <OrgRepos repos={repos} isMember={isMember} orgSlug={displayOrg.slug} />
           ) : (
             <OrgActivity items={filteredActivity} />
           )}

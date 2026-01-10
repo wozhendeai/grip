@@ -1,10 +1,10 @@
-import { db, passkey } from '@/db';
 import { getCommittedBalanceByRepoId } from '@/db/queries/bounties';
 import { getRepoSettingsByGithubRepoId, isUserRepoOwner } from '@/db/queries/repo-settings';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { tempoClient } from '@/lib/tempo/client';
 import { getTokenMetadata } from '@/lib/tempo/tokens';
-import { eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { formatUnits } from 'viem';
 
@@ -47,44 +47,55 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Get owner's passkeys (treasury = owner's wallet)
-    const ownerPasskeys = await db
-      .select({
-        id: passkey.id,
-        name: passkey.name,
-        tempoAddress: passkey.tempoAddress,
-        credentialID: passkey.credentialID,
-      })
-      .from(passkey)
-      .where(eq(passkey.userId, session.user.id));
+    // Get owner's passkey wallet via tempo plugin API
+    const headersList = await headers();
+    const { wallets } = await auth.api.listWallets({ headers: headersList });
+    const ownerWallet = wallets.find((w) => w.walletType === 'passkey');
 
-    if (ownerPasskeys.length === 0 || !ownerPasskeys[0]?.tempoAddress) {
+    if (!ownerWallet?.address) {
       return NextResponse.json({
         configured: false,
-        message: 'No passkey found. Create a passkey to manage repo treasury.',
+        message: 'No wallet found. Create a passkey to manage repo treasury.',
       });
     }
 
-    // Use first passkey as treasury
-    const treasuryPasskey = ownerPasskeys[0];
+    // Get owner's fee token preference
+    const userFeeToken = await tempoClient.fee.getUserToken({
+      account: ownerWallet.address as `0x${string}`,
+    });
+    const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
 
-    const tokenAddress = TEMPO_TOKENS.USDC;
-    const [committedBalance, metadata] = await Promise.all([
-      getCommittedBalanceByRepoId(BigInt(githubRepoId)),
-      getTokenMetadata(tokenAddress),
-    ]);
+    // Get committed balance and token metadata (if token is set)
+    const committedBalance = await getCommittedBalanceByRepoId(BigInt(githubRepoId));
 
+    if (tokenAddress) {
+      const metadata = await getTokenMetadata(tokenAddress);
+      return NextResponse.json({
+        configured: true,
+        address: ownerWallet.address,
+        walletId: ownerWallet.id,
+        committed: {
+          raw: committedBalance.toString(),
+          formatted: formatUnits(committedBalance, metadata.decimals),
+        },
+        tokenAddress,
+        tokenDecimals: metadata.decimals,
+        tokenSymbol: metadata.symbol,
+      });
+    }
+
+    // No fee token set - return without token info
     return NextResponse.json({
       configured: true,
-      address: treasuryPasskey.tempoAddress,
-      credentialId: treasuryPasskey.credentialID,
+      address: ownerWallet.address,
+      walletId: ownerWallet.id,
       committed: {
         raw: committedBalance.toString(),
-        formatted: formatUnits(committedBalance, metadata.decimals),
+        formatted: formatUnits(committedBalance, 6), // Default decimals for display
       },
-      tokenAddress,
-      tokenDecimals: metadata.decimals,
-      tokenSymbol: metadata.symbol,
+      tokenAddress: undefined,
+      tokenDecimals: undefined,
+      tokenSymbol: undefined,
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
@@ -131,19 +142,14 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Verify owner has a passkey
-    const [ownerPasskey] = await db
-      .select({
-        id: passkey.id,
-        tempoAddress: passkey.tempoAddress,
-      })
-      .from(passkey)
-      .where(eq(passkey.userId, session.user.id))
-      .limit(1);
+    // Verify owner has a passkey wallet via tempo plugin API
+    const headersList = await headers();
+    const { wallets } = await auth.api.listWallets({ headers: headersList });
+    const ownerWallet = wallets.find((w) => w.walletType === 'passkey');
 
-    if (!ownerPasskey?.tempoAddress) {
+    if (!ownerWallet?.address) {
       return NextResponse.json(
-        { error: 'No passkey configured. Create a passkey first.' },
+        { error: 'No wallet configured. Create a passkey first.' },
         { status: 400 }
       );
     }
@@ -153,7 +159,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       message: 'Repo treasury uses your wallet (passkey). No separate configuration needed.',
       treasury: {
         configured: true,
-        address: ownerPasskey.tempoAddress,
+        address: ownerWallet.address,
       },
     });
   } catch (error) {

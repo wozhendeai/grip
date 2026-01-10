@@ -21,12 +21,13 @@ import {
 import { authClient } from '@/lib/auth/auth-client';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import type { OrgInvitation, OrgRole } from '../_lib/types';
 
 interface InviteMemberModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   organizationId: string;
-  onSuccess?: () => void;
+  onSuccess?: (invitation?: OrgInvitation) => void;
 }
 
 type InviteRole = 'member' | 'bountyManager' | 'billingAdmin';
@@ -72,7 +73,7 @@ export function InviteMemberModal({
     try {
       setIsSubmitting(true);
 
-      await authClient.organization.inviteMember({
+      const result = await authClient.organization.inviteMember({
         organizationId,
         email: email.trim(),
         role,
@@ -81,7 +82,21 @@ export function InviteMemberModal({
       // Reset form
       setEmail('');
       setRole('member');
-      onSuccess?.();
+
+      // Pass back the created invitation
+      if (result.data) {
+        const inv = result.data;
+        onSuccess?.({
+          id: inv.id,
+          email: inv.email,
+          role: inv.role as OrgRole,
+          status: inv.status as 'pending',
+          expiresAt: inv.expiresAt,
+          inviterId: inv.inviterId,
+        });
+      } else {
+        onSuccess?.();
+      }
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to invite member:', err);

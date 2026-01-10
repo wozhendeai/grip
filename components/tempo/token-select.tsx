@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TEMPO_TOKENLIST_URL } from '@/lib/tempo/constants';
+import { getTokenlistUrl } from '@/lib/tempo/constants';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -88,7 +88,7 @@ export function TokenSelect({
   useEffect(() => {
     async function fetchTokens() {
       try {
-        const res = await fetch(TEMPO_TOKENLIST_URL);
+        const res = await fetch(getTokenlistUrl());
         const data = await res.json();
         setTokens(
           data.tokens.map(
@@ -246,7 +246,7 @@ export function useTokenList() {
   useEffect(() => {
     async function fetchTokens() {
       try {
-        const res = await fetch(TEMPO_TOKENLIST_URL);
+        const res = await fetch(getTokenlistUrl());
         const data = await res.json();
         setTokens(
           data.tokens.map(

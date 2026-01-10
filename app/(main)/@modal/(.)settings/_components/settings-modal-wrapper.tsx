@@ -39,7 +39,7 @@ export function SettingsModalWrapper({ children, user, organizations }: Settings
   }
 
   return (
-    <RouteModal title="Settings">
+    <RouteModal title="Settings" useBack>
       <SidebarProvider className="min-h-0 h-[70vh]">
         <SettingsSidebar
           user={user}

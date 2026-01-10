@@ -121,32 +121,6 @@ export async function isUserRepoOwner(
 }
 
 /**
- * Get user's repos with bounty statistics for profile display
- *
- * Computes stats on read (no cached totals in repo_settings).
- * Repo owner = user who verified ownership (created repo_settings).
- */
-export async function getUserReposWithStats(userId: string | null) {
-  if (!userId) {
-    return [];
-  }
-
-  const results = await db
-    .select({
-      repo: repoSettings,
-      openBountyCount: sql<number>`count(*) filter (where ${bounties.status} = 'open')::int`,
-      totalBountyValue: sql<number>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
-    })
-    .from(repoSettings)
-    .leftJoin(bounties, eq(repoSettings.githubRepoId, bounties.repoSettingsId))
-    .where(eq(repoSettings.verifiedOwnerUserId, userId))
-    .groupBy(repoSettings.githubRepoId)
-    .orderBy(desc(sql`count(*) filter (where ${bounties.status} = 'open')`));
-
-  return results;
-}
-
-/**
  * Get total count of repo settings (verified repos)
  *
  * Used for homepage stats display.
@@ -196,23 +170,6 @@ export async function unclaimRepoByGithubRepoId(githubRepoId: bigint | string) {
       installationId: null,
       verifiedAt: null,
     })
-    .where(eq(repoSettings.githubRepoId, repoIdBigInt))
-    .returning();
-
-  return updated ?? null;
-}
-
-/**
- * Mark onboarding as complete for a repo
- *
- * Called when user completes or dismisses the onboarding flow.
- */
-export async function markOnboardingComplete(githubRepoId: bigint | string) {
-  const repoIdBigInt = typeof githubRepoId === 'string' ? BigInt(githubRepoId) : githubRepoId;
-
-  const [updated] = await db
-    .update(repoSettings)
-    .set({ onboardingCompleted: true })
     .where(eq(repoSettings.githubRepoId, repoIdBigInt))
     .returning();
 

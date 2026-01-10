@@ -58,7 +58,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
   // Transform bounties data
   const bounties: Bounty[] = bountiesData.map((b) => ({
     id: b.id,
-    network: b.network,
+    chainId: b.chainId,
     githubRepoId: b.githubRepoId.toString(),
     githubOwner: b.githubOwner,
     githubRepo: b.githubRepo,

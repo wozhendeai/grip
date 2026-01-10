@@ -43,7 +43,7 @@ export async function GET(_request: NextRequest, ctx: RouteContext<'/api/bountie
       ownerApprovedAt: bounty.ownerApprovedAt,
       paidAt: bounty.paidAt,
       createdAt: bounty.createdAt,
-      network: bounty.network,
+      chainId: bounty.chainId,
       project: {
         githubOwner: bounty.githubOwner,
         githubRepo: bounty.githubRepo,

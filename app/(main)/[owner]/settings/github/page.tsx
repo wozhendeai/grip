@@ -1,5 +1,6 @@
-import { getOrgBySlug, getOrgMembership } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { GitHubContent } from '../_components/github-content';
 import type { OrgRole } from '../_lib/types';
@@ -23,12 +24,17 @@ export default async function GitHubPage({ params }: GitHubPageProps) {
     redirect(`/login?callbackUrl=/${owner}/settings/github`);
   }
 
-  const org = await getOrgBySlug(owner);
-  if (!org) {
+  const headersList = await headers();
+  const result = await auth.api.getFullOrganization({
+    headers: headersList,
+    query: { organizationSlug: owner },
+  });
+
+  if (!result) {
     notFound();
   }
 
-  const membership = await getOrgMembership(org.id, session.user.id);
+  const membership = result.members.find((m) => m.userId === session.user.id);
   if (!membership) {
     notFound();
   }
@@ -37,6 +43,11 @@ export default async function GitHubPage({ params }: GitHubPageProps) {
   if (currentUserRole !== 'owner') {
     redirect(`/${owner}/settings`);
   }
+
+  const org = result as typeof result & {
+    githubOrgLogin?: string | null;
+    lastSyncedAt?: Date | null;
+  };
 
   // GitHub Sync requires org to have GitHub linked
   if (!org.githubOrgLogin) {
@@ -47,7 +58,7 @@ export default async function GitHubPage({ params }: GitHubPageProps) {
     <GitHubContent
       organizationId={org.id}
       githubOrgLogin={org.githubOrgLogin}
-      lastSyncedAt={org.lastSyncedAt}
+      lastSyncedAt={org.lastSyncedAt ?? null}
     />
   );
 }

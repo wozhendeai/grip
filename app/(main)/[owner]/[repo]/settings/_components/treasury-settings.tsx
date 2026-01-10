@@ -6,12 +6,13 @@ import { PayoutQueue } from '@/app/(main)/[owner]/[repo]/_components/payout-queu
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
+import { authClient } from '@/lib/auth/auth-client';
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { ExternalLink, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
 import { Hooks } from 'wagmi/tempo';
-import { useCallback, useEffect, useState } from 'react';
 
 interface TreasurySettingsProps {
   githubRepoId: number;
@@ -20,7 +21,6 @@ interface TreasurySettingsProps {
 interface TreasuryInfo {
   configured: boolean;
   address?: string;
-  credentialId?: string;
   committed?: {
     formatted: string;
   } | null;
@@ -30,17 +30,6 @@ interface TreasuryInfo {
   message?: string;
   error?: string;
 }
-
-type AccessKey = {
-  id: string;
-  backendWalletAddress: string | null;
-  limits: Record<string, { initial: string; remaining: string }>;
-  status: string;
-  createdAt: string | null;
-  lastUsedAt: string | null;
-  label: string | null;
-  expiry: number | null;
-};
 
 /**
  * Treasury settings component
@@ -59,29 +48,29 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
 
   const balanceAccount = (treasuryInfo?.address ??
     '0x0000000000000000000000000000000000000000') as `0x${string}`;
-  const tokenAddress = (treasuryInfo?.tokenAddress ?? TEMPO_TOKENS.USDC) as `0x${string}`;
+  const tokenAddress = treasuryInfo?.tokenAddress as `0x${string}` | undefined;
+  const hasToken = Boolean(tokenAddress);
   const tokenDecimals = treasuryInfo?.tokenDecimals ?? 6;
-  const tokenSymbol = treasuryInfo?.tokenSymbol ?? 'USDC';
 
   const { data: balance, isLoading: isBalanceLoading } = Hooks.token.useGetBalance({
     account: balanceAccount,
-    token: tokenAddress,
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
-      enabled: Boolean(treasuryInfo?.address),
+      enabled: Boolean(treasuryInfo?.address) && hasToken,
       refetchInterval: 10_000,
       staleTime: 10_000,
     },
   });
   const { data: metadata, isLoading: isMetadataLoading } = Hooks.token.useGetMetadata({
-    token: tokenAddress,
+    token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
-      enabled: Boolean(treasuryInfo?.address),
+      enabled: hasToken,
       staleTime: 86_400_000,
     },
   });
 
   const decimals = metadata?.decimals ?? tokenDecimals;
-  const displaySymbol = metadata?.symbol ?? tokenSymbol;
+  const displaySymbol = metadata?.symbol ?? treasuryInfo?.tokenSymbol;
   const formattedBalance = balance ? formatUnits(balance, decimals) : null;
   const isBalanceLoadingCombined = isBalanceLoading || isMetadataLoading;
   const balanceNumber = formattedBalance ? Number.parseFloat(formattedBalance) : 0;
@@ -91,9 +80,9 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
   const fetchData = useCallback(async () => {
     try {
       // Fetch treasury info and access keys in parallel
-      const [treasuryRes, accessKeysRes] = await Promise.all([
+      const [treasuryRes, accessKeysResult] = await Promise.all([
         fetch(`/api/repo-settings/${githubRepoId}/treasury`),
-        fetch('/api/auth/tempo/access-keys'),
+        authClient.listAccessKeys(),
       ]);
 
       if (treasuryRes.ok) {
@@ -101,9 +90,8 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
         setTreasuryInfo(data);
       }
 
-      if (accessKeysRes.ok) {
-        const data = await accessKeysRes.json();
-        setAccessKeys(data.accessKeys ?? []);
+      if (accessKeysResult.data) {
+        setAccessKeys(accessKeysResult.data.accessKeys ?? []);
       }
     } catch (err) {
       console.error('Failed to fetch treasury info:', err);
@@ -153,6 +141,16 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                 <p className="text-sm text-destructive">{treasuryInfo.error}</p>
               </div>
+            ) : !hasToken ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-sm text-muted-foreground">
+                  Set a fee token in your{' '}
+                  <Link href="/settings/wallet" className="text-primary hover:underline">
+                    wallet settings
+                  </Link>{' '}
+                  to view balance and create access keys.
+                </p>
+              </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-border bg-card/50 p-4">
@@ -170,7 +168,7 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
                     <span className="text-2xl font-bold">
                       ${treasuryInfo.committed?.formatted ?? '0.00'}
                     </span>
-                    <span className="text-sm text-muted-foreground">USDC</span>
+                    <span className="text-sm text-muted-foreground">{displaySymbol}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">Open bounties</p>
                 </div>
@@ -180,7 +178,7 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
                     <span className="text-2xl font-bold">
                       {isBalanceLoadingCombined ? '$---.--' : `$${availableNumber.toFixed(2)}`}
                     </span>
-                    <span className="text-sm text-muted-foreground">USDC</span>
+                    <span className="text-sm text-muted-foreground">{displaySymbol}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">For new bounties</p>
                 </div>
@@ -214,8 +212,8 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
           <PayoutQueue githubRepoId={githubRepoId} />
         </div>
 
-        {/* Access Keys Section */}
-        {treasuryInfo.credentialId && (
+        {/* Access Keys Section - only show if fee token is set */}
+        {treasuryInfo.address && hasToken && tokenAddress && (
           <div className="mt-6">
             {accessKeyView === 'create' ? (
               <CreateAccessKeyInline
@@ -224,13 +222,13 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
                   setAccessKeyView('main');
                 }}
                 onBack={() => setAccessKeyView('main')}
+                tokenAddress={tokenAddress}
               />
             ) : (
               <AccessKeyManager
                 keys={accessKeys}
                 onKeysChange={setAccessKeys}
                 onCreateClick={() => setAccessKeyView('create')}
-                credentialId={treasuryInfo.credentialId}
               />
             )}
           </div>

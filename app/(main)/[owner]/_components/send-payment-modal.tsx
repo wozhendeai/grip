@@ -4,15 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Hooks } from 'wagmi/tempo';
 
 type SendPaymentModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recipientUsername: string;
   recipientName: string | null;
+  senderWalletAddress: `0x${string}` | null;
 };
 
 /**
@@ -33,6 +34,7 @@ export function SendPaymentModal({
   onOpenChange,
   recipientUsername,
   recipientName,
+  senderWalletAddress,
 }: SendPaymentModalProps) {
   const router = useRouter();
   const [amount, setAmount] = useState('');
@@ -40,6 +42,14 @@ export function SendPaymentModal({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+
+  // Get sender's fee token preference
+  const { data: userFeeToken, isLoading: isLoadingToken } = Hooks.fee.useUserToken({
+    account: senderWalletAddress ?? '0x0000000000000000000000000000000000000000',
+    query: { enabled: Boolean(senderWalletAddress) },
+  });
+  const tokenAddress = userFeeToken?.address as `0x${string}` | undefined;
+  const hasToken = Boolean(tokenAddress);
 
   // Calculate UTF-8 byte length (not character length)
   // Emojis can be multiple bytes, so character count !== byte count
@@ -49,6 +59,11 @@ export function SendPaymentModal({
     try {
       setIsSending(true);
       setError(null);
+
+      if (!tokenAddress) {
+        setError('Please set a fee token in your wallet settings first');
+        return;
+      }
 
       // Validate amount
       const amountNum = Number.parseFloat(amount);
@@ -66,7 +81,7 @@ export function SendPaymentModal({
         body: JSON.stringify({
           recipientUsername,
           amount: amountMicro,
-          tokenAddress: TEMPO_TOKENS.USDC,
+          tokenAddress,
           message,
           useAccessKey: true, // Auto-sign if Access Key available
         }),
@@ -188,6 +203,14 @@ export function SendPaymentModal({
             </div>
           )}
 
+          {!isLoadingToken && !hasToken && (
+            <div className="rounded-lg bg-chart-4/10 p-4">
+              <p className="body-sm text-chart-4">
+                Set a fee token in your wallet settings to send payments.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button variant="secondary" onClick={handleClose} className="flex-1">
               Cancel
@@ -195,7 +218,12 @@ export function SendPaymentModal({
             <Button
               onClick={handleSend}
               disabled={
-                !amount || !message || messageByteLength > 32 || isSending || Number(amount) <= 0
+                !amount ||
+                !message ||
+                messageByteLength > 32 ||
+                isSending ||
+                Number(amount) <= 0 ||
+                !hasToken
               }
               className="flex-1"
             >

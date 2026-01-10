@@ -32,7 +32,7 @@ export default async function HomePage() {
     .slice(0, 3)
     .map(({ bounty }) => ({
       id: bounty.id,
-      network: bounty.network,
+      chainId: bounty.chainId,
       githubRepoId: bounty.githubRepoId.toString(),
       githubOwner: bounty.githubOwner,
       githubRepo: bounty.githubRepo,

@@ -5,9 +5,10 @@
 
 export type OrgRole = 'owner' | 'billingAdmin' | 'bountyManager' | 'member';
 
-export interface OrgMemberPasskey {
+export interface OrgMemberWallet {
   id: string;
-  tempoAddress: string | null;
+  address: string;
+  walletType: 'passkey' | 'server' | 'external';
 }
 
 export interface OrgMember {
@@ -20,18 +21,27 @@ export interface OrgMember {
     name: string | null;
     email: string;
     image: string | null;
-    passkeys?: OrgMemberPasskey[];
+    wallets?: OrgMemberWallet[];
   } | null;
+}
+
+export interface OrgInvitation {
+  id: string;
+  email: string;
+  role: OrgRole;
+  status: 'pending' | 'accepted' | 'rejected' | 'canceled';
+  expiresAt: Date;
+  inviterId: string;
 }
 
 export interface OrgAccessKey {
   id: string;
   organizationId: string | null;
-  network: string;
-  authorizedUserPasskeyId: string | null;
-  keyType: string;
   chainId: number;
-  expiry: bigint | null;
+  rootWalletId: string;
+  keyWalletId: string;
+  keyType: string | null;
+  expiry: string | null; // Unix timestamp as string (JSON can't serialize bigint)
   limits: unknown;
   status: string;
   createdAt: Date | string | null;

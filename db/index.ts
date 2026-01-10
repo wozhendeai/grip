@@ -9,7 +9,10 @@ const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString, { prepare: false });
 
 // Combine auth and business schemas
-const schema = { ...authSchema, ...businessSchema };
+const schema = {
+  ...authSchema,
+  ...businessSchema,
+};
 
 export const db = drizzle(client, { schema });
 

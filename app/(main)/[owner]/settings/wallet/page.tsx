@@ -1,5 +1,7 @@
-import { getOrgBySlug, getOrgMembership, getOrgWalletAddress } from '@/db/queries/organizations';
+import { getOrgWalletAddress } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { WalletContent } from '../_components/wallet-content';
 import type { OrgRole } from '../_lib/types';
@@ -23,12 +25,17 @@ export default async function WalletPage({ params }: WalletPageProps) {
     redirect(`/login?callbackUrl=/${owner}/settings/wallet`);
   }
 
-  const org = await getOrgBySlug(owner);
-  if (!org) {
+  const headersList = await headers();
+  const result = await auth.api.getFullOrganization({
+    headers: headersList,
+    query: { organizationSlug: owner },
+  });
+
+  if (!result) {
     notFound();
   }
 
-  const membership = await getOrgMembership(org.id, session.user.id);
+  const membership = result.members.find((m) => m.userId === session.user.id);
   if (!membership) {
     notFound();
   }
@@ -40,7 +47,7 @@ export default async function WalletPage({ params }: WalletPageProps) {
     redirect(`/${owner}/settings`);
   }
 
-  const walletAddress = await getOrgWalletAddress(org.id).catch(() => null);
+  const walletAddress = await getOrgWalletAddress(result.id).catch(() => null);
 
   return <WalletContent walletAddress={walletAddress} />;
 }

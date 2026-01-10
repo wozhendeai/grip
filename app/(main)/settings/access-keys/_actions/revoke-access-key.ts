@@ -2,7 +2,7 @@
 
 import { getSession } from '@/lib/auth/auth-server';
 import { getAccessKeyByIdForUser } from '@/db/queries/access-keys';
-import { revokeAccessKey } from '@/lib/tempo/access-keys';
+import { revokeAccessKeyById } from '@/lib/tempo/access-keys';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -26,7 +26,7 @@ export async function revokeAccessKeyAction(keyId: string) {
     return { error: 'Access key is not active' };
   }
 
-  await revokeAccessKey(keyId, 'User revoked from settings');
+  await revokeAccessKeyById(keyId, 'User revoked from settings');
 
   revalidatePath('/settings/access-keys');
   redirect('/settings/access-keys');

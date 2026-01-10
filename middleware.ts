@@ -11,8 +11,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 // Routes only for unauthenticated users
 const authRoutes = ['/login'];
-// Routes that require authentication
-const protectedRoutes = ['/wallet'];
 
 export function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
@@ -23,14 +21,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/explore', request.url));
   }
 
-  // Redirect unauthenticated users to login
-  if (!sessionCookie && protectedRoutes.some((route) => path.startsWith(route))) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/wallet/:path*', '/login'],
+  matcher: ['/login'],
 };

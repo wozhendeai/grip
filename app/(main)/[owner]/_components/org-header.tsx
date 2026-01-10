@@ -30,7 +30,7 @@ interface OrgHeaderProps {
       image: string | null;
     } | null;
   }> | null;
-  isAdmin: boolean;
+  isMember: boolean;
   isLoggedIn: boolean;
   className?: string;
 }
@@ -41,7 +41,7 @@ export function OrgHeader({
   stats,
   memberCount,
   members,
-  isAdmin,
+  isMember,
   isLoggedIn,
   className,
 }: OrgHeaderProps) {
@@ -137,10 +137,11 @@ export function OrgHeader({
               </PopoverContent>
             </Popover>
 
-            {isAdmin && (
+            {isMember && (
               <Link
                 href={`/${org.slug}/settings`}
                 className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'h-6 w-6 ml-1')}
+                title="Organization settings"
               >
                 <Settings className="h-4 w-4" />
               </Link>

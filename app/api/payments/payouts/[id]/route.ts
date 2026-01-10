@@ -1,15 +1,17 @@
-import { isOrgMember, validateOrgSpending } from '@/db/queries/organizations';
+import { validateOrgSpending } from '@/db/queries/organizations';
 import {
   getPayoutWithDetails,
   markPayoutConfirmed,
   markPayoutFailed,
   updatePayoutStatus,
 } from '@/db/queries/payouts';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { notifyPaymentReceived } from '@/lib/notifications';
 import { handleRouteError, validateBody } from '@/app/api/_lib';
 import { payoutActionSchema } from '@/app/api/_lib/schemas';
 import type { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 
 /**
  * GET /api/payments/payouts/[id]
@@ -33,7 +35,12 @@ export async function GET(_request: NextRequest, ctx: RouteContext<'/api/payment
     const isRecipient = payout.recipientUserId === session.user.id;
 
     if (payout.payerOrganizationId) {
-      canView = await isOrgMember(payout.payerOrganizationId, session.user.id);
+      const headersList = await headers();
+      const hasPermission = await auth.api.hasPermission({
+        headers: headersList,
+        body: { permissions: { member: ['read'] }, organizationId: payout.payerOrganizationId },
+      });
+      canView = !!hasPermission?.success;
     } else {
       canView = bounty.primaryFunderId === session.user.id;
     }

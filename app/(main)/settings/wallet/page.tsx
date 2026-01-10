@@ -1,5 +1,4 @@
 import { getUserDashboardStats } from '@/db/queries/bounties';
-import { getPasskeysByUser } from '@/db/queries/passkeys';
 import { getSession } from '@/lib/auth/auth-server';
 import { WalletContent } from './_components/wallet-content';
 
@@ -9,20 +8,8 @@ export default async function WalletSettingsPage() {
     return null;
   }
 
-  const [passkeys, stats] = await Promise.all([
-    getPasskeysByUser(session.user.id),
-    getUserDashboardStats(session.user.id),
-  ]);
+  const stats = await getUserDashboardStats(session.user.id);
 
-  const walletPasskey = passkeys.find((p) => p.tempoAddress) ?? null;
-  const wallet = walletPasskey?.tempoAddress
-    ? {
-        id: walletPasskey.id,
-        name: walletPasskey.name,
-        tempoAddress: walletPasskey.tempoAddress as `0x${string}`,
-        createdAt: walletPasskey.createdAt?.toISOString() ?? new Date().toISOString(),
-      }
-    : null;
-
-  return <WalletContent wallet={wallet} stats={stats} />;
+  // Wallet data is fetched client-side via tempo plugin for consistency with mutations
+  return <WalletContent stats={stats} />;
 }

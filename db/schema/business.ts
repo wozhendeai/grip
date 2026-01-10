@@ -13,12 +13,11 @@ import {
   text,
   timestamp,
   unique,
-  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
 import { organization, passkey, user } from './auth';
-import type { AccessKeyLimits, ActivityMetadata, GithubLabel, NotificationMetadata } from './types';
+import type { ActivityMetadata, GithubLabel, NotificationMetadata } from './types';
 
 /**
  * Business tables for TPay (Promise Layer)
@@ -81,9 +80,6 @@ const i64 = (name: string) => bigint(name, { mode: 'bigint' });
 // ENUMS - Const arrays for type safety
 // ============================================================================
 
-export const tempoNetworks = ['testnet', 'mainnet'] as const;
-export type TempoNetwork = (typeof tempoNetworks)[number];
-
 export const bountyStatuses = ['open', 'completed', 'cancelled'] as const;
 export type BountyStatus = (typeof bountyStatuses)[number];
 
@@ -103,8 +99,7 @@ export type PayoutStatus = (typeof payoutStatuses)[number];
 export const paymentTypes = ['bounty', 'direct'] as const;
 export type PaymentType = (typeof paymentTypes)[number];
 
-export const accessKeyStatuses = ['active', 'revoked', 'expired'] as const;
-export type AccessKeyStatus = (typeof accessKeyStatuses)[number];
+// accessKeyStatuses moved to auth.ts
 
 export const activityActions = [
   'bounty_created',
@@ -133,14 +128,14 @@ export const accessKeyTypeEnum = pgEnum('access_key_type', ['secp256k1', 'p256',
 /**
  * Tokens table
  *
- * Allowlist of supported TIP-20 tokens per network.
- * Each token exists on one network (testnet or mainnet).
+ * Allowlist of supported TIP-20 tokens per chain.
+ * Each token exists on one chain (42431 = Moderato testnet).
  */
 export const tokens = pgTable(
   'tokens',
   {
     address: varchar('address', { length: 42 }).notNull(),
-    network: varchar('network', { length: 10, enum: tempoNetworks }).notNull(),
+    chainId: integer('chain_id').notNull(),
     symbol: varchar('symbol', { length: 10 }).notNull(),
     name: text('name').notNull(),
     decimals: integer('decimals').notNull().default(6),
@@ -148,9 +143,9 @@ export const tokens = pgTable(
     createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.address, table.network] }),
-    uniqueSymbol: unique().on(table.network, table.symbol),
-    idxTokensNetworkActive: index('idx_tokens_network_active').on(table.network, table.isActive),
+    pk: primaryKey({ columns: [table.address, table.chainId] }),
+    uniqueSymbol: unique().on(table.chainId, table.symbol),
+    idxTokensChainActive: index('idx_tokens_chain_active').on(table.chainId, table.isActive),
     chkTokensDecimals6: sql`CHECK (${table.decimals} = 6)`,
   })
 );
@@ -241,8 +236,8 @@ export const bounties = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
 
-    // Network (testnet/mainnet)
-    network: varchar('network', { length: 10, enum: tempoNetworks }).notNull(),
+    // Chain ID (42431 = Moderato testnet)
+    chainId: integer('chain_id').notNull(),
 
     // Optional FK to repo_settings (only if repo owner verified)
     repoSettingsId: i64('repo_settings_id').references(() => repoSettings.githubRepoId, {
@@ -289,18 +284,15 @@ export const bounties = pgTable(
   },
   (table) => ({
     fkToken: foreignKey({
-      columns: [table.tokenAddress, table.network],
-      foreignColumns: [tokens.address, tokens.network],
+      columns: [table.tokenAddress, table.chainId],
+      foreignColumns: [tokens.address, tokens.chainId],
     }),
-    idxBountiesNetworkStatus: index('idx_bounties_network_status').on(table.network, table.status),
-    idxBountiesNetworkRepo: index('idx_bounties_network_repo').on(
-      table.network,
-      table.githubRepoId
-    ),
+    idxBountiesChainStatus: index('idx_bounties_chain_status').on(table.chainId, table.status),
+    idxBountiesChainRepo: index('idx_bounties_chain_repo').on(table.chainId, table.githubRepoId),
     idxBountiesPrimaryFunder: index('idx_bounties_primary_funder').on(table.primaryFunderId),
     idxBountiesRepoSettings: index('idx_bounties_repo_settings').on(table.repoSettingsId),
-    idxBountiesOrg: index('idx_bounties_org').on(table.organizationId, table.network),
-    uniqueBountyIssue: unique('idx_bounties_unique_issue').on(table.network, table.githubIssueId),
+    idxBountiesOrg: index('idx_bounties_org').on(table.organizationId, table.chainId),
+    uniqueBountyIssue: unique('idx_bounties_unique_issue').on(table.chainId, table.githubIssueId),
     chkBountiesFunder: sql`CHECK (
       (${table.primaryFunderId} IS NOT NULL AND ${table.organizationId} IS NULL) OR
       (${table.primaryFunderId} IS NULL AND ${table.organizationId} IS NOT NULL)
@@ -345,7 +337,7 @@ export const bountyFunders = pgTable(
     // Promised amount (NOT deposited — funds stay in funder's wallet)
     amount: u256('amount').notNull(),
     tokenAddress: varchar('token_address', { length: 42 }).notNull(),
-    network: varchar('network', { length: 10, enum: tempoNetworks }).notNull(),
+    chainId: integer('chain_id').notNull(),
 
     // Commitment lifecycle
     createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
@@ -354,13 +346,13 @@ export const bountyFunders = pgTable(
   (table) => ({
     uniqueBountyFunder: unique().on(table.bountyId, table.funderId),
     fkToken: foreignKey({
-      columns: [table.tokenAddress, table.network],
-      foreignColumns: [tokens.address, tokens.network],
+      columns: [table.tokenAddress, table.chainId],
+      foreignColumns: [tokens.address, tokens.chainId],
     }),
     idxBountyFundersBounty: index('idx_bounty_funders_bounty').on(table.bountyId),
     idxBountyFundersFunder: index('idx_bounty_funders_funder').on(table.funderId),
-    idxBountyFundersOrg: index('idx_bounty_funders_org').on(table.organizationId, table.network),
-    idxBountyFundersNetwork: index('idx_bounty_funders_network').on(table.network),
+    idxBountyFundersOrg: index('idx_bounty_funders_org').on(table.organizationId, table.chainId),
+    idxBountyFundersChain: index('idx_bounty_funders_chain').on(table.chainId),
     chkBountyFundersFunder: sql`CHECK (
       (${table.funderId} IS NOT NULL AND ${table.organizationId} IS NULL) OR
       (${table.funderId} IS NULL AND ${table.organizationId} IS NOT NULL)
@@ -460,8 +452,8 @@ export const payouts = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
 
-    // Network (testnet/mainnet)
-    network: varchar('network', { length: 10, enum: tempoNetworks }).notNull(),
+    // Chain ID (42431 = Moderato testnet)
+    chainId: integer('chain_id').notNull(),
 
     // Payment type discriminator
     paymentType: varchar('payment_type', { length: 20, enum: paymentTypes })
@@ -520,25 +512,22 @@ export const payouts = pgTable(
   },
   (table) => ({
     fkToken: foreignKey({
-      columns: [table.tokenAddress, table.network],
-      foreignColumns: [tokens.address, tokens.network],
+      columns: [table.tokenAddress, table.chainId],
+      foreignColumns: [tokens.address, tokens.chainId],
     }),
-    idxPayoutsNetworkUser: index('idx_payouts_network_user').on(
-      table.network,
-      table.recipientUserId
-    ),
-    idxPayoutsNetworkStatus: index('idx_payouts_network_status').on(table.network, table.status),
+    idxPayoutsChainUser: index('idx_payouts_chain_user').on(table.chainId, table.recipientUserId),
+    idxPayoutsChainStatus: index('idx_payouts_chain_status').on(table.chainId, table.status),
     idxPayoutsSubmission: index('idx_payouts_submission').on(table.submissionId),
     idxPayoutsTxHash: index('idx_payouts_tx_hash').on(table.txHash),
     idxPayoutsCustodial: index('idx_payouts_custodial').on(table.custodialWalletId),
     // Indexes for direct payment queries
     idxPayoutsPaymentType: index('idx_payouts_payment_type').on(
-      table.network,
+      table.chainId,
       table.paymentType,
       table.recipientUserId
     ),
-    idxPayoutsSender: index('idx_payouts_sender').on(table.network, table.payerUserId),
-    idxPayoutsPayerOrg: index('idx_payouts_payer_org').on(table.payerOrganizationId, table.network),
+    idxPayoutsSender: index('idx_payouts_sender').on(table.chainId, table.payerUserId),
+    idxPayoutsPayerOrg: index('idx_payouts_payer_org').on(table.payerOrganizationId, table.chainId),
     // CHECK constraints for payment type discriminator unions
     chkPayoutsTypeShape: sql`CHECK ((${table.paymentType} = 'bounty' AND ${table.bountyId} IS NOT NULL AND ${table.submissionId} IS NOT NULL) OR (${table.paymentType} = 'direct' AND ${table.bountyId} IS NULL AND ${table.submissionId} IS NULL))`,
     chkPayoutsCustodialShape: sql`CHECK ((${table.isCustodial} = true AND ${table.custodialWalletId} IS NOT NULL) OR (${table.isCustodial} = false AND ${table.custodialWalletId} IS NULL))`,
@@ -549,7 +538,7 @@ export const payouts = pgTable(
  * Activity Log table
  *
  * Event audit trail.
- * Network-aware for bounty/payout events, network-agnostic for user/repo events.
+ * Chain-aware for bounty/payout events, chain-agnostic for user/repo events.
  */
 export const activityLog = pgTable(
   'activity_log',
@@ -558,7 +547,7 @@ export const activityLog = pgTable(
 
     // Event classification
     eventType: varchar('event_type', { length: 50, enum: activityActions }).notNull(),
-    network: varchar('network', { length: 10 }),
+    chainId: integer('chain_id'),
 
     // References (all nullable - depends on event type)
     userId: text('user_id').references(() => user.id),
@@ -574,7 +563,7 @@ export const activityLog = pgTable(
   },
   (table) => ({
     idxActivityLogEventType: index('idx_activity_log_event_type').on(table.eventType),
-    idxActivityLogNetwork: index('idx_activity_log_network').on(table.network),
+    idxActivityLogChain: index('idx_activity_log_chain').on(table.chainId),
     idxActivityLogUser: index('idx_activity_log_user').on(table.userId),
     idxActivityLogCreatedAt: index('idx_activity_log_created_at').on(table.createdAt),
   })
@@ -620,115 +609,7 @@ export const notifications = pgTable(
   })
 );
 
-/**
- * Access Keys table
- *
- * Stores user authorizations for backend signing via Tempo Access Keys.
- * Enables automated bounty payouts without requiring manual passkey signature each time.
- *
- * Flow:
- * 1. User signs KeyAuthorization with passkey (granting backend key spending permission)
- * 2. Backend stores authorization proof in this table
- * 3. Backend uses Turnkey-managed secp256k1 key to sign payouts via Keychain signature
- * 4. Tempo validates authorization on-chain via Account Keychain Precompile
- *
- * Spending limits are enforced ON-CHAIN by Tempo (not just in our DB).
- * Backend must check on-chain remaining limit before signing.
- *
- * Limits format (JSONB):
- * {
- *   "0xTokenAddr": { "initial": "1000000000", "remaining": "500000000" },
- *   ...
- * }
- * Updated each time user adds bounty funding.
- *
- * Activity tracking:
- * Access Key events are logged in activity_log table with event types:
- * - access_key_created
- * - access_key_used
- * - access_key_revoked
- * - access_key_expired
- * - access_key_limit_exceeded
- */
-export const accessKeys = pgTable(
-  'access_keys',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    network: varchar('network', { length: 10, enum: tempoNetworks }).notNull(),
-
-    // Owner (XOR: either user OR organization)
-    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').references(() => organization.id, {
-      onDelete: 'cascade',
-    }),
-
-    // Turnkey backend wallet address (identifier, not private key!)
-    // This is the keyId in KeyAuthorization
-    // For personal access keys: Turnkey backend wallet
-    // For org access keys: NULL (team member signs directly)
-    backendWalletAddress: varchar('backend_wallet_address', { length: 42 }),
-
-    // Team member authorized to sign (only for org access keys)
-    // For personal access keys: NULL (backend signs via Turnkey)
-    // For org access keys: Team member's passkey ID
-    authorizedUserPasskeyId: text('authorized_user_passkey_id').references(() => passkey.id, {
-      onDelete: 'cascade',
-    }),
-
-    // Authorization parameters
-    keyType: accessKeyTypeEnum('key_type').notNull().default('secp256k1'),
-    chainId: integer('chain_id').notNull(), // 42429 for testnet, 0 for any chain
-    expiry: i64('expiry'), // Unix timestamp (NULL = no expiry)
-
-    // Dynamic spending limits per token
-    // Format: { "0xTokenAddr": { initial: "1000000000", remaining: "500000000" } }
-    // Updated each time user adds bounty funding
-    limits: jsonb('limits').$type<AccessKeyLimits>().notNull().default({}),
-
-    // Authorization proof (signed by user's passkey)
-    authorizationSignature: text('authorization_signature').notNull(),
-    authorizationHash: varchar('authorization_hash', { length: 66 }).notNull(),
-
-    // Status tracking
-    status: varchar('status', { length: 20, enum: accessKeyStatuses }).notNull().default('active'),
-    revokedAt: timestamp('revoked_at', { mode: 'string' }),
-    revokedReason: text('revoked_reason'),
-
-    // Metadata
-    label: varchar('label', { length: 100 }),
-    lastUsedAt: timestamp('last_used_at', { mode: 'string' }),
-
-    // Dedicated Access Key (single-use for pending payments)
-    // Dedicated keys are created per-payment with exact amount limits
-    // Non-dedicated (global) keys are reusable for multiple bounties
-    isDedicated: boolean('is_dedicated').default(false).notNull(),
-
-    createdAt: timestamp('created_at', { mode: 'string' }).defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' })
-      .defaultNow()
-      .$onUpdate(() => new Date().toISOString()),
-  },
-  (table) => ({
-    // Ensure one active access key per user per network per backend wallet
-    // Partial unique index: only enforced when status = 'active', allows multiple revoked/expired keys
-    uniqueActiveKey: uniqueIndex('idx_access_keys_unique_active')
-      .on(table.userId, table.backendWalletAddress, table.network)
-      .where(sql`${table.status} = 'active'`),
-    idxAccessKeysUser: index('idx_access_keys_user').on(table.userId, table.network),
-    idxAccessKeysOrg: index('idx_access_keys_org').on(table.organizationId, table.network),
-    idxAccessKeysAuthorizedUser: index('idx_access_keys_authorized_user').on(
-      table.authorizedUserPasskeyId
-    ),
-    idxAccessKeysStatus: index('idx_access_keys_status').on(table.status),
-    idxAccessKeysBackendWallet: index('idx_access_keys_backend_wallet').on(
-      table.backendWalletAddress
-    ),
-    chkAccessKeysOwner: sql`CHECK (
-      (${table.userId} IS NOT NULL AND ${table.organizationId} IS NULL) OR
-      (${table.userId} IS NULL AND ${table.organizationId} IS NOT NULL)
-    )`,
-  })
-);
+// Access Keys table moved to auth.ts (managed by tempo-plugin via better-auth adapter)
 
 // ============================================================================
 // NOTIFICATION PREFERENCES

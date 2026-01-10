@@ -1,24 +1,25 @@
+import type { AccessKey } from '@/lib/auth/tempo-plugin/types';
 import { AccessKeyDetail } from '../access-key-detail';
 
-export interface AccessKeyData {
-  id: string;
-  label: string | null;
-  backendWalletAddress: string | null;
-  status: string;
-  createdAt: string | null;
-  expiry: bigint | null;
-  limits: Record<string, { initial: string; remaining: string }>;
-  lastUsedAt: string | null;
-}
-
 export interface AccessKeyDetailContentProps {
-  accessKey: AccessKeyData;
+  accessKey: AccessKey;
+  keyWalletAddress?: `0x${string}`;
+  rootWalletAddress?: `0x${string}`;
   variant?: 'page' | 'modal';
 }
 
 export function AccessKeyDetailContent({
   accessKey,
+  keyWalletAddress,
+  rootWalletAddress,
   variant = 'page',
 }: AccessKeyDetailContentProps) {
-  return <AccessKeyDetail accessKey={accessKey} variant={variant} />;
+  return (
+    <AccessKeyDetail
+      accessKey={accessKey}
+      keyWalletAddress={keyWalletAddress}
+      rootWalletAddress={rootWalletAddress}
+      variant={variant}
+    />
+  );
 }

@@ -22,10 +22,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { authClient } from '@/lib/auth/auth-client';
-import { ChevronDown, Github, UserPlus, Users, X } from 'lucide-react';
+import { ChevronDown, Clock, Github, Mail, UserPlus, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { InviteMemberModal } from './invite-member-modal';
-import type { OrgMember } from '../_lib/types';
+import type { OrgInvitation, OrgMember } from '../_lib/types';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
@@ -43,15 +43,24 @@ const ROLE_VARIANTS: Record<string, 'default' | 'secondary' | 'outline'> = {
 
 interface MembersContentProps {
   members: OrgMember[];
+  invitations: OrgInvitation[];
   organizationId: string;
   currentUserRole: 'owner' | 'billingAdmin' | 'bountyManager' | 'member';
 }
 
-export function MembersContent({ members, organizationId, currentUserRole }: MembersContentProps) {
+export function MembersContent({
+  members,
+  invitations,
+  organizationId,
+  currentUserRole,
+}: MembersContentProps) {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<OrgMember | null>(null);
+  const [invitationToCancel, setInvitationToCancel] = useState<OrgInvitation | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [localMembers, setLocalMembers] = useState(members);
+  const [localInvitations, setLocalInvitations] = useState(invitations);
 
   const isOwner = currentUserRole === 'owner';
 
@@ -88,8 +97,28 @@ export function MembersContent({ members, organizationId, currentUserRole }: Mem
     }
   };
 
-  const handleInviteSuccess = () => {
-    // TODO: Refresh members list or show pending invitations
+  const handleCancelInvitation = async () => {
+    if (!invitationToCancel) return;
+
+    try {
+      setIsCanceling(true);
+      await authClient.organization.cancelInvitation({
+        invitationId: invitationToCancel.id,
+      });
+
+      setLocalInvitations((prev) => prev.filter((inv) => inv.id !== invitationToCancel.id));
+      setInvitationToCancel(null);
+    } catch (error) {
+      console.error('Failed to cancel invitation:', error);
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  const handleInviteSuccess = (newInvitation?: OrgInvitation) => {
+    if (newInvitation) {
+      setLocalInvitations((prev) => [...prev, newInvitation]);
+    }
     setIsInviteModalOpen(false);
   };
 
@@ -135,6 +164,33 @@ export function MembersContent({ members, organizationId, currentUserRole }: Mem
         </CardContent>
       </Card>
 
+      {/* Pending Invitations */}
+      {localInvitations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="size-5" />
+              Pending Invitations
+            </CardTitle>
+            <CardDescription>
+              {localInvitations.length} pending {localInvitations.length === 1 ? 'invite' : 'invites'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {localInvitations.map((invitation) => (
+                <InvitationListItem
+                  key={invitation.id}
+                  invitation={invitation}
+                  isOwner={isOwner}
+                  onCancel={() => setInvitationToCancel(invitation)}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Invite Modal */}
       <InviteMemberModal
         open={isInviteModalOpen}
@@ -143,7 +199,7 @@ export function MembersContent({ members, organizationId, currentUserRole }: Mem
         onSuccess={handleInviteSuccess}
       />
 
-      {/* Remove Confirmation Dialog */}
+      {/* Remove Member Confirmation Dialog */}
       <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -162,6 +218,30 @@ export function MembersContent({ members, organizationId, currentUserRole }: Mem
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isRemoving ? 'Removing...' : 'Remove Member'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Invitation Confirmation Dialog */}
+      <AlertDialog open={!!invitationToCancel} onOpenChange={() => setInvitationToCancel(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the invitation to{' '}
+              <strong>{invitationToCancel?.email}</strong>? They will no longer be able to join this
+              organization using this invitation link.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCanceling}>Keep Invitation</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelInvitation}
+              disabled={isCanceling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isCanceling ? 'Canceling...' : 'Cancel Invitation'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -244,6 +324,55 @@ function MemberListItem({ member, isOwner, onRoleChange, onRemove }: MemberListI
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+interface InvitationListItemProps {
+  invitation: OrgInvitation;
+  isOwner: boolean;
+  onCancel: () => void;
+}
+
+function InvitationListItem({ invitation, isOwner, onCancel }: InvitationListItemProps) {
+  const isExpired = new Date(invitation.expiresAt) < new Date();
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <Avatar className="size-10">
+          <AvatarFallback>
+            <Mail className="size-4" />
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium truncate">{invitation.email}</p>
+            <Badge variant={ROLE_VARIANTS[invitation.role] ?? 'outline'} className="shrink-0">
+              {ROLE_LABELS[invitation.role] ?? invitation.role}
+            </Badge>
+            {isExpired && (
+              <Badge variant="secondary" className="shrink-0">
+                Expired
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="size-3" />
+            <span>
+              {isExpired
+                ? 'Expired'
+                : `Expires ${new Date(invitation.expiresAt).toLocaleDateString()}`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {isOwner && (
+        <Button variant="ghost" size="icon" onClick={onCancel} className="text-destructive shrink-0">
+          <X className="size-4" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { CreateWalletModal } from '@/components/tempo/create-wallet-modal';
 import { Button } from '@/components/ui/button';
+import { authClient } from '@/lib/auth/auth-client';
 import { useEffect, useState } from 'react';
 import { SendPaymentModal } from './send-payment-modal';
 
@@ -26,14 +27,17 @@ export function SendPaymentAction({ recipientUsername, recipientName }: SendPaym
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [createWalletModalOpen, setCreateWalletModalOpen] = useState(false);
   const [hasWallet, setHasWallet] = useState<boolean | null>(null);
+  const [walletAddress, setWalletAddress] = useState<`0x${string}` | null>(null);
 
   // Check if user has a wallet on mount
   useEffect(() => {
     async function checkWallet() {
-      const res = await fetch('/api/auth/tempo/passkeys');
-      const data = await res.json();
-      const wallet = data.passkeys?.find((p: { tempoAddress?: string }) => p.tempoAddress);
+      const { data } = await authClient.listWallets();
+      const wallet = data?.wallets.find((w) => w.walletType === 'passkey');
       setHasWallet(!!wallet);
+      if (wallet?.address) {
+        setWalletAddress(wallet.address as `0x${string}`);
+      }
     }
     checkWallet();
   }, []);
@@ -48,9 +52,15 @@ export function SendPaymentAction({ recipientUsername, recipientName }: SendPaym
     }
   }
 
-  function handleWalletCreated() {
+  async function handleWalletCreated() {
     setHasWallet(true);
     setCreateWalletModalOpen(false);
+    // Fetch the new wallet address
+    const { data } = await authClient.listWallets();
+    const wallet = data?.wallets.find((w) => w.walletType === 'passkey');
+    if (wallet?.address) {
+      setWalletAddress(wallet.address as `0x${string}`);
+    }
     // Open payment modal after wallet creation
     setPaymentModalOpen(true);
   }
@@ -74,6 +84,7 @@ export function SendPaymentAction({ recipientUsername, recipientName }: SendPaym
         onOpenChange={setPaymentModalOpen}
         recipientUsername={recipientUsername}
         recipientName={recipientName}
+        senderWalletAddress={walletAddress}
       />
     </>
   );

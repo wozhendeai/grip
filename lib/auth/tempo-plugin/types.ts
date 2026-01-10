@@ -5,53 +5,145 @@
  */
 
 import type { BetterAuthPlugin } from 'better-auth';
+import type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/server';
+
+// ============================================================================
+// Schema Extension Types
+// ============================================================================
+
+/**
+ * Field attribute for additionalFields
+ * Matches better-auth's DBFieldAttribute structure
+ */
+export interface FieldAttribute {
+  type: 'string' | 'number' | 'boolean' | 'date';
+  required?: boolean;
+  unique?: boolean;
+  defaultValue?: unknown;
+  references?: {
+    model: string;
+    field: string;
+    onDelete?: 'cascade' | 'set null' | 'restrict' | 'no action';
+  };
+  input?: boolean;
+}
+
+/**
+ * Schema extension config for a single table
+ */
+export interface TableSchemaConfig {
+  modelName?: string;
+  fields?: { [key: string]: string };
+  additionalFields?: { [key: string]: FieldAttribute };
+}
+
+/**
+ * Schema extension config for tempo plugin tables
+ */
+export interface TempoSchemaConfig {
+  passkey?: TableSchemaConfig;
+  wallet?: TableSchemaConfig;
+  accessKey?: TableSchemaConfig;
+}
+
+// ============================================================================
+// Wallet Types
+// ============================================================================
+
+/**
+ * Wallet type - how the wallet was created/controlled
+ */
+export type WalletType = 'passkey' | 'server' | 'external';
+
+/**
+ * Key type - cryptographic algorithm used for signing
+ */
+export type KeyType = 'secp256k1' | 'p256' | 'webauthn';
+
+/**
+ * Wallet record (JSON-serializable)
+ *
+ * Represents any entity that can sign Tempo transactions:
+ * - passkey: User's passkey-derived wallet (P256 curve)
+ * - server: Backend wallet (Turnkey HSM, KMS, etc.)
+ * - external: User's external wallet (MetaMask, WalletConnect, etc.)
+ */
+export interface Wallet {
+  id: string;
+  address: string;
+  keyType: KeyType;
+  walletType: WalletType;
+  passkeyId: string | null;
+  userId: string | null;
+  label: string | null;
+  createdAt: string;
+}
 
 // ============================================================================
 // Plugin Configuration
 // ============================================================================
 
 /**
- * Backend wallet provider type
+ * Static server wallet configuration
+ * Plugin auto-creates a shared wallet on initialization.
  */
-export type BackendWalletProvider = 'turnkey' | 'custom';
-
-/**
- * Tempo transaction parameters
- */
-export interface TempoTransactionParams {
-  to: `0x${string}`;
-  data: `0x${string}`;
-  value: bigint;
-  nonce: bigint;
+export interface StaticServerWallet {
+  address: `0x${string}`;
+  keyType: KeyType;
+  label?: string;
 }
 
 /**
- * Backend wallet configuration
- * Provides backend signing capabilities for Access Key authorization
+ * Dynamic server wallet configuration
+ * Plugin calls getAddress() when needed (per-user wallets).
  */
-export interface BackendWalletConfig {
-  /** Provider type (Turnkey HSM, custom implementation, etc.) */
-  provider: BackendWalletProvider;
+export interface DynamicServerWallet {
+  getAddress: (ctx: { userId: string }) => Promise<`0x${string}`>;
+  keyType: KeyType;
+  label?: string | ((ctx: { userId: string }) => string);
+}
+
+export type ServerWalletConfig = StaticServerWallet | DynamicServerWallet;
+
+/**
+ * Type guard for static server wallet config
+ */
+export function isStaticServerWallet(config: ServerWalletConfig): config is StaticServerWallet {
+  return 'address' in config;
+}
+
+/**
+ * Passkey (WebAuthn) configuration
+ */
+export interface PasskeyConfig {
+  /**
+   * Relying Party ID - typically the domain (e.g., 'bountylane.xyz')
+   * Defaults to hostname from baseURL
+   */
+  rpID?: string;
 
   /**
-   * Get backend wallet address for signing
-   * @param network - Optional network identifier (app-specific)
-   * @returns Backend wallet address
+   * Relying Party name - human-readable name (e.g., 'BountyLane')
+   * Defaults to 'App'
    */
-  getAddress: (network?: string) => Promise<`0x${string}`>;
+  rpName?: string;
 
   /**
-   * Sign transaction with backend wallet
-   * Used when Access Key authorization is valid
+   * Expected origin for WebAuthn verification (e.g., 'https://bountylane.xyz')
+   * Defaults to request origin header
    */
-  signTransaction: (params: {
-    tx: TempoTransactionParams;
-    funderAddress: `0x${string}`;
-    network?: string;
-  }) => Promise<{
-    rawTransaction: `0x${string}`;
-    hash: `0x${string}`;
-  }>;
+  origin?: string;
+
+  /**
+   * Challenge expiration in seconds
+   * Default: 300 (5 minutes)
+   */
+  challengeMaxAge?: number;
 }
 
 /**
@@ -59,34 +151,35 @@ export interface BackendWalletConfig {
  */
 export interface TempoPluginConfig {
   /**
-   * Backend wallet provider for Access Key signing
-   * Required for Access Key functionality
+   * Server wallet configuration.
+   * Static config: Plugin auto-creates a shared wallet on initialization.
+   * Dynamic config: Plugin calls getAddress() when needed (per-user wallets).
    */
-  backendWallet: BackendWalletConfig;
+  serverWallet?: ServerWalletConfig;
 
   /**
-   * Enable multi-network support
-   * Adds 'network' column to accessKeys table
-   * @default false
-   */
-  enableNetworkField?: boolean;
-
-  /**
-   * Allowed chain IDs for Access Keys
-   * Validates chainId during Access Key creation
-   * @default undefined (any chain)
+   * Allowed chain IDs for access key creation.
    */
   allowedChainIds?: number[];
 
   /**
-   * Default settings for Access Keys
+   * Default values for access keys.
    */
-  accessKeyDefaults?: {
-    /** Default expiry in seconds */
-    expiry?: number;
-    /** Default label */
-    label?: string;
+  defaults?: {
+    accessKeyLabel?: string;
   };
+
+  /**
+   * Passkey (WebAuthn) configuration.
+   * Required for passkey registration and authentication.
+   */
+  passkey?: PasskeyConfig;
+
+  /**
+   * Schema extensions for tempo plugin tables.
+   * Allows adding additional fields to passkey, wallet, and accessKey tables.
+   */
+  schema?: TempoSchemaConfig;
 }
 
 // ============================================================================
@@ -104,67 +197,84 @@ export type AccessKeyStatus = 'active' | 'revoked' | 'expired';
 export type AccessKeyType = 'secp256k1' | 'p256' | 'webauthn';
 
 /**
- * Spending limit structure for a single token
+ * Token spending limit
+ *
+ * This is the canonical format stored in the authorization.
+ * - token: The token contract address
+ * - limit: Maximum amount as string (bigint-safe)
  */
-export interface SpendingLimit {
-  initial: string; // Wei amount as string
-  remaining: string; // Wei amount as string
+export interface TokenLimit {
+  token: `0x${string}`;
+  limit: string;
 }
 
 /**
- * Access Key record from database
+ * Access Key record (JSON-serializable)
+ *
+ * Represents authorization from a user's root wallet to another wallet (key).
+ * The key wallet can sign transactions on behalf of the user within constraints.
  */
 export interface AccessKey {
   id: string;
-  network?: string;
-  userId: string;
-  backendWalletAddress: string;
-  keyType: AccessKeyType;
+  userId: string | null;
+  rootWalletId: string;
+  keyWalletId: string;
   chainId: number;
-  expiry: bigint | null;
-  limits: Record<string, SpendingLimit>;
+  expiry: number | null;
+  limits: TokenLimit[] | null;
   authorizationSignature: string;
   authorizationHash: string;
   status: AccessKeyStatus;
   revokedAt: string | null;
-  revokedReason: string | null;
   label: string | null;
-  lastUsedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * Access Key with resolved wallet details
+ */
+export interface AccessKeyWithWallets extends AccessKey {
+  rootWallet: Wallet;
+  keyWallet: Wallet;
 }
 
 // ============================================================================
-// Endpoint Request/Response Types
+// Access Key Endpoint Types
 // ============================================================================
 
 /**
  * POST /tempo/access-keys - Create Access Key
  */
 export interface CreateAccessKeyRequest {
-  keyId: string; // Backend wallet address
-  chainId: number; // 42429 for Tempo testnet
-  keyType: 0 | 1 | 2; // 0=secp256k1, 1=P256, 2=WebAuthn
-  expiry?: number; // Unix timestamp (optional)
-  limits: Record<string, string>; // { "0xToken": "1000000000" }
-  signature: string; // WebAuthn signature
-  label?: string; // Optional user-friendly label
-  network?: string; // Optional network (if enableNetworkField=true)
+  rootWalletId: string;
+  keyWalletId?: string;
+  keyWalletAddress?: `0x${string}`;
+  chainId: number;
+  expiry?: number;
+  limits?: TokenLimit[];
+  authorizationSignature: string;
+  authorizationHash: string;
+  label?: string;
 }
 
 export interface CreateAccessKeyResponse {
   accessKey: AccessKey;
+  rootWallet: Wallet;
+  keyWallet: Wallet;
 }
 
 /**
  * GET /tempo/access-keys - List Access Keys
  */
 export interface ListAccessKeysRequest {
-  status?: AccessKeyStatus; // Filter by status
+  status?: AccessKeyStatus;
+  direction?: 'granted' | 'received';
 }
 
 export interface ListAccessKeysResponse {
   accessKeys: AccessKey[];
+  direction: 'granted' | 'received';
 }
 
 /**
@@ -172,17 +282,52 @@ export interface ListAccessKeysResponse {
  */
 export interface GetAccessKeyResponse {
   accessKey: AccessKey;
+  rootWallet: Wallet;
+  keyWallet: Wallet;
 }
 
 /**
  * DELETE /tempo/access-keys/:id - Revoke Access Key
  */
 export interface RevokeAccessKeyRequest {
-  reason?: string; // Optional revocation reason
+  reason?: string;
 }
 
 export interface RevokeAccessKeyResponse {
   accessKey: AccessKey;
+}
+
+// ============================================================================
+// Wallet Endpoint Types
+// ============================================================================
+
+/**
+ * POST /tempo/wallets - Create Wallet
+ */
+export interface CreateWalletRequest {
+  address: `0x${string}`;
+  keyType: KeyType;
+  walletType: 'server' | 'external'; // passkey wallets are created automatically
+  label?: string;
+  userId?: string; // For server wallets, null = shared
+}
+
+export interface CreateWalletResponse {
+  wallet: Wallet;
+}
+
+/**
+ * GET /tempo/wallets - List Wallets
+ */
+export interface ListWalletsResponse {
+  wallets: Wallet[];
+}
+
+/**
+ * GET /tempo/wallets/:idOrAddress - Get Wallet
+ */
+export interface GetWalletResponse {
+  wallet: Wallet;
 }
 
 /**
@@ -193,8 +338,10 @@ export interface PasskeyWithAddress {
   userId: string;
   name: string | null;
   credentialID: string;
-  tempoAddress: string | null;
-  createdAt: string; // ISO 8601 string after JSON serialization
+  publicKey: string;
+  publicKeyHex: `0x${string}`; // Raw P-256 coordinates (x || y) for wagmi KeyManager
+  tempoAddress: `0x${string}`; // Derived from publicKey
+  createdAt: string;
 }
 
 /**
@@ -243,6 +390,118 @@ export interface SaveKeyResponse {
 }
 
 // ============================================================================
+// SDK WebAuthn Credential Types (for KeyManager setPublicKey)
+// ============================================================================
+
+/**
+ * Raw WebAuthn credential response from SDK.
+ * This is what the Tempo SDK sends after completing client-side WebAuthn ceremony.
+ * Contains attestationObject for registration (not just authenticatorData).
+ */
+export interface WebAuthnCredentialRaw {
+  id: string;
+  response: {
+    clientDataJSON: string; // base64url encoded
+    attestationObject: string; // base64url encoded (contains authenticatorData + attestation)
+    transports?: string[]; // optional transport hints
+  };
+}
+
+/**
+ * Decoded clientDataJSON from WebAuthn response.
+ * Used to extract the challenge for verification lookup.
+ */
+export interface ClientDataJSON {
+  type: 'webauthn.create' | 'webauthn.get';
+  challenge: string; // base64url encoded original challenge
+  origin: string;
+}
+
+/**
+ * Request body for setPublicKey endpoint.
+ * SECURITY: The publicKey field is IGNORED - we use verifyRegistrationResponse
+ * to extract the validated public key from attestationObject.
+ */
+export interface SetPublicKeyRequest {
+  credential: WebAuthnCredentialRaw;
+  publicKey: `0x${string}`; // IGNORED - extracted from verified attestationObject
+}
+
+// ============================================================================
+// Passkey Endpoint Types
+// ============================================================================
+
+/**
+ * Passkey record (database format)
+ */
+export interface PasskeyRecord {
+  id: string;
+  userId: string;
+  name: string | null;
+  publicKey: string;
+  credentialID: string;
+  counter: number;
+  deviceType: string | null;
+  backedUp: boolean;
+  transports: string | null;
+  createdAt: Date | string;
+}
+
+/**
+ * POST /tempo/passkey/register - Register passkey request
+ */
+export interface RegisterPasskeyRequest {
+  response: RegistrationResponseJSON;
+  name?: string;
+}
+
+/**
+ * POST /tempo/passkey/register - Register passkey response
+ */
+export interface RegisterPasskeyResponse {
+  passkey: PasskeyWithAddress;
+  wallet: Wallet;
+}
+
+/**
+ * POST /tempo/passkey/authenticate - Authenticate request
+ */
+export interface AuthenticatePasskeyRequest {
+  response: AuthenticationResponseJSON;
+}
+
+/**
+ * POST /tempo/passkey/authenticate - Authenticate response
+ */
+export interface AuthenticatePasskeyResponse {
+  session: {
+    id: string;
+    userId: string;
+    expiresAt: Date;
+  };
+  user: {
+    id: string;
+    email: string | null;
+    name: string | null;
+  };
+}
+
+/**
+ * DELETE /tempo/passkey/:credentialId - Delete passkey response
+ */
+export interface DeletePasskeyResponse {
+  success: boolean;
+}
+
+// Re-export simplewebauthn types for client use
+export type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+};
+
+// ============================================================================
 // Client API Types
 // ============================================================================
 
@@ -251,17 +510,26 @@ export interface SaveKeyResponse {
  * Used via: authClient.api.tempo.*
  */
 export interface TempoClientAPI {
+  // Wallets
+  createWallet: (params: CreateWalletRequest) => Promise<CreateWalletResponse>;
+  listWallets: () => Promise<ListWalletsResponse>;
+  getWallet: (idOrAddress: string) => Promise<GetWalletResponse>;
+
   // Access Keys
-  listAccessKeys: (params?: { status?: AccessKeyStatus }) => Promise<ListAccessKeysResponse>;
+  listAccessKeys: (params?: ListAccessKeysRequest) => Promise<ListAccessKeysResponse>;
   createAccessKey: (params: CreateAccessKeyRequest) => Promise<CreateAccessKeyResponse>;
   getAccessKey: (id: string) => Promise<GetAccessKeyResponse>;
-  revokeAccessKey: (
-    id: string,
-    params?: RevokeAccessKeyRequest
-  ) => Promise<RevokeAccessKeyResponse>;
+  revokeAccessKey: (id: string) => Promise<RevokeAccessKeyResponse>;
 
-  // Passkeys
+  // Passkeys (WebAuthn)
+  getPasskeyRegistrationOptions: () => Promise<PublicKeyCredentialCreationOptionsJSON>;
+  registerPasskey: (params: RegisterPasskeyRequest) => Promise<RegisterPasskeyResponse>;
+  getPasskeyAuthenticationOptions: () => Promise<PublicKeyCredentialRequestOptionsJSON>;
+  authenticateWithPasskey: (
+    params: AuthenticatePasskeyRequest
+  ) => Promise<AuthenticatePasskeyResponse>;
   listPasskeys: () => Promise<ListPasskeysResponse>;
+  deletePasskey: (credentialId: string) => Promise<DeletePasskeyResponse>;
 
   // KeyManager
   listKeys: () => Promise<ListKeysResponse>;

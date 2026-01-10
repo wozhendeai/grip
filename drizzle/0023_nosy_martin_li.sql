@@ -1,2 +1,0 @@
-ALTER TABLE "access_keys" DROP CONSTRAINT "idx_access_keys_unique_active";--> statement-breakpoint
-CREATE UNIQUE INDEX "idx_access_keys_unique_active" ON "access_keys" USING btree ("user_id","backend_wallet_address","network") WHERE "access_keys"."status" = 'active';

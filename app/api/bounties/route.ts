@@ -14,7 +14,6 @@ import {
   getGitHubToken,
   getIssue,
 } from '@/lib/github';
-import { TEMPO_TOKENS } from '@/lib/tempo/constants';
 import { handleRouteError, validateBody } from '@/app/api/_lib';
 import { createBountySchema } from '@/app/api/_lib/schemas';
 import type { NextRequest } from 'next/server';
@@ -71,7 +70,7 @@ export async function GET(request: NextRequest) {
  * - repo: string (GitHub repo name)
  * - githubIssueNumber: number (required)
  * - amount: number (required, in USD smallest unit)
- * - tokenAddress?: string (defaults to USDC)
+ * - tokenAddress: string (required, token address for the bounty)
  * - publish?: boolean (if true, immediately publish the bounty)
  *
  * Returns:
@@ -151,7 +150,7 @@ export async function POST(request: NextRequest) {
         description?: string;
       }>,
       amount: BigInt(amount),
-      tokenAddress: tokenAddress ?? TEMPO_TOKENS.USDC,
+      tokenAddress,
     });
 
     // If publish is true, immediately publish the bounty

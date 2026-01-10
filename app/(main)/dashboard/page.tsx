@@ -54,7 +54,7 @@ export default async function DashboardPage() {
   const suggestedBounties: Bounty[] = genericSuggestions.map(({ bounty }) => ({
     ...bounty,
     id: bounty.id,
-    network: bounty.network,
+    chainId: bounty.chainId,
     githubRepoId: bounty.githubRepoId.toString(),
     githubOwner: bounty.githubOwner,
     githubRepo: bounty.githubRepo,

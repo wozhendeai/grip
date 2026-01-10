@@ -64,7 +64,7 @@ export interface BountyFunder {
   funderId: string;
   amount: string; // BigInt serialized as string (promised amount, funds stay in funder's wallet)
   tokenAddress: string;
-  network: string;
+  chainId: number;
   createdAt: string | null;
   withdrawnAt: string | null;
   funder: {
@@ -154,7 +154,7 @@ export interface GithubLabel {
  */
 export interface Bounty {
   id: string;
-  network: string;
+  chainId: number;
 
   // GitHub issue info
   githubRepoId: string; // BigInt serialized as string
@@ -214,7 +214,7 @@ export interface UserSubmission {
   updatedAt: string | null;
   bounty: {
     id: string;
-    network: string;
+    chainId: number;
     title: string;
     totalFunded: string; // BigInt serialized as string
     tokenAddress: string;

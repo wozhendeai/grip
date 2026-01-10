@@ -1,6 +1,6 @@
 import { bounties, bountyFunders, db, passkey, repoSettings, submissions, user } from '@/db';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { getNetworkForInsert, networkFilter } from '../network';
+import { chainIdFilter, getChainId } from '../network';
 
 export type BountyStatus = 'open' | 'completed' | 'cancelled';
 
@@ -46,7 +46,7 @@ export async function createBounty(input: CreateBountyInput) {
   // Create bounty
   const bountyValues = {
     // Network awareness - automatically set based on deployment
-    network: getNetworkForInsert() as 'testnet' | 'mainnet',
+    chainId: getChainId(),
 
     repoSettingsId: input.repoSettingsId ? BigInt(input.repoSettingsId) : null, // NULLABLE
 
@@ -79,7 +79,7 @@ export async function createBounty(input: CreateBountyInput) {
     funderId: input.primaryFunderId,
     amount,
     tokenAddress: input.tokenAddress,
-    network: getNetworkForInsert(),
+    chainId: getChainId(),
   });
 
   return bounty;
@@ -98,7 +98,7 @@ export async function getBountyWithFunders(id: string) {
       funderId: bountyFunders.funderId,
       amount: bountyFunders.amount,
       tokenAddress: bountyFunders.tokenAddress,
-      network: bountyFunders.network,
+      chainId: bountyFunders.chainId,
       createdAt: bountyFunders.createdAt,
       withdrawnAt: bountyFunders.withdrawnAt,
       funder: {
@@ -119,7 +119,7 @@ export async function getBountyById(id: string) {
   const [bounty] = await db
     .select()
     .from(bounties)
-    .where(and(networkFilter(bounties), eq(bounties.id, id)))
+    .where(and(chainIdFilter(bounties), eq(bounties.id, id)))
     .limit(1);
 
   return bounty ?? null;
@@ -133,7 +133,7 @@ export async function getBountyWithRepoSettings(id: string) {
     })
     .from(bounties)
     .innerJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
-    .where(and(networkFilter(bounties), eq(bounties.id, id)))
+    .where(and(chainIdFilter(bounties), eq(bounties.id, id)))
     .limit(1);
 
   return result ?? null;
@@ -145,7 +145,7 @@ export async function getBountiesByGithubRepoId(githubRepoId: bigint | string) {
   return db
     .select()
     .from(bounties)
-    .where(and(networkFilter(bounties), eq(bounties.githubRepoId, repoIdBigInt)))
+    .where(and(chainIdFilter(bounties), eq(bounties.githubRepoId, repoIdBigInt)))
     .orderBy(desc(bounties.createdAt));
 }
 
@@ -159,7 +159,7 @@ export type BountyFilters = {
 };
 
 export async function getOpenBounties(filters?: BountyFilters) {
-  const conditions = [networkFilter(bounties)];
+  const conditions = [chainIdFilter(bounties)];
 
   // Default to open bounties only
   const statusFilter = filters?.status ?? 'open';
@@ -219,7 +219,7 @@ export async function updateBountyStatus(
       status,
       ...additionalFields,
     })
-    .where(and(networkFilter(bounties), eq(bounties.id, id)))
+    .where(and(chainIdFilter(bounties), eq(bounties.id, id)))
     .returning();
 
   return updated;
@@ -239,7 +239,7 @@ export async function getBountyWithAuthor(id: string) {
     .from(bounties)
     .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
     .leftJoin(user, eq(bounties.primaryFunderId, user.id))
-    .where(and(networkFilter(bounties), eq(bounties.id, id)))
+    .where(and(chainIdFilter(bounties), eq(bounties.id, id)))
     .limit(1);
 
   return result ?? null;
@@ -256,7 +256,7 @@ export async function getAllBounties(options?: {
   limit?: number;
   offset?: number;
 }) {
-  const conditions = [networkFilter(bounties)];
+  const conditions = [chainIdFilter(bounties)];
 
   if (options?.status) {
     const statusFilter = options.status;
@@ -310,37 +310,6 @@ export async function getAllBounties(options?: {
     .offset(options?.offset ?? 0);
 }
 
-/**
- * Get bounty with OPTIONAL repo settings (left join for permissionless bounties)
- *
- * Returns bounty regardless of whether it has repo_settings.
- * Use this for approval/payout flows that handle permissionless bounties.
- */
-export async function getBountyWithOptionalRepoSettings(id: string) {
-  const [result] = await db
-    .select({
-      bounty: bounties,
-      repoSettings: repoSettings,
-    })
-    .from(bounties)
-    .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
-    .where(and(networkFilter(bounties), eq(bounties.id, id)))
-    .limit(1);
-
-  return result ?? null;
-}
-
-/**
- * Check if user is primary funder for bounty (controls approval)
- *
- * Returns true if user is the primary_funder_id.
- * Primary funder is first funder who hasn't withdrawn.
- */
-export async function isUserPrimaryFunder(bountyId: string, userId: string): Promise<boolean> {
-  const bounty = await getBountyById(bountyId);
-  return bounty?.primaryFunderId === userId;
-}
-
 // =============================================================================
 // DASHBOARD QUERIES
 // =============================================================================
@@ -372,7 +341,7 @@ export async function getUserDashboardStats(userId: string): Promise<DashboardSt
       .from(payouts)
       .where(
         and(
-          networkFilter(payouts),
+          chainIdFilter(payouts),
           eq(payouts.recipientUserId, userId),
           eq(payouts.status, 'confirmed')
         )
@@ -389,7 +358,7 @@ export async function getUserDashboardStats(userId: string): Promise<DashboardSt
       .leftJoin(payouts, eq(submissions.id, payouts.submissionId))
       .where(
         and(
-          networkFilter(bounties),
+          chainIdFilter(bounties),
           eq(submissions.userId, userId),
           inArray(submissions.status, ['approved', 'merged']),
           sql`${payouts.id} IS NULL` // No payout exists yet
@@ -403,7 +372,7 @@ export async function getUserDashboardStats(userId: string): Promise<DashboardSt
         count: sql<number>`count(*)::int`,
       })
       .from(bounties)
-      .where(and(networkFilter(bounties), eq(bounties.primaryFunderId, userId))),
+      .where(and(chainIdFilter(bounties), eq(bounties.primaryFunderId, userId))),
 
     // Claimed: distinct bounties user has submitted work on
     db
@@ -412,7 +381,7 @@ export async function getUserDashboardStats(userId: string): Promise<DashboardSt
       })
       .from(submissions)
       .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-      .where(and(networkFilter(bounties), eq(submissions.userId, userId))),
+      .where(and(chainIdFilter(bounties), eq(submissions.userId, userId))),
   ]);
 
   return {
@@ -455,7 +424,7 @@ export async function getBountiesCreatedByUser(
     offset?: number;
   }
 ): Promise<CreatedBountyWithSubmissionCount[]> {
-  const conditions = [networkFilter(bounties), eq(bounties.primaryFunderId, userId)];
+  const conditions = [chainIdFilter(bounties), eq(bounties.primaryFunderId, userId)];
 
   if (options?.status) {
     if (Array.isArray(options.status)) {
@@ -514,7 +483,7 @@ export async function getUserActiveSubmissions(
     .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
     .where(
       and(
-        networkFilter(bounties),
+        chainIdFilter(bounties),
         eq(submissions.userId, userId),
         inArray(submissions.status, ['pending', 'approved', 'merged'])
       )
@@ -569,7 +538,7 @@ export async function getCompletedBountiesByUser(
     .leftJoin(repoSettings, eq(bounties.repoSettingsId, repoSettings.githubRepoId))
     .leftJoin(payouts, eq(submissions.id, payouts.submissionId))
     .where(
-      and(networkFilter(bounties), eq(submissions.userId, userId), eq(submissions.status, 'paid'))
+      and(chainIdFilter(bounties), eq(submissions.userId, userId), eq(submissions.status, 'paid'))
     )
     .orderBy(desc(submissions.createdAt))
     .limit(options?.limit ?? 50)
@@ -590,7 +559,7 @@ export async function getCommittedBalanceByRepoId(githubRepoId: bigint | string)
       committed: sql<bigint>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
     })
     .from(bounties)
-    .where(and(networkFilter(bounties), eq(bounties.githubRepoId, repoIdBigInt)));
+    .where(and(chainIdFilter(bounties), eq(bounties.githubRepoId, repoIdBigInt)));
 
   return result?.committed ?? BigInt(0);
 }
@@ -623,12 +592,12 @@ export async function getUserOnboardingStatus(userId: string): Promise<Onboardin
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(bounties)
-      .where(and(networkFilter(bounties), eq(bounties.primaryFunderId, userId))),
+      .where(and(chainIdFilter(bounties), eq(bounties.primaryFunderId, userId))),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(submissions)
       .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-      .where(and(networkFilter(bounties), eq(submissions.userId, userId))),
+      .where(and(chainIdFilter(bounties), eq(submissions.userId, userId))),
     db.select({ count: sql<number>`count(*)::int` }).from(member).where(eq(member.userId, userId)),
   ]);
 
@@ -719,7 +688,7 @@ export async function getUserActiveRepos(userId: string, limit = 5): Promise<Act
         bountyIssue: bounties.githubIssueNumber,
       })
       .from(bounties)
-      .where(and(networkFilter(bounties), eq(bounties.primaryFunderId, userId)))
+      .where(and(chainIdFilter(bounties), eq(bounties.primaryFunderId, userId)))
       .orderBy(desc(bounties.createdAt))
       .limit(fetchLimit),
 
@@ -736,7 +705,7 @@ export async function getUserActiveRepos(userId: string, limit = 5): Promise<Act
       })
       .from(submissions)
       .innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-      .where(and(networkFilter(bounties), eq(submissions.userId, userId)))
+      .where(and(chainIdFilter(bounties), eq(submissions.userId, userId)))
       .orderBy(desc(submissions.createdAt))
       .limit(fetchLimit),
 
@@ -834,7 +803,7 @@ export async function getUserActiveRepos(userId: string, limit = 5): Promise<Act
       totalFunded: sql<bigint>`coalesce(sum(${bounties.totalFunded}) filter (where ${bounties.status} = 'open'), 0)::bigint`,
     })
     .from(bounties)
-    .where(and(networkFilter(bounties), inArray(bounties.githubRepoId, repoIds)))
+    .where(and(chainIdFilter(bounties), inArray(bounties.githubRepoId, repoIds)))
     .groupBy(bounties.githubRepoId);
 
   const statsMap = new Map(stats.map((s) => [s.id.toString(), s]));
@@ -871,7 +840,7 @@ export async function getRepoBountiesWithSubmissions(githubRepoId: bigint | stri
     })
     .from(bounties)
     .leftJoin(submissions, eq(bounties.id, submissions.bountyId))
-    .where(and(networkFilter(bounties), eq(bounties.githubRepoId, repoId)))
+    .where(and(chainIdFilter(bounties), eq(bounties.githubRepoId, repoId)))
     .orderBy(desc(bounties.createdAt));
 
   // Deduplicate and nest submissions

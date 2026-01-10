@@ -1,1 +1,0 @@
-ALTER TABLE "repo_settings" ADD COLUMN "onboarding_completed" boolean DEFAULT false NOT NULL;

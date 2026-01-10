@@ -2,7 +2,7 @@ import { test as base, type BrowserContext, type CDPSession, type Page } from '@
 import { eq, and } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
-import { db, repoSettings, passkey, accessKeys } from './db';
+import { db, repoSettings, passkey, accessKey } from './db';
 
 /**
  * E2E Test Fixtures
@@ -157,7 +157,7 @@ export const test = base.extend<TestFixtures>({
   cleanUserWallet: async ({ browserName }, use) => {
     const userData = TEST_USERS[browserName as keyof typeof TEST_USERS] || TEST_USERS.chromium;
     const cleanFn = async () => {
-      await db.delete(accessKeys).where(eq(accessKeys.userId, userData.id));
+      await db.delete(accessKey).where(eq(accessKey.userId, userData.id));
       await db.delete(passkey).where(eq(passkey.userId, userData.id));
     };
     await use(cleanFn);

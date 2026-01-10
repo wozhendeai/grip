@@ -4,7 +4,7 @@ import { PasskeyOperationContent } from '@/components/tempo/passkey-operation-co
 import { AddressDisplay } from '@/components/tempo/address-display';
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { passkey } from '@/lib/auth/auth-client';
+import { authClient } from '@/lib/auth/auth-client';
 import {
   classifyWebAuthnError,
   type PasskeyOperationError,
@@ -38,7 +38,13 @@ export function OnboardingStepWallet({
     setPhase('registering');
 
     try {
-      await passkey.addPasskey({ name: 'GRIP Wallet' });
+      // Single call handles full WebAuthn ceremony + wallet creation
+      const result = await authClient.registerPasskey({ name: 'GRIP Wallet' });
+
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to register passkey');
+      }
+
       setPhase('success');
       router.refresh();
       onWalletCreated();

@@ -1,10 +1,13 @@
 import { db } from '@/db';
-import { getNetworkForInsert } from '@/db/network';
+import { getNetworkName } from '@/db/network';
 import { getOrgAccessKey, getOrgWalletAddress } from '@/db/queries/organizations';
 import { getUserWallet } from '@/db/queries/passkeys';
 import { createDirectPayment } from '@/db/queries/payouts';
 import { getUserByName } from '@/db/queries/users';
-import { accessKeys, payouts } from '@/db/schema/business';
+import { payouts } from '@/db/schema/business';
+import { accessKey } from '@/db/schema/auth';
+import { chainIdFilter } from '@/db/network';
+import { auth } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/auth-server';
 import { fetchGitHubUser } from '@/lib/github';
 import { notifyDirectPaymentReceived, notifyDirectPaymentSent } from '@/lib/notifications';
@@ -14,6 +17,7 @@ import { buildDirectPaymentTransaction } from '@/lib/tempo/payments';
 import { handleRouteError, validateBody } from '@/app/api/_lib';
 import { directPaymentSchema } from '@/app/api/_lib/schemas';
 import { and, eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -37,10 +41,16 @@ export async function POST(request: NextRequest) {
     const isOrgPayment = !!session.session?.activeOrganizationId;
     const activeOrgId = session.session?.activeOrganizationId;
 
-    // Fetch sender wallet once
-    const senderWallet = isOrgPayment ? null : await getUserWallet(session.user.id);
-    if (!isOrgPayment && !senderWallet?.tempoAddress) {
-      return Response.json({ error: 'Sender wallet not found' }, { status: 400 });
+    // Fetch sender wallet via tempo plugin API
+    let senderWallet: { address: string; passkeyId: string | null } | null = null;
+    if (!isOrgPayment) {
+      const headersList = await headers();
+      const { wallets } = await auth.api.listWallets({ headers: headersList });
+      const passkeyWallet = wallets.find((w) => w.walletType === 'passkey');
+      if (!passkeyWallet?.address) {
+        return Response.json({ error: 'Sender wallet not found' }, { status: 400 });
+      }
+      senderWallet = { address: passkeyWallet.address, passkeyId: passkeyWallet.passkeyId ?? null };
     }
 
     // Verify recipient exists on GitHub
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
     if (useAccessKey) {
       const autoSignResult = await tryAutoSign({
         session,
-        senderWalletAddress: senderWallet?.tempoAddress ?? undefined,
+        senderWalletAddress: senderWallet?.address ?? undefined,
         payout,
         txParams,
         recipientUsername,
@@ -151,18 +161,18 @@ async function tryAutoSign(params: AutoSignParams): Promise<Response | null> {
     isOrgPayment,
     activeOrgId,
   } = params;
-  const network = getNetworkForInsert();
+  const network = getNetworkName();
 
   // Get active Access Key
-  let activeKey: typeof accessKeys.$inferSelect | null | undefined;
+  let activeKey: typeof accessKey.$inferSelect | null | undefined;
   if (isOrgPayment && activeOrgId) {
     activeKey = await getOrgAccessKey(activeOrgId, session.user.id);
   } else {
-    activeKey = await db.query.accessKeys.findFirst({
+    activeKey = await db.query.accessKey.findFirst({
       where: and(
-        eq(accessKeys.userId, session.user.id),
-        eq(accessKeys.network, network),
-        eq(accessKeys.status, 'active')
+        eq(accessKey.userId, session.user.id),
+        chainIdFilter(accessKey),
+        eq(accessKey.status, 'active')
       ),
     });
   }

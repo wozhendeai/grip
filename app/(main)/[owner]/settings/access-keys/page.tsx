@@ -1,11 +1,8 @@
 import { getActiveAccessKey } from '@/db/queries/access-keys';
-import {
-  getOrgBySlug,
-  getOrgMembership,
-  getOrgMembersWithUsers,
-  getOrgAccessKeys,
-} from '@/db/queries/organizations';
+import { getOrgMembersWithUsers, getOrgAccessKeys } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { AccessKeysContent } from '../_components/access-keys-content';
 import type { OrgRole } from '../_lib/types';
@@ -29,12 +26,17 @@ export default async function AccessKeysPage({ params }: AccessKeysPageProps) {
     redirect(`/login?callbackUrl=/${owner}/settings/access-keys`);
   }
 
-  const org = await getOrgBySlug(owner);
-  if (!org) {
+  const headersList = await headers();
+  const result = await auth.api.getFullOrganization({
+    headers: headersList,
+    query: { organizationSlug: owner },
+  });
+
+  if (!result) {
     notFound();
   }
 
-  const membership = await getOrgMembership(org.id, session.user.id);
+  const membership = result.members.find((m) => m.userId === session.user.id);
   if (!membership) {
     notFound();
   }
@@ -46,8 +48,8 @@ export default async function AccessKeysPage({ params }: AccessKeysPageProps) {
 
   const [ownerAccessKey, orgAccessKeys, members] = await Promise.all([
     getActiveAccessKey(session.user.id),
-    getOrgAccessKeys(org.id),
-    getOrgMembersWithUsers(org.id),
+    getOrgAccessKeys(result.id),
+    getOrgMembersWithUsers(result.id),
   ]);
 
   return (
@@ -55,7 +57,7 @@ export default async function AccessKeysPage({ params }: AccessKeysPageProps) {
       ownerHasAccessKey={!!ownerAccessKey}
       orgAccessKeys={orgAccessKeys ?? []}
       members={members}
-      organizationId={org.id}
+      organizationId={result.id}
     />
   );
 }

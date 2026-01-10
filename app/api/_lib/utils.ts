@@ -1,5 +1,4 @@
 import type { z } from 'zod';
-import { isOrgMember, isOrgOwner } from '@/db/queries/organizations';
 
 // ============================================================================
 // Validation
@@ -160,20 +159,6 @@ type Session = {
 export function getOrgContext(session: Session): OrgContext {
   const orgId = session.session?.activeOrganizationId ?? null;
   return { isOrgContext: !!orgId, orgId };
-}
-
-/**
- * Check if user is a member of the organization
- */
-export async function checkOrgMember(orgId: string, userId: string): Promise<boolean> {
-  return isOrgMember(orgId, userId);
-}
-
-/**
- * Check if user is the owner of the organization
- */
-export async function checkOrgOwner(orgId: string, userId: string): Promise<boolean> {
-  return isOrgOwner(orgId, userId);
 }
 
 /**

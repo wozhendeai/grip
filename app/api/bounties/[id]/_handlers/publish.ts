@@ -1,5 +1,5 @@
 import { getBountyWithRepoSettings } from '@/db/queries/bounties';
-import { isOrgMember } from '@/db/queries/organizations';
+import { auth } from '@/lib/auth/auth';
 import type { requireAuth } from '@/lib/auth/auth-server';
 import {
   getGitHubToken,
@@ -8,6 +8,7 @@ import {
   generateBountyComment,
 } from '@/lib/github';
 import { checkOrgMatch } from '@/app/api/_lib';
+import { headers } from 'next/headers';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://usegrip.xyz';
 
@@ -37,7 +38,12 @@ export async function handlePublish(
 
   // Permission check
   if (isOrgBounty) {
-    if (!(await isOrgMember(bounty.organizationId!, session.user.id))) {
+    const headersList = await headers();
+    const hasPermission = await auth.api.hasPermission({
+      headers: headersList,
+      body: { permissions: { member: ['read'] }, organizationId: bounty.organizationId! },
+    });
+    if (!hasPermission?.success) {
       return Response.json(
         { error: 'Only organization members can publish org bounties' },
         { status: 403 }
