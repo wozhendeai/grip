@@ -1,24 +1,31 @@
+'use client';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { formatUnits } from 'viem';
-import { Github, Calendar, Info, MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { MapPin, Link as LinkIcon, Calendar, DollarSign } from 'lucide-react';
 import Link from 'next/link';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ProfileStats } from './profile-stats';
+import { AboutDialog } from './about-dialog';
+import { TipDialog } from './tip-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProfileHeaderProps {
   user: {
     avatarUrl: string | null;
     name: string | null;
-    username: string; // GitHub login
+    username: string;
     bio?: string | null;
-    joinedAt?: string | Date | null; // GRIP join date
+    location?: string | null;
+    website?: string | null;
+    joinedAt?: string | Date | null;
     htmlUrl: string;
   };
   stats?: {
-    totalEarned: number | bigint;
+    totalEarned: bigint;
     bountiesCompleted: number;
-    bountiesFunded: number;
+    activeClaims: number;
   };
   organizations?: {
     organization: {
@@ -28,112 +35,167 @@ interface ProfileHeaderProps {
       name: string;
     };
   }[];
+  isLoading?: boolean;
   className?: string;
 }
 
-export function ProfileHeader({ user, stats, organizations = [], className }: ProfileHeaderProps) {
-  const joinedDate = user.joinedAt
-    ? new Date(user.joinedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    : null;
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date);
+}
 
-  const totalEarned = stats ? formatUnits(BigInt(stats.totalEarned), 6) : '0';
-  const earnedVal = Number(totalEarned).toLocaleString(undefined, { maximumFractionDigits: 0 });
+export function ProfileHeader({
+  user,
+  stats,
+  organizations = [],
+  isLoading,
+  className,
+}: ProfileHeaderProps) {
+  if (isLoading) {
+    return (
+      <div className={cn('flex flex-col gap-6 py-8', className)}>
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-6">
+            <Skeleton className="size-24 rounded-full md:size-32" />
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-5 w-32" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full max-w-2xl" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+        <div className="flex gap-6">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+      </div>
+    );
+  }
+
+  const initials = user.name
+    ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    : user.username.slice(0, 2).toUpperCase();
+
+  const joinedDate = user.joinedAt ? formatDate(new Date(user.joinedAt)) : null;
 
   return (
-    <div className={cn('py-8', className)}>
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border border-border shrink-0">
-          <AvatarImage src={user.avatarUrl || undefined} alt={user.username} />
-          <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+    <div className={cn('flex flex-row gap-6 py-8 md:gap-8', className)}>
+      {/* Avatar Column */}
+      <div className="shrink-0">
+        <Avatar className="size-24 border-4 border-background shadow-lg md:size-32">
+          <AvatarImage src={user.avatarUrl || undefined} alt={user.name || user.username} />
+          <AvatarFallback className="text-2xl md:text-3xl">{initials}</AvatarFallback>
         </Avatar>
+      </div>
 
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h1 className="text-2xl font-bold leading-tight truncate">
-              {user.name || user.username}
-            </h1>
-            <span className="text-muted-foreground text-lg font-normal">@{user.username}</span>
-
-            {organizations.length > 0 && (
-              <div className="flex items-center gap-2 ml-1">
-                {organizations.slice(0, 3).map((org) => (
-                  <Link key={org.organization.id} href={`/${org.organization.slug}`}>
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 font-normal text-xs px-2 h-6 hover:bg-secondary/80"
-                    >
-                      {org.organization.name}
+      {/* Content Column */}
+      <div className="flex-1 space-y-4">
+        {/* Name Row with Actions */}
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{user.name || user.username}</h1>
+              <AboutDialog
+                username={user.username}
+                name={user.name}
+                avatarUrl={user.avatarUrl}
+                memberSince={user.joinedAt || null}
+                htmlUrl={user.htmlUrl}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-lg text-muted-foreground">@{user.username}</span>
+              {organizations.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {organizations.slice(0, 3).map((org) => (
+                    <Link key={org.organization.id} href={`/${org.organization.slug}`}>
+                      <Badge
+                        variant="secondary"
+                        className="h-6 gap-1 px-2 text-xs font-normal hover:bg-secondary/80"
+                      >
+                        {org.organization.name}
+                      </Badge>
+                    </Link>
+                  ))}
+                  {organizations.length > 3 && (
+                    <Badge variant="outline" className="h-6 px-2 text-xs">
+                      +{organizations.length - 3}
                     </Badge>
-                  </Link>
-                ))}
-                {organizations.length > 3 && (
-                  <Badge variant="outline" className="text-xs h-6 px-2">
-                    +{organizations.length - 3}
-                  </Badge>
-                )}
-              </div>
-            )}
-
-            <Popover>
-              <PopoverTrigger className="inline-flex items-center justify-center h-6 w-6 rounded-full hover:bg-muted text-muted-foreground transition-colors ml-1">
-                <Info className="h-4 w-4" />
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="start">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border border-border">
-                      <AvatarImage src={user.avatarUrl || undefined} />
-                      <AvatarFallback>{user.username.slice(0, 2)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-sm">{user.name || user.username}</p>
-                      <p className="text-xs text-muted-foreground">@{user.username}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    {joinedDate && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>Joined {joinedDate}</span>
-                      </div>
-                    )}
-                    <a
-                      href={user.htmlUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
-                    >
-                      <Github className="h-4 w-4" />
-                      <span>github.com/{user.username}</span>
-                    </a>
-                  </div>
+                  )}
                 </div>
-              </PopoverContent>
-            </Popover>
+              )}
+            </div>
           </div>
 
-          {user.bio && (
-            <p className="text-sm text-foreground/80 max-w-2xl line-clamp-2 leading-relaxed">
-              {user.bio}
-            </p>
-          )}
+          {/* Tip Button - Desktop only */}
+          <div className="hidden items-center gap-2 md:flex">
+            <TipDialog
+              username={user.username}
+              name={user.name}
+              avatarUrl={user.avatarUrl}
+            />
+          </div>
+        </div>
 
-          {stats && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-              <span className="flex items-center gap-1.5 text-foreground font-medium">
-                <span className="text-success">${earnedVal}</span> earned
-              </span>
-              <span className="w-1 h-1 rounded-full bg-border" />
-              <span className="flex items-center gap-1.5 text-foreground font-medium">
-                <span>{stats.bountiesCompleted}</span> completed
-              </span>
-              <span className="w-1 h-1 rounded-full bg-border" />
-              <span className="flex items-center gap-1.5 text-foreground font-medium">
-                <span>{stats.bountiesFunded}</span> funded
-              </span>
-            </div>
+        {/* Bio */}
+        {user.bio && (
+          <p className="text-base leading-relaxed text-muted-foreground">{user.bio}</p>
+        )}
+
+        {/* Metadata */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          {user.location && (
+            <span className="flex items-center gap-2">
+              <MapPin className="size-4 text-foreground/70" />
+              {user.location}
+            </span>
           )}
+          {user.website && (
+            <span className="flex items-center gap-2">
+              <LinkIcon className="size-4 text-foreground/70" />
+              <a
+                href={user.website.startsWith('http') ? user.website : `https://${user.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-foreground hover:underline"
+              >
+                {user.website.replace(/^https?:\/\//, '')}
+              </a>
+            </span>
+          )}
+          {joinedDate && (
+            <span className="flex items-center gap-2">
+              <Calendar className="size-4 text-foreground/70" />
+              Joined {joinedDate}
+            </span>
+          )}
+        </div>
+
+        {/* Stats */}
+        {stats && (
+          <ProfileStats
+            bountiesCompleted={stats.bountiesCompleted}
+            totalEarned={stats.totalEarned}
+            activeClaims={stats.activeClaims}
+          />
+        )}
+
+        {/* Tip Button - Mobile only */}
+        <div className="md:hidden">
+          <TipDialog
+            username={user.username}
+            name={user.name}
+            avatarUrl={user.avatarUrl}
+          >
+            <Button variant="outline" className="w-full gap-2">
+              <DollarSign className="size-4" />
+              Tip @{user.username}
+            </Button>
+          </TipDialog>
         </div>
       </div>
     </div>

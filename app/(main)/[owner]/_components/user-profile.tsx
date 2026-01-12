@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useMemo } from 'react';
 import type {
   getBountyDataByGitHubId,
   getUserByName,
@@ -6,7 +9,10 @@ import type {
 import type { getSubmissionsByUser } from '@/db/queries/submissions';
 import type { GitHubActivity, GitHubUser, GitHubRepoMinimal } from '@/lib/github';
 import { ProfileHeader } from './profile-header';
-import { ActivityList, type ActivityItem } from './activity-list';
+import { ProfileToolbar, type ProfileTab } from './profile-toolbar';
+import { ActivityFeed, type ActivityItem } from './activity-feed';
+import { BountyHistory, type BountyItem } from './bounty-history';
+import { RepositoriesTab, type RepoItem } from './repositories-tab';
 
 interface UserProfileProps {
   github: GitHubUser;
@@ -28,79 +34,178 @@ export function UserProfile({
   userSubmissions = [],
   repos = [],
 }: UserProfileProps) {
-  // 1. Transform Funded Bounties
-  const fundedItems: ActivityItem[] = bountyData.funded.map((b) => ({
-    id: b.id,
-    type: 'funded',
-    title: b.title,
-    repoOwner: b.repoOwner,
-    repoName: b.repoName,
-    amount: b.amount,
-    date: b.createdAt,
-    url: b.repoOwner && b.repoName ? `/${b.repoOwner}/${b.repoName}/bounties/${b.id}` : '#',
-  }));
+  const [activeTab, setActiveTab] = useState<ProfileTab>('activity');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
-  // 2. Transform Submissions (Completed & In Progress)
-  const submissionItems: ActivityItem[] = userSubmissions
-    .map((s): ActivityItem | null => {
-      // Determine type
-      // Paid = completed
-      // Pending/Approved/Merged = in_progress
-      // Rejected/Expired = ignore (or handle separately?)
-      let type: ActivityItem['type'] | null = null;
-      if (s.submission.status === 'paid') type = 'completed';
-      else if (['pending', 'approved', 'merged'].includes(s.submission.status))
-        type = 'in_progress';
+  // Transform data for components
+  const { allActivity, allBounties, activeClaims, repoItems } = useMemo(() => {
+    // 1. Transform Funded Bounties to Activity
+    const fundedActivities: ActivityItem[] = bountyData.funded.map((b) => ({
+      id: b.id,
+      type: 'funded' as const,
+      title: b.title,
+      repoOwner: b.repoOwner,
+      repoName: b.repoName,
+      amount: b.amount,
+      date: b.createdAt,
+      url: b.repoOwner && b.repoName ? `/${b.repoOwner}/${b.repoName}/bounties/${b.id}` : '#',
+    }));
 
-      if (!type) return null;
+    // 2. Transform Submissions to Activity and Bounties
+    const submissionActivities: ActivityItem[] = [];
+    const bountyItems: BountyItem[] = [];
+    let activeClaimsCount = 0;
 
-      // For completed, use total funded amount as "earned".
-      // For in progress, show the bounty amount.
-      return {
-        id: s.bounty.id,
-        type,
-        title: s.bounty.title,
-        repoOwner: s.bounty.githubOwner,
-        repoName: s.bounty.githubRepo,
-        amount: s.bounty.totalFunded,
-        date: s.submission.createdAt, // Or paidAt for completed? using createdAt for consistency or s.bounty.paidAt
-        url:
-          s.bounty.githubOwner && s.bounty.githubRepo
-            ? `/${s.bounty.githubOwner}/${s.bounty.githubRepo}/bounties/${s.bounty.id}`
-            : '#',
-      };
-    })
-    .filter((item): item is ActivityItem => item !== null);
+    for (const s of userSubmissions) {
+      const isPaid = s.submission.status === 'paid';
+      const isActive = ['pending', 'approved', 'merged'].includes(s.submission.status);
 
-  // Combine all items
-  const allActivity = [...fundedItems, ...submissionItems];
+      if (isPaid) {
+        // Completed submission
+        submissionActivities.push({
+          id: s.bounty.id,
+          type: 'completed',
+          title: s.bounty.title,
+          repoOwner: s.bounty.githubOwner,
+          repoName: s.bounty.githubRepo,
+          amount: s.bounty.totalFunded,
+          date: s.submission.createdAt,
+          url:
+            s.bounty.githubOwner && s.bounty.githubRepo
+              ? `/${s.bounty.githubOwner}/${s.bounty.githubRepo}/bounties/${s.bounty.id}`
+              : '#',
+        });
 
-  // 4. Calculate Header Stats
-  const totalEarned = BigInt(bountyData.totalEarned); // From payouts table
+        bountyItems.push({
+          id: s.bounty.id,
+          status: 'completed',
+          title: s.bounty.title,
+          repoOwner: s.bounty.githubOwner,
+          repoName: s.bounty.githubRepo,
+          amount: s.bounty.totalFunded,
+          date: s.submission.createdAt,
+          url:
+            s.bounty.githubOwner && s.bounty.githubRepo
+              ? `/${s.bounty.githubOwner}/${s.bounty.githubRepo}/bounties/${s.bounty.id}`
+              : '#',
+        });
+      } else if (isActive) {
+        // Active/In progress submission
+        activeClaimsCount++;
+
+        submissionActivities.push({
+          id: s.bounty.id,
+          type: 'in_progress',
+          title: s.bounty.title,
+          repoOwner: s.bounty.githubOwner,
+          repoName: s.bounty.githubRepo,
+          amount: s.bounty.totalFunded,
+          date: s.submission.createdAt,
+          url:
+            s.bounty.githubOwner && s.bounty.githubRepo
+              ? `/${s.bounty.githubOwner}/${s.bounty.githubRepo}/bounties/${s.bounty.id}`
+              : '#',
+        });
+
+        bountyItems.push({
+          id: s.bounty.id,
+          status: 'active',
+          title: s.bounty.title,
+          repoOwner: s.bounty.githubOwner,
+          repoName: s.bounty.githubRepo,
+          amount: s.bounty.totalFunded,
+          date: s.submission.createdAt,
+          url:
+            s.bounty.githubOwner && s.bounty.githubRepo
+              ? `/${s.bounty.githubOwner}/${s.bounty.githubRepo}/bounties/${s.bounty.id}`
+              : '#',
+        });
+      }
+    }
+
+    // 3. Transform repos
+    const transformedRepos: RepoItem[] = repos.map((repo) => ({
+      id: repo.id,
+      name: repo.name,
+      owner: repo.owner.login,
+      description: repo.description,
+      bountyCount: 0,
+      hasBounties: false,
+    }));
+
+    return {
+      allActivity: [...fundedActivities, ...submissionActivities],
+      allBounties: bountyItems,
+      activeClaims: activeClaimsCount,
+      repoItems: transformedRepos,
+    };
+  }, [bountyData, userSubmissions, repos]);
+
+  // Calculate Header Stats
+  const totalEarned = BigInt(bountyData.totalEarned);
   const bountiesCompleted = bountyLaneUser?.bountiesCompleted || 0;
-  const bountiesFunded = bountyData.funded.length; // Or use bountyData.totalFunded for amount
+
+  const handleTabChange = (tab: ProfileTab) => {
+    setActiveTab(tab);
+    setActiveFilter('all');
+    setSearchQuery('');
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-5xl mx-auto px-4 sm:px-6">
+      <div className="container mx-auto max-w-5xl space-y-8 px-4 sm:px-6">
         <ProfileHeader
           user={{
             avatarUrl: github.avatar_url,
             name: github.name,
             username: github.login,
             bio: github.bio,
+            location: github.location,
+            website: github.blog,
             joinedAt: bountyLaneUser?.createdAt,
             htmlUrl: github.html_url,
           }}
           stats={{
             totalEarned,
             bountiesCompleted,
-            bountiesFunded,
+            activeClaims,
           }}
           organizations={organizations}
         />
 
-        <ActivityList items={allActivity} />
+        <ProfileToolbar
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+        />
+
+        {activeTab === 'activity' && (
+          <ActivityFeed
+            activities={allActivity}
+            filter={activeFilter}
+            searchQuery={searchQuery}
+          />
+        )}
+
+        {activeTab === 'bounties' && (
+          <BountyHistory
+            bounties={allBounties}
+            filter={activeFilter}
+            searchQuery={searchQuery}
+          />
+        )}
+
+        {activeTab === 'repositories' && (
+          <RepositoriesTab
+            repos={repoItems}
+            filter={activeFilter}
+            searchQuery={searchQuery}
+          />
+        )}
       </div>
     </div>
   );

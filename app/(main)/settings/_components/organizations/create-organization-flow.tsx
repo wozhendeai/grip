@@ -24,6 +24,7 @@ type CreateOrganizationFlowProps = {
   onSuccess?: () => void;
   onCancel?: () => void;
   showHeader?: boolean;
+  initialType?: 'github' | 'standalone';
 };
 
 type Step = 'select-type' | 'github-picker' | 'standalone-form';
@@ -32,8 +33,13 @@ export function CreateOrganizationFlow({
   onSuccess,
   onCancel,
   showHeader = true,
+  initialType,
 }: CreateOrganizationFlowProps) {
-  const [step, setStep] = useState<Step>('select-type');
+  const [step, setStep] = useState<Step>(
+    initialType === 'github' ? 'github-picker' :
+    initialType === 'standalone' ? 'standalone-form' :
+    'select-type'
+  );
   const [error, setError] = useState<string | null>(null);
 
   function handleSelectType(type: 'github' | 'standalone') {

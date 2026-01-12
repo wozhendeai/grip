@@ -1,22 +1,17 @@
 import { getSession } from '@/lib/auth/auth-server';
-import {
-  getAllBounties,
-  getBountiesCreatedByUser,
-  getCompletedBountiesByUser,
-  getUserActiveRepos,
-  getUserActiveSubmissions,
-  getUserOnboardingStatus,
-} from '@/db/queries/bounties';
+import { getUserActiveRepos, getUserActiveSubmissions, getUserOnboardingStatus } from '@/db/queries/bounties';
+import { getDashboardStats, getUserActivityFeed } from '@/db/queries/dashboard';
+import { getUserOrganizations } from '@/db/queries/users';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { StatsRow } from './_components/stats-row';
+import { RepositoriesCard } from './_components/repositories-card';
+import { OrganizationsCard } from './_components/organizations-card';
+import { ActiveWorkCard } from './_components/active-work-card';
 import { ActivityFeed } from './_components/activity-feed';
-import { QuickActions } from './_components/quick-actions';
-import { Suggestions } from './_components/suggestions';
+import { ExploreCTA } from './_components/explore-cta';
 import { Onboarding } from './_components/onboarding';
-import { ActiveRepos } from './_components/active-repos';
-import type { Bounty } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -33,101 +28,60 @@ export default async function DashboardPage() {
   const userId = session.user.id;
 
   // Parallel data fetching
-  const [
-    onboardingStatus,
-    activeRepos,
-    createdBounties,
-    activeSubmissions,
-    completedBounties,
-    // Fetch some generic bounties for suggestions fallback
-    genericSuggestions,
-  ] = await Promise.all([
-    getUserOnboardingStatus(userId),
-    getUserActiveRepos(userId, 5),
-    getBountiesCreatedByUser(userId, { limit: 5 }),
-    getUserActiveSubmissions(userId, { limit: 5 }),
-    getCompletedBountiesByUser(userId, { limit: 5 }),
-    getAllBounties({ limit: 3, status: 'open', sort: 'amount' }),
-  ]);
+  const [onboardingStatus, dashboardStats, activeRepos, userOrgs, activeSubmissions, activityFeed] =
+    await Promise.all([
+      getUserOnboardingStatus(userId),
+      getDashboardStats(userId),
+      getUserActiveRepos(userId, 5),
+      getUserOrganizations(userId, userId),
+      getUserActiveSubmissions(userId, { limit: 5 }),
+      getUserActivityFeed(userId, 10),
+    ]);
 
-  // Transform generic suggestions to Bounty type
-  const suggestedBounties: Bounty[] = genericSuggestions.map(({ bounty }) => ({
-    ...bounty,
-    id: bounty.id,
-    chainId: bounty.chainId,
-    githubRepoId: bounty.githubRepoId.toString(),
-    githubOwner: bounty.githubOwner,
-    githubRepo: bounty.githubRepo,
-    githubFullName: bounty.githubFullName,
-    githubIssueNumber: bounty.githubIssueNumber,
-    githubIssueId: bounty.githubIssueId.toString(),
-    githubIssueAuthorId: bounty.githubIssueAuthorId?.toString() ?? null,
-    githubIssueUrl: `https://github.com/${bounty.githubFullName}/issues/${bounty.githubIssueNumber}`,
-    title: bounty.title,
-    body: bounty.body,
-    labels: bounty.labels,
-    totalFunded: bounty.totalFunded.toString(),
-    tokenAddress: bounty.tokenAddress,
-    primaryFunderId: bounty.primaryFunderId,
-    status: bounty.status as Bounty['status'],
-    approvedAt: bounty.approvedAt,
-    ownerApprovedAt: bounty.ownerApprovedAt,
-    paidAt: bounty.paidAt,
-    cancelledAt: bounty.cancelledAt,
-    createdAt: bounty.createdAt,
-    updatedAt: bounty.updatedAt,
-    project: {
-      githubOwner: bounty.githubOwner,
-      githubRepo: bounty.githubRepo,
-      githubFullName: bounty.githubFullName,
-    },
-  }));
-
-  // TODO: Ideally we would fetch personalized suggestions based on activeRepos here
-  // For now, we use generic high-value bounties
+  // Check if onboarding should be shown
+  const cookieStore = await cookies();
+  const showOnboarding = !onboardingStatus.allComplete && !cookieStore.get('grip-onboarding-skipped');
 
   return (
     <main className="min-h-screen bg-background pb-12">
       {/* Header */}
       <div className="border-b border-border pb-8 pt-10">
         <div className="container">
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
             Welcome back, {session.user.name?.split(' ')[0] ?? 'Contributor'}.
           </p>
         </div>
       </div>
 
-      <div className="container py-8 grid gap-6 grid-cols-1 lg:grid-cols-4">
-        {/* Row 1: Onboarding/Active (3/4) & Quick Actions (1/4) */}
-        <div className="lg:col-span-3 h-full">
-          {onboardingStatus.allComplete || (await cookies()).get('grip-onboarding-skipped') ? (
-            <ActiveRepos repos={activeRepos} />
-          ) : (
-            <Onboarding status={onboardingStatus} />
-          )}
+      <div className="container py-8">
+        {/* Stats Row */}
+        <div className="mb-8">
+          <StatsRow stats={dashboardStats} />
         </div>
 
-        <div className="lg:col-span-1 h-full">
-          <QuickActions />
-        </div>
+        {/* Three Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_280px] xl:grid-cols-[220px_1fr_280px] gap-6 lg:gap-8 items-start">
+          {/* Left Column: Navigation / Context */}
+          <div className="space-y-6 lg:sticky lg:top-4">
+            <RepositoriesCard repos={activeRepos} />
+            <OrganizationsCard organizations={userOrgs} />
+          </div>
 
-        {/* Row 2: Activity Feed (1/2) & Suggestions (1/2) */}
-        {/* Note: In a 4-col grid, 1/2 width is 2 cols */}
-        <div className="lg:col-span-2 h-full">
-          <ActivityFeed
-            created={createdBounties}
-            claimed={activeSubmissions}
-            completed={completedBounties}
-          />
-        </div>
+          {/* Middle Column: Feed / Active Work */}
+          <div className="space-y-8 min-w-0">
+            <ActiveWorkCard submissions={activeSubmissions} />
+            <ActivityFeed activities={activityFeed} />
+          </div>
 
-        <div className="lg:col-span-2 h-full">
-          <Suggestions
-            bounties={suggestedBounties}
-            title="Suggestions"
-            subtitle={activeRepos.length > 0 ? 'Based on your activity' : 'Popular bounties'}
-          />
+          {/* Right Column: Onboarding or Explore */}
+          <div className="space-y-6">
+            {showOnboarding ? (
+              <Onboarding status={onboardingStatus} />
+            ) : (
+              <ExploreCTA />
+            )}
+          </div>
         </div>
       </div>
     </main>

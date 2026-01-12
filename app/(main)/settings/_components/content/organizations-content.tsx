@@ -59,6 +59,7 @@ export interface PendingInvitation {
 export interface OrganizationsContentProps {
   memberships: OrganizationMembership[];
   isModal?: boolean;
+  initialCreateType?: 'github' | 'standalone';
 }
 
 const ADMIN_ROLES = ['owner', 'admin', 'billingAdmin', 'bountyManager'];
@@ -75,13 +76,23 @@ type View = 'main' | 'create';
 export function OrganizationsContent({
   memberships,
   isModal = false,
+  initialCreateType,
 }: OrganizationsContentProps) {
   const router = useRouter();
   const [view, setView] = useState<View>('main');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(!!initialCreateType);
+  const [createType, setCreateType] = useState<'github' | 'standalone' | undefined>(initialCreateType);
   const [localMemberships, setLocalMemberships] = useState(memberships);
   const [localInvitations, setLocalInvitations] = useState<PendingInvitation[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
+
+  // Handle query param changes (e.g., from dashboard navigation)
+  useEffect(() => {
+    if (initialCreateType) {
+      setCreateType(initialCreateType);
+      setIsCreateModalOpen(true);
+    }
+  }, [initialCreateType]);
 
   // Fetch invitations client-side using better-auth API
   useEffect(() => {
@@ -126,7 +137,17 @@ export function OrganizationsContent({
     if (isModal) {
       setView('create');
     } else {
+      setCreateType(undefined);
       setIsCreateModalOpen(true);
+    }
+  };
+
+  const handleModalClose = (open: boolean) => {
+    setIsCreateModalOpen(open);
+    if (!open) {
+      setCreateType(undefined);
+      // Clear the URL param when closing
+      router.replace('/settings/organizations', { scroll: false });
     }
   };
 
@@ -200,8 +221,9 @@ export function OrganizationsContent({
         {content}
         <CreateOrganizationModal
           open={isCreateModalOpen}
-          onOpenChange={setIsCreateModalOpen}
+          onOpenChange={handleModalClose}
           onSuccess={handleCreateSuccess}
+          initialType={createType}
         />
       </div>
     );

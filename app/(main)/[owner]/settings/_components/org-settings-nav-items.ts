@@ -1,4 +1,4 @@
-import { Building2, Github, Key, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Building2, Github, Key, LayoutDashboard, Users, Wallet, type LucideIcon } from 'lucide-react';
 import type { OrgSettingsContext } from '../_lib/types';
 
 export interface OrgNavItem {
@@ -11,6 +11,13 @@ export interface OrgNavItem {
 }
 
 export const orgSettingsNavItems: OrgNavItem[] = [
+  {
+    href: (slug) => `/${slug}/dashboard`,
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    description: 'Organization overview',
+    isVisible: () => true,
+  },
   {
     href: (slug) => `/${slug}/settings`,
     label: 'General',

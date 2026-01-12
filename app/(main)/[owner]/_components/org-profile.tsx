@@ -1,25 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { GitHubOrganizationMinimal } from '@/lib/github';
 import type { organization } from '@/db/schema/auth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { OrgHeader } from './org-header';
+import { OrgToolbar, type OrgTab } from './org-toolbar';
+import { OrgBountiesList, type OrgBountyItem } from './org-bounties-list';
 import { OrgRepos } from './org-repos';
-import type { ActivityItem } from './activity-list';
 import { OrgActivity } from './org-activity';
+import type { ActivityItem } from './activity-feed';
 
 interface OrgRepo {
   id: bigint;
   owner: string;
   name: string;
+  description?: string | null;
+  language?: string | null;
+  languageColor?: string | null;
   bountyCount: number;
   totalFunded: bigint;
 }
@@ -72,6 +69,8 @@ export function OrgProfile({
   isMember,
   isLoggedIn,
 }: OrgProfileProps) {
+  const [activeTab, setActiveTab] = useState<OrgTab>('bounties');
+
   // Calculate aggregate stats
   const stats = {
     totalFunded: bountyData?.totalFunded ?? 0n,
@@ -80,6 +79,7 @@ export function OrgProfile({
   };
 
   const memberCount = members?.length ?? 0;
+  const repoCount = repos.length;
 
   // If no gripOrg, construct a dummy object for OrgHeader
   const displayOrg = gripOrg ?? {
@@ -93,39 +93,42 @@ export function OrgProfile({
     githubOrgLogin: github.login,
     syncMembership: false,
     lastSyncedAt: null,
-    visibility: 'private', // Default to private for safety (this path is GitHub-only orgs)
+    visibility: 'private' as const,
   };
 
-  // Transform bountyData to ActivityItems
-  const activityItems: ActivityItem[] = (bountyData?.funded ?? []).map(
-    (b): ActivityItem => ({
+  // Transform bountyData to OrgBountyItem for the bounties list
+  const bountyItems: OrgBountyItem[] = useMemo(() => {
+    return (bountyData?.funded ?? []).map((b) => ({
       id: b.id,
-      type: b.status === 'completed' ? 'completed' : 'funded',
+      title: b.title,
+      amount: b.amount,
+      status: b.status as OrgBountyItem['status'],
+      githubOwner: b.githubOwner,
+      githubRepo: b.githubRepo,
+      githubIssueNumber: b.githubIssueNumber,
+    }));
+  }, [bountyData]);
+
+  // Transform bountyData to ActivityItems for the activity tab
+  const activityItems: ActivityItem[] = useMemo(() => {
+    return (bountyData?.funded ?? []).map((b) => ({
+      id: b.id,
+      type: b.status === 'completed' ? ('completed' as const) : ('funded' as const),
       title: b.title,
       repoOwner: b.githubOwner,
       repoName: b.githubRepo,
       amount: b.amount,
       date: b.createdAt,
       url: `/${b.githubOwner}/${b.githubRepo}/bounties/${b.id}`,
-    })
-  );
+    }));
+  }, [bountyData]);
 
-  // State for tabs and filtering
-  const [activeTab, setActiveTab] = useState<'repos' | 'activity'>('repos');
-  const [activityFilter, setActivityFilter] = useState<'all' | 'funded' | 'completed'>('all');
-  const [sort, setSort] = useState<'newest' | 'oldest' | 'value'>('newest');
-
-  // Filter activity items
-  const filteredActivity = activityItems
-    .filter((item) => activityFilter === 'all' || item.type === activityFilter)
-    .sort((a, b) => {
-      if (sort === 'value') {
-        return Number(b.amount) - Number(a.amount);
-      }
-      const dateA = a.date ? new Date(a.date).getTime() : 0;
-      const dateB = b.date ? new Date(b.date).getTime() : 0;
-      return sort === 'newest' ? dateB - dateA : dateA - dateB;
-    });
+  // Tab counts
+  const tabCounts = {
+    bounties: bountyItems.filter((b) => b.status === 'open' || b.status === 'claimed').length,
+    repositories: repoCount,
+    activity: activityItems.length,
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -135,73 +138,24 @@ export function OrgProfile({
           github={github}
           stats={stats}
           memberCount={memberCount}
+          repoCount={repoCount}
           members={members}
           isMember={isMember}
           isLoggedIn={isLoggedIn}
         />
 
-        {/* Control Bar */}
-        <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between rounded-xl border border-border bg-card/50 p-1">
-          {/* Left: Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as 'repos' | 'activity')}
-            className="w-full lg:w-auto"
-          >
-            <TabsList variant="line" className="w-full justify-start border-b-0 p-0 h-auto gap-4">
-              <TabsTrigger
-                value="repos"
-                className="rounded-none border-b-2 border-transparent px-2 pb-2 pt-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Repositories <span className="ml-1.5 text-muted-foreground">{repos.length}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="activity"
-                className="rounded-none border-b-2 border-transparent px-2 pb-2 pt-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Activity{' '}
-                <span className="ml-1.5 text-muted-foreground">{activityItems.length}</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Right: Filter & Sort */}
-          <div className="flex items-center gap-2 px-1 pb-1 lg:pb-0">
-            {activeTab === 'activity' && (
-              <Select
-                value={activityFilter}
-                onValueChange={(v) => setActivityFilter(v as 'all' | 'funded' | 'completed')}
-              >
-                <SelectTrigger className="w-[120px] h-9 bg-background/50 border-border/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="funded">Funded</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={sort} onValueChange={(v) => setSort(v as 'newest' | 'oldest' | 'value')}>
-              <SelectTrigger className="w-[130px] h-9 bg-background/50 border-border/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="oldest">Oldest</SelectItem>
-                <SelectItem value="value">Highest Value</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Toolbar */}
+        <div className="mt-8">
+          <OrgToolbar activeTab={activeTab} onTabChange={setActiveTab} counts={tabCounts} />
         </div>
 
         {/* Content */}
         <div className="mt-6">
-          {activeTab === 'repos' ? (
+          {activeTab === 'bounties' && <OrgBountiesList bounties={bountyItems} />}
+          {activeTab === 'repositories' && (
             <OrgRepos repos={repos} isMember={isMember} orgSlug={displayOrg.slug} />
-          ) : (
-            <OrgActivity items={filteredActivity} />
           )}
+          {activeTab === 'activity' && <OrgActivity items={activityItems} />}
         </div>
       </div>
     </div>

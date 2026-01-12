@@ -20,12 +20,14 @@ type CreateOrganizationModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  initialType?: 'github' | 'standalone';
 };
 
 export function CreateOrganizationModal({
   open,
   onOpenChange,
   onSuccess,
+  initialType,
 }: CreateOrganizationModalProps) {
   function handleSuccess() {
     onSuccess?.();
@@ -43,7 +45,12 @@ export function CreateOrganizationModal({
           <DialogTitle>Create Organization</DialogTitle>
           <DialogDescription>Create a new organization</DialogDescription>
         </DialogHeader>
-        <CreateOrganizationFlow onSuccess={handleSuccess} showHeader />
+        <CreateOrganizationFlow
+          key={initialType ?? 'default'}
+          onSuccess={handleSuccess}
+          showHeader
+          initialType={initialType}
+        />
       </DialogContent>
     </Dialog>
   );
