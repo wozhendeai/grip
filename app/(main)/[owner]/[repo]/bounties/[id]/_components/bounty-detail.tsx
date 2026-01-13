@@ -201,12 +201,11 @@ export function BountyDetail({
   );
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section with Amount */}
-      <section className="border-b border-border bg-card/30">
-        <div className="container py-12">
-          {/* Breadcrumb */}
-          <div className="mb-6 flex items-center gap-2 text-sm">
+    <div className="space-y-6 p-6">
+      {/* Header Section */}
+      <div className="space-y-4">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm">
             <Link
               href="/explore"
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -369,12 +368,10 @@ export function BountyDetail({
               ))}
             </div>
           )}
-        </div>
-      </section>
+      </div>
 
-      {/* Main Content */}
-      <section className="container py-8">
-        <div className="grid gap-8 lg:grid-cols-3">
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
           {/* Left: Description */}
           <div className="lg:col-span-2 space-y-6">
             {/* Issue Description */}
@@ -596,7 +593,6 @@ export function BountyDetail({
             )}
           </div>
         </div>
-      </section>
 
       {/* Wallet Creation Modal */}
       <CreateWalletModal

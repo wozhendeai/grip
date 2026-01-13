@@ -3,19 +3,21 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu } from 'lucide-react';
+import { BookOpen, Compass, LayoutDashboard, Menu, Newspaper } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useSession } from '@/lib/auth/auth-client';
 
 const navItems = [
-  { name: 'Dashboard', href: '/dashboard' },
-  { name: 'Explore', href: '/explore' },
-  { name: 'Blog', href: '/blog' },
+  { name: 'Explore', href: '/explore', icon: Compass },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiresAuth: true },
+  { name: 'Blog', href: '/blog', icon: Newspaper },
   {
     name: 'Documentation',
     href: process.env.NEXT_PUBLIC_DOCS_URL || 'https://docs.grip.dev',
+    icon: BookOpen,
     external: true,
   },
 ];
@@ -23,6 +25,9 @@ const navItems = [
 export function MobileNav() {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const visibleItems = navItems.filter((item) => !item.requiresAuth || session);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -41,21 +46,25 @@ export function MobileNav() {
         </Link>
         <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6 overflow-y-auto">
           <div className="flex flex-col space-y-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                target={item.external ? '_blank' : undefined}
-                rel={item.external ? 'noreferrer' : undefined}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  'text-foreground/70 transition-colors hover:text-foreground',
-                  pathname === item.href && 'text-foreground font-medium'
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
+            {visibleItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  target={item.external ? '_blank' : undefined}
+                  rel={item.external ? 'noreferrer' : undefined}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    'flex items-center gap-2 text-foreground/70 transition-colors hover:text-foreground',
+                    pathname === item.href && 'text-foreground font-medium'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.name}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </SheetContent>
