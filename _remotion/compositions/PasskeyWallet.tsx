@@ -21,21 +21,21 @@ import {
 import { AnimatedCursor } from '../components/Cursor';
 
 // Timeline (frames at 30fps) - 12 seconds = 360 frames
+// Adjusted to give more time for Touch ID prompt to be readable
 const TIMELINE = {
   START: 0,
   BUTTON_HOVER: 20,        // 0.67s
   BUTTON_CLICK: 40,        // 1.33s
-  BIOMETRIC_SHOW: 50,      // 1.67s - WebAuthn prompt
-  BIOMETRIC_SCAN: 70,      // 2.33s - Scanning
-  BIOMETRIC_SUCCESS: 110,  // 3.67s - Success
-  WALLET_SHOW: 130,        // 4.33s - Wallet address appears
-  TRANSITION_TX: 170,      // 5.67s - Transition to tx signing
-  TX_DETAILS: 190,         // 6.33s - Show tx details
-  TX_SIGN_MOVE: 220,       // 7.33s - Move to sign button
-  TX_SIGN_CLICK: 240,      // 8s - Click sign
-  TX_BIOMETRIC: 250,       // 8.33s - Quick biometric
-  TX_BIOMETRIC_SUCCESS: 280, // 9.33s
-  TX_CONFIRMED: 300,       // 10s - Transaction confirmed
+  BIOMETRIC_SHOW: 50,      // 1.67s - WebAuthn prompt appears
+  BIOMETRIC_SUCCESS: 130,  // 4.33s - Success (prompt: 40 frames, scan: 40 frames)
+  WALLET_SHOW: 150,        // 5s - Wallet address appears
+  TRANSITION_TX: 180,      // 6s - Transition to tx signing
+  TX_DETAILS: 200,         // 6.67s - Show tx details
+  TX_SIGN_MOVE: 230,       // 7.67s - Move to sign button
+  TX_SIGN_CLICK: 250,      // 8.33s - Click sign
+  TX_BIOMETRIC: 260,       // 8.67s - Quick biometric (user already authenticated)
+  TX_BIOMETRIC_SUCCESS: 300, // 10s - Success
+  TX_CONFIRMED: 320,       // 10.67s - Transaction confirmed
   LOOP_POINT: 360,         // 12s
 };
 
@@ -50,16 +50,17 @@ export const PasskeyWallet: React.FC = () => {
 
   // Cursor path - only visible when there's something to click
   // Hidden during biometric prompts, success states, and transitions
+  // Button Y position: card is scaled 2x, button at bottom of card = ~y:800
   const cursorPath = [
     { x: 800, y: 400, frame: 0, visible: false },           // Hidden at start
     { x: 800, y: 400, frame: TIMELINE.BUTTON_HOVER - 20, visible: true }, // Appear before button
-    { x: 960, y: 680, frame: TIMELINE.BUTTON_HOVER },       // Move to "Create Wallet" button
-    { x: 960, y: 680, frame: TIMELINE.BUTTON_CLICK, click: true },
-    { x: 960, y: 680, frame: TIMELINE.BUTTON_CLICK + 5, visible: false }, // Hide after click
+    { x: 960, y: 800, frame: TIMELINE.BUTTON_HOVER },       // Move to "Create Wallet" button
+    { x: 960, y: 800, frame: TIMELINE.BUTTON_CLICK, click: true },
+    { x: 960, y: 800, frame: TIMELINE.BUTTON_CLICK + 5, visible: false }, // Hide after click
     { x: 800, y: 400, frame: TIMELINE.TX_SIGN_MOVE - 20, visible: true }, // Reappear before tx sign
-    { x: 960, y: 680, frame: TIMELINE.TX_SIGN_MOVE },       // Move to "Sign with Passkey" button
-    { x: 960, y: 680, frame: TIMELINE.TX_SIGN_CLICK, click: true },
-    { x: 960, y: 680, frame: TIMELINE.TX_SIGN_CLICK + 5, visible: false }, // Hide after click
+    { x: 960, y: 800, frame: TIMELINE.TX_SIGN_MOVE },       // Move to "Sign with Passkey" button
+    { x: 960, y: 800, frame: TIMELINE.TX_SIGN_CLICK, click: true },
+    { x: 960, y: 800, frame: TIMELINE.TX_SIGN_CLICK + 5, visible: false }, // Hide after click
   ];
 
   // Scene transitions
@@ -166,10 +167,10 @@ export const PasskeyWallet: React.FC = () => {
 // Phase helper
 function getPhase(frame: number): string {
   if (frame < TIMELINE.BIOMETRIC_SHOW) return 'wallet-creation';
-  if (frame < TIMELINE.WALLET_SHOW) return 'biometric';
+  if (frame < TIMELINE.BIOMETRIC_SUCCESS + 20) return 'biometric'; // Include success animation
   if (frame < TIMELINE.TRANSITION_TX) return 'wallet-success';
   if (frame < TIMELINE.TX_BIOMETRIC) return 'tx-signing';
-  if (frame < TIMELINE.TX_CONFIRMED) return 'tx-biometric';
+  if (frame < TIMELINE.TX_BIOMETRIC_SUCCESS + 20) return 'tx-biometric'; // Include success animation
   return 'tx-confirmed';
 }
 
@@ -268,7 +269,8 @@ const BiometricScene: React.FC<{
   compact?: boolean;
 }> = ({ frame, startFrame, successFrame }) => {
   // Determine state based on frame
-  const scanStartFrame = startFrame + 10; // Brief prompt before scanning
+  // Show prompt for 40 frames (1.33s at 30fps) so users can read it
+  const scanStartFrame = startFrame + 40;
 
   let state: 'prompt' | 'scanning' | 'success';
   if (frame < scanStartFrame) {
