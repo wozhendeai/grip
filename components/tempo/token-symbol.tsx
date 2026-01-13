@@ -17,9 +17,7 @@ interface TokenSymbolProps {
 export function TokenSymbol({ tokenAddress, fallback = 'USDC', className }: TokenSymbolProps) {
   const { data: metadata, isLoading } = Hooks.token.useGetMetadata({
     token: tokenAddress,
-    query: {
-      staleTime: 86_400_000, // Cache for 24h - metadata rarely changes
-    },
+    query: { enabled: true },
   });
 
   if (isLoading) {

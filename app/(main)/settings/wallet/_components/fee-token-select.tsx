@@ -41,7 +41,7 @@ export function FeeTokenSelect({ walletAddress }: FeeTokenSelectProps) {
     isPending: isSettingFeeToken,
     data: txHash,
     reset: resetMutation,
-  } = Hooks.fee.useSetUserToken();
+  } = Hooks.fee.useSetUserToken({ });
 
   // Wait for transaction confirmation
   const {

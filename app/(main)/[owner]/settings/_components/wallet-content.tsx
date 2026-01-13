@@ -30,15 +30,13 @@ export function WalletContent({ walletAddress }: WalletContentProps) {
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: Boolean(walletAddress) && hasToken,
-      refetchInterval: 15_000,
-      staleTime: 15_000,
     },
   });
 
   // Get token metadata for display
   const { data: metadata } = Hooks.token.useGetMetadata({
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
-    query: { enabled: hasToken, staleTime: 86_400_000 },
+    query: { enabled: hasToken },
   });
 
   const decimals = metadata?.decimals ?? 6;

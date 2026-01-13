@@ -37,7 +37,6 @@ function useFeeToken(walletAddress: `0x${string}`) {
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: Boolean(tokenAddress),
-      staleTime: 86_400_000,
     },
   });
 
@@ -85,8 +84,6 @@ export function WalletHero({ wallet, isModal = false, onBalanceChange }: WalletH
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: Boolean(wallet?.tempoAddress) && hasToken,
-      refetchInterval: 10_000,
-      staleTime: 10_000,
     },
   });
 

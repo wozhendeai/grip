@@ -211,8 +211,6 @@ function TokenOption({
     token: token.address,
     query: {
       enabled: showBalance && Boolean(walletAddress),
-      staleTime: 30_000,
-      refetchInterval: 30_000,
     },
   });
 

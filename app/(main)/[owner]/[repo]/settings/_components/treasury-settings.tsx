@@ -57,15 +57,12 @@ export function TreasurySettings({ githubRepoId }: TreasurySettingsProps) {
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: Boolean(treasuryInfo?.address) && hasToken,
-      refetchInterval: 10_000,
-      staleTime: 10_000,
     },
   });
   const { data: metadata, isLoading: isMetadataLoading } = Hooks.token.useGetMetadata({
     token: tokenAddress ?? '0x0000000000000000000000000000000000000000',
     query: {
       enabled: hasToken,
-      staleTime: 86_400_000,
     },
   });
 

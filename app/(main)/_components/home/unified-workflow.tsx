@@ -1,25 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  GitPullRequest,
-  Zap,
-  ShieldCheck,
-  ArrowRight,
-  Wallet,
-  Users,
-  LayoutDashboard,
-} from 'lucide-react';
-import { buttonVariants } from '@/components/ui/button';
-import Link from 'next/link';
 
 interface WorkflowStep {
   id: string;
   title: string;
   description: string;
-  icon: LucideIcon;
+  duration: number; // milliseconds - matches video length
 }
 
 const steps: WorkflowStep[] = [
@@ -28,48 +16,62 @@ const steps: WorkflowStep[] = [
     title: 'Attach bounties instantly',
     description:
       'Maintainers add a price tag to any GitHub issue. Contributors see the reward immediately.',
-    icon: LayoutDashboard,
+    duration: 10000, // 10s - matches fund-bounty.mp4
   },
   {
     id: 'settle',
     title: 'Trustless Settlement',
     description:
       'Funds are locked in smart contracts. Payout happens automatically when PRs are merged. Zero friction.',
-    icon: ShieldCheck,
+    duration: 12000, // 12s - matches passkey-wallet.mp4
   },
   {
     id: 'build',
     title: 'Reputation Building',
     description:
       'Build an on-chain resume of your contributions. Projects attract better talent, devs get better offers.',
-    icon: Users,
+    duration: 12000, // 12s - matches auto-payout.mp4
   },
 ];
 
 export function UnifiedWorkflow() {
   const [activeStep, setActiveStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const stepDuration = 5000; // 5 seconds per step
+  const [animationKey, setAnimationKey] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
-  // Auto-play logic
+  // Auto-play logic - uses each step's duration
   useEffect(() => {
     if (isPaused) return;
 
-    timerRef.current = setInterval(() => {
+    const currentDuration = steps[activeStep].duration;
+    timerRef.current = setTimeout(() => {
       setActiveStep((prev) => (prev + 1) % steps.length);
-    }, stepDuration);
+      setAnimationKey((k) => k + 1);
+    }, currentDuration);
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [isPaused]);
+  }, [isPaused, activeStep]);
+
+  // Restart video when step changes
+  useEffect(() => {
+    const video = videoRefs.current[activeStep];
+    if (video) {
+      video.currentTime = 0;
+      video.play();
+    }
+  }, [activeStep]);
 
   // Handle manual interaction
   const handleStepClick = (index: number) => {
-    setActiveStep(index);
-    // Optional: Pause on manual interaction to let user read
-    setIsPaused(true);
+    if (index !== activeStep) {
+      setActiveStep(index);
+      setAnimationKey((k) => k + 1);
+    }
+    // Don't pause on click - only pause on hover
   };
 
   return (
@@ -104,29 +106,64 @@ export function UnifiedWorkflow() {
                     onMouseEnter={() => setIsPaused(true)}
                     onMouseLeave={() => setIsPaused(false)}
                   >
-                    {/* Progress Bar for Active Step */}
-                    {isActive && !isPaused && (
-                      <div className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-primary/20 overflow-hidden">
-                        <div
-                          className="h-full w-full bg-primary origin-top animate-progress"
-                          style={{ animationDuration: `${stepDuration}ms` }}
-                        />
-                      </div>
-                    )}
-
                     <div className="flex gap-6">
-                      <div
-                        className={cn(
-                          'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors',
-                          isActive
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border text-muted-foreground'
-                        )}
-                      >
+                      <div className="mt-1 relative flex h-10 w-10 shrink-0 items-center justify-center">
                         {isActive ? (
-                          <div className="h-2 w-2 rounded-full bg-primary-foreground" />
+                          <>
+                            {/* Circular progress ring - key resets animation */}
+                            <svg key={animationKey} className="absolute inset-0 w-10 h-10 -rotate-90" aria-hidden="true">
+                              <circle
+                                cx="20"
+                                cy="20"
+                                r="18"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-primary/20"
+                              />
+                              <circle
+                                cx="20"
+                                cy="20"
+                                r="18"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                className={cn(
+                                  'text-primary',
+                                  !isPaused && 'animate-progress-ring'
+                                )}
+                                style={{
+                                  strokeDasharray: '113.1',
+                                  animationDuration: `${step.duration}ms`,
+                                }}
+                              />
+                            </svg>
+                            {/* Pause icon */}
+                            <div className="flex gap-0.5">
+                              <div className="w-1 h-3 bg-primary rounded-sm" />
+                              <div className="w-1 h-3 bg-primary rounded-sm" />
+                            </div>
+                          </>
                         ) : (
-                          <div className="h-2 w-2 rounded-full bg-current" />
+                          <>
+                            {/* Play icon */}
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 items-center justify-center rounded-full border transition-colors',
+                                'border-border text-muted-foreground group-hover:border-primary group-hover:text-primary'
+                              )}
+                            >
+                              <svg
+                                className="w-4 h-4 ml-0.5"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </>
                         )}
                       </div>
 
@@ -165,133 +202,40 @@ export function UnifiedWorkflow() {
             </div>
           </div>
 
-          {/* Right Column: Visualizer */}
-          <div className="relative aspect-square md:aspect-[4/3] lg:aspect-square bg-muted/30 rounded-3xl border border-border p-8 flex items-center justify-center overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-50" />
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-                opacity: 0.1,
-              }}
-            />
-
-            {/* Connecting Lines */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-64 bg-gradient-to-b from-transparent via-border to-transparent" />
-
-            {/* Nodes Container */}
-            <div className="relative z-10 flex flex-col items-center gap-12 w-full max-w-sm">
-              {/* Node 1: Funder */}
-              <StepNode
-                active={activeStep === 0}
-                icon={Wallet}
-                label="Funder"
-                sublabel="Fund Issue 492"
-                position="top"
-              />
-
-              {/* Center Node: GRIP */}
-              <div
+          {/* Right Column: Video Demo */}
+          <div className="relative aspect-video bg-muted/30 rounded-3xl border border-border overflow-hidden">
+            {/* Video for each step */}
+            {steps.map((step, index) => (
+              <video
+                key={step.id}
+                ref={(el) => { videoRefs.current[index] = el; }}
+                src={`/videos/${step.id === 'fund' ? 'fund-bounty' : step.id === 'settle' ? 'passkey-wallet' : 'auto-payout'}.mp4`}
                 className={cn(
-                  'relative flex h-24 w-24 items-center justify-center rounded-3xl border bg-background/80 backdrop-blur-xl transition-all duration-700 shadow-xl',
-                  activeStep === 1
-                    ? 'border-primary shadow-[0_0_30px_-10px_var(--color-primary)] scale-110'
-                    : 'border-border'
+                  'absolute inset-0 w-full h-full object-cover transition-opacity duration-500',
+                  activeStep === index ? 'opacity-100' : 'opacity-0'
                 )}
-              >
-                <div className="absolute inset-0 bg-primary/5 rounded-3xl animate-pulse" />
-                <div className="text-center">
-                  <Zap
-                    className={cn(
-                      'h-8 w-8 mx-auto mb-1 transition-colors duration-500',
-                      activeStep === 1 ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  />
-                  <div className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
-                    GRIP
-                  </div>
-                </div>
-              </div>
-
-              {/* Node 3: Contributor */}
-              <StepNode
-                active={activeStep === 2}
-                icon={GitPullRequest}
-                label="Contributor"
-                sublabel="Merge PR 105"
-                position="bottom"
+                autoPlay
+                loop
+                muted
+                playsInline
               />
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
       <style jsx global>{`
-        @keyframes progress {
-          from { transform: scaleY(0); }
-          to { transform: scaleY(1); }
+        @keyframes progress-ring {
+          from { stroke-dashoffset: 113.1; }
+          to { stroke-dashoffset: 0; }
         }
-        .animate-progress {
-          animation-name: progress;
+        .animate-progress-ring {
+          animation-name: progress-ring;
           animation-timing-function: linear;
+          animation-fill-mode: forwards;
         }
       `}</style>
     </section>
   );
 }
 
-function StepNode({
-  active,
-  icon: Icon,
-  label,
-  sublabel,
-  position,
-}: {
-  active: boolean;
-  icon: LucideIcon;
-  label: string;
-  sublabel: string;
-  position: 'top' | 'bottom';
-}) {
-  return (
-    <div
-      className={cn(
-        'relative flex items-center gap-4 rounded-2xl border bg-background/80 px-6 py-4 transition-all duration-700 w-64 backdrop-blur-md',
-        active
-          ? 'border-primary/50 translate-y-0 opacity-100 shadow-lg shadow-primary/5'
-          : 'border-border opacity-40 grayscale',
-        !active && position === 'top' && '-translate-y-4',
-        !active && position === 'bottom' && 'translate-y-4'
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-10 w-10 items-center justify-center rounded-lg bg-muted transition-colors',
-          active ? 'text-primary bg-primary/10' : 'text-muted-foreground'
-        )}
-      >
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          {label}
-        </div>
-        <div
-          className={cn(
-            'text-sm font-bold transition-colors',
-            active ? 'text-foreground' : 'text-muted-foreground'
-          )}
-        >
-          {sublabel}
-        </div>
-      </div>
-
-      {/* Active Indicator Dot */}
-      {active && (
-        <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary shadow-[0_0_10px_var(--color-primary)]" />
-      )}
-    </div>
-  );
-}
