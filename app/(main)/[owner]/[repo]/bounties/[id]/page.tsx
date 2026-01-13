@@ -109,11 +109,13 @@ export default async function BountyPage({ params }: BountyPageProps) {
   };
 
   return (
-    <BountyDetail
-      bounty={bounty}
-      canApprove={canApprove}
-      isOrgBounty={isOrgBounty}
-      treasuryCredentials={treasuryCredentials}
-    />
+    <div className="container max-w-5xl py-8">
+      <BountyDetail
+        bounty={bounty}
+        canApprove={canApprove}
+        isOrgBounty={isOrgBounty}
+        treasuryCredentials={treasuryCredentials}
+      />
+    </div>
   );
 }

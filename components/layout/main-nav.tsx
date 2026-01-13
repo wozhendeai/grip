@@ -14,7 +14,8 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
-import { BookOpen, Globe, LayoutGrid, Newspaper } from 'lucide-react';
+import { BookOpen, Compass, Globe, LayoutDashboard, Newspaper } from 'lucide-react';
+import { useSession } from '@/lib/auth/auth-client';
 
 const resources = [
   {
@@ -42,6 +43,7 @@ const resources = [
 
 export function MainNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <div className="mr-4 hidden md:flex">
@@ -52,22 +54,26 @@ export function MainNav() {
         <NavigationMenuList>
           <NavigationMenuItem>
             <NavigationMenuLink
-              render={<Link href="/dashboard" />}
-              data-active={pathname === '/dashboard'}
-              className={cn(navigationMenuTriggerStyle(), 'bg-transparent')}
-            >
-              Dashboard
-            </NavigationMenuLink>
-          </NavigationMenuItem>
-          <NavigationMenuItem>
-            <NavigationMenuLink
               render={<Link href="/explore" />}
               data-active={pathname === '/explore'}
               className={cn(navigationMenuTriggerStyle(), 'bg-transparent')}
             >
+              <Compass className="mr-1.5 h-4 w-4" />
               Explore
             </NavigationMenuLink>
           </NavigationMenuItem>
+          {session && (
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                render={<Link href="/dashboard" />}
+                data-active={pathname === '/dashboard'}
+                className={cn(navigationMenuTriggerStyle(), 'bg-transparent')}
+              >
+                <LayoutDashboard className="mr-1.5 h-4 w-4" />
+                Dashboard
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+          )}
           <NavigationMenuItem>
             <NavigationMenuTrigger className="bg-transparent">Resources</NavigationMenuTrigger>
             <NavigationMenuContent>

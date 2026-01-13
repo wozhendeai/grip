@@ -64,9 +64,9 @@ export function RouteModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && setIsOpen(false)}>
-      <DialogContent className="max-h-[90vh] sm:max-w-6xl overflow-auto p-0">
+      <DialogContent className="max-h-[90vh] sm:max-w-6xl overflow-hidden p-0">
         <DialogTitle className="sr-only">{title}</DialogTitle>
-        {children}
+        <div className="overflow-auto max-h-[90vh]">{children}</div>
       </DialogContent>
     </Dialog>
   );
