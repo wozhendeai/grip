@@ -5,6 +5,7 @@ import { getRepoSettingsByName } from '@/db/queries/repo-settings';
 import { getSession } from '@/lib/auth/auth-server';
 import { fetchGitHubRepo } from '@/lib/github';
 import type { Bounty, BountyProject, SubmissionStatus } from '@/lib/types';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BountyList } from './_components/bounty-list';
 import { RepoHeader } from './_components/repo-header';
@@ -12,6 +13,46 @@ import { RepoHeader } from './_components/repo-header';
 interface ProjectPageProps {
   params: Promise<{ owner: string; repo: string }>;
   searchParams: Promise<{ onboarding?: string }>;
+}
+
+function formatAmount(cents: bigint | string | number): string {
+  const value = typeof cents === 'bigint' ? Number(cents) : typeof cents === 'string' ? Number(cents) : cents;
+  const dollars = value / 1_000_000;
+  if (dollars === 0) return '$0';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(dollars);
+}
+
+export async function generateMetadata({ params }: ProjectPageProps): Promise<Metadata> {
+  const { owner, repo } = await params;
+
+  const githubRepo = await fetchGitHubRepo(owner, repo);
+
+  if (!githubRepo || githubRepo.private) {
+    return { title: 'Repository Not Found' };
+  }
+
+  const bounties = await getRepoBountiesWithSubmissions(BigInt(githubRepo.id));
+  const openBounties = bounties.filter((b) => b.status === 'open');
+  const totalFunded = bounties.reduce((sum, b) => sum + BigInt(b.totalFunded), BigInt(0));
+
+  let description = githubRepo.description || `${owner}/${repo} on GRIP`;
+  if (bounties.length > 0) {
+    description = `${openBounties.length} open ${openBounties.length === 1 ? 'bounty' : 'bounties'} · ${formatAmount(totalFunded)} total funded`;
+  }
+
+  return {
+    title: `${owner}/${repo}`,
+    description,
+    openGraph: {
+      title: `${owner}/${repo}`,
+      description,
+    },
+  };
 }
 
 /**

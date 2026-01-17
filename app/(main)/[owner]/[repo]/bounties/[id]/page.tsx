@@ -4,12 +4,47 @@ import { getSubmissionsByBounty } from '@/db/queries/submissions';
 import { auth } from '@/lib/auth/auth';
 import { getSession } from '@/lib/auth/auth-server';
 import type { Bounty, SubmissionStatus } from '@/lib/types';
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { BountyDetail } from './_components/bounty-detail';
 
 interface BountyPageProps {
   params: Promise<{ owner: string; repo: string; id: string }>;
+}
+
+function formatAmount(cents: bigint | string | number): string {
+  const value = typeof cents === 'bigint' ? Number(cents) : typeof cents === 'string' ? Number(cents) : cents;
+  const dollars = value / 1_000_000;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(dollars);
+}
+
+export async function generateMetadata({ params }: BountyPageProps): Promise<Metadata> {
+  const { owner, repo, id } = await params;
+  const result = await getBountyWithAuthor(id);
+
+  if (!result || result.bounty.githubOwner !== owner || result.bounty.githubRepo !== repo) {
+    return {
+      title: 'Bounty Not Found',
+    };
+  }
+
+  const { bounty } = result;
+  const amount = formatAmount(bounty.totalFunded);
+
+  return {
+    title: bounty.title,
+    description: `${amount} bounty on ${owner}/${repo}. ${bounty.status === 'open' ? 'Claim this bounty by submitting a PR.' : `Status: ${bounty.status}`}`,
+    openGraph: {
+      title: bounty.title,
+      description: `${amount} bounty on ${owner}/${repo}`,
+    },
+  };
 }
 
 /**

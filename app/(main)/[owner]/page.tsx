@@ -14,6 +14,7 @@ import {
   fetchGitHubUserRepositories,
 } from '@/lib/github/api';
 import { getOrganization } from '@/lib/github';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { UserProfile } from './_components/user-profile';
 import { OrgProfile } from './_components/org-profile';
@@ -36,6 +37,84 @@ const RESERVED_ROUTES = new Set([
   'api',
   'bounties',
 ]);
+
+function formatAmount(cents: bigint | string | number): string {
+  const value = typeof cents === 'bigint' ? Number(cents) : typeof cents === 'string' ? Number(cents) : cents;
+  const dollars = value / 1_000_000;
+  if (dollars === 0) return '$0';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(dollars);
+}
+
+export async function generateMetadata({ params }: OwnerPageProps): Promise<Metadata> {
+  const { owner } = await params;
+
+  if (RESERVED_ROUTES.has(owner)) {
+    return { title: 'Not Found' };
+  }
+
+  // 1. Try GRIP org first
+  const gripOrg = await getOrgBySlug(owner);
+  if (gripOrg && gripOrg.visibility === 'public') {
+    const bountyData = await getOrgBountyData(gripOrg.id);
+    const stats = bountyData
+      ? `${bountyData.fundedCount} bounties funded · ${formatAmount(bountyData.totalFunded)} total`
+      : 'Organization on GRIP';
+
+    return {
+      title: gripOrg.name,
+      description: stats,
+      openGraph: {
+        title: gripOrg.name,
+        description: stats,
+      },
+    };
+  }
+
+  // 2. Try GitHub user
+  const githubUser = await fetchGitHubUser(owner);
+  if (githubUser) {
+    const bountyData = await getBountyDataByGitHubId(BigInt(githubUser.id));
+    const hasEarned = bountyData.totalEarned > 0;
+    const hasFunded = bountyData.totalFunded > 0;
+
+    let description = githubUser.bio || `GitHub profile for ${githubUser.name || githubUser.login}`;
+    if (hasEarned || hasFunded) {
+      const parts: string[] = [];
+      if (hasEarned) parts.push(`${formatAmount(bountyData.totalEarned)} earned`);
+      if (hasFunded) parts.push(`${formatAmount(bountyData.totalFunded)} funded`);
+      description = parts.join(' · ');
+    }
+
+    return {
+      title: githubUser.name || githubUser.login,
+      description,
+      openGraph: {
+        title: githubUser.name || githubUser.login,
+        description,
+      },
+    };
+  }
+
+  // 3. Try GitHub org
+  const githubOrg = await getOrganization(owner);
+  if (githubOrg) {
+    return {
+      title: githubOrg.name ?? githubOrg.login,
+      description: githubOrg.description || `GitHub organization ${githubOrg.login}`,
+      openGraph: {
+        title: githubOrg.name ?? githubOrg.login,
+        description: githubOrg.description || 'GitHub organization',
+      },
+    };
+  }
+
+  return { title: 'Profile Not Found' };
+}
 
 /**
  * Unified owner profile page - handles both GitHub users and organizations
