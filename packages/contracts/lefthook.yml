@@ -1,0 +1,8 @@
+pre-commit:
+  jobs:
+    - name: Contracts
+      root: packages/contracts/
+      group:
+        jobs:
+          - name: fmt
+            run: forge fmt --check

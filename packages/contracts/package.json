@@ -1,0 +1,12 @@
+{
+  "name": "@tempo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "test:fork": "forge test --fork-url https://rpc.moderato.tempo.xyz",
+    "fmt": "forge fmt",
+    "clean": "forge clean"
+  }
+}
